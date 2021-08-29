@@ -28,7 +28,7 @@ def usage():
     print("    $ display_class2D.py  classes.mrcs  model.star")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options: ")
-    print("    --out (2d_classes.jpg) : output name of the image file (can use ..jpg, .png, .gif, .tif). ")
+    print("    --out (2d_classes.jpg) : output name of the image file (can use .jpg, .png, .gif, .tif). ")
     print("                             If --scalebar flag is provided, its size will be added to name")
     print("             --spacing (2) : spacing between images in the panel ")
     print("       --array_shape (5x3) : dimensions of the panel (columns x rows)")
@@ -36,7 +36,7 @@ def usage():
     print("           --angpix (1.94) : Angstroms per pixel, necessary for scalebar to be correct size")
     print("          --sort_by (size) : sort classes by class distribution (size) or est. resolution (res)")
     print("              --indent (8) : pixels to inset the scalebar from the bottom left")
-    print("               --scale (3) : thickness of the scalebar stroke ")
+    print("               --scale (4) : thickness of the scalebar stroke ")
     print("===================================================================================================")
     sys.exit()
 
@@ -133,15 +133,6 @@ def parse_flags():
         print(" ERROR: missing an assigned .STAR file")
         usage()
 
-    ## print warning if no --angpix is given but --scalebar is (i.e. user may want to use a differnet pixel size)
-    if ADD_SCALEBAR:
-        commands = []
-        ## get all commands
-        for n in range(len(sys.argv[1:])+1):
-            commands.append(sys.argv[n])
-        ## check if --angpix was given
-        if not '--angpix' in commands:
-            print("!! WARNING: --scalebar was given without an explicit --angpix, using default value of 1.94 Ang/px !!")
 
     return
 
@@ -228,14 +219,6 @@ def find_star_info(line, column):
         return column_value
     except:
         return False
-
-def extract_mic_name(input_string):
-    """ Parse the entry for 'rlnMicrographName' to extract only the micrograph name without any path names etc...
-    """
-    mic_name = os.path.basename(input_string)
-    # if VERBOSE:
-    #     print("Extract micrograph name from entry: %s -> %s" % (input_string, mic_name))
-    return mic_name
 
 def sort_data_by_column(file, data_start, data_end, COLUMN_rlnReferenceImage, COLUMN_rlnClassDistribution = -1, COLUMN_rlnEstimatedResolution = -1):
     """ Return a list of ReferenceImages, sorted by the target column type
@@ -365,6 +348,9 @@ def create_image_array(array_shape, image_dataset, img_array_list, image_format,
 
 def add_scalebar(im, box_size, angpix, scalebar_size, indent_px = 8, stroke = 4):
     scalebar_px = int(scalebar_size / angpix)
+    if scalebar_px > box_size:
+        print(" ERROR : Requested scalebar size (%s Ang, %s px) exceeds the dimensions of the image (%s px)!" % (scalebar_size, scalebar_px, box_size))
+        usage()
 
     ## find the pixel range for the scalebar, typically 5 x 5 pixels up from bottom left
     LEFT_INDENT = indent_px # px from left to indent the scalebar
@@ -376,7 +362,7 @@ def add_scalebar(im, box_size, angpix, scalebar_size, indent_px = 8, stroke = 4)
     ## set the pixels white for the scalebar
     for x in range(x_range[0], x_range[1]):
         for y in range(y_range[0], y_range[1]):
-            im[y][x] = np.inf
+            im[y][x] = 255
 
     if DEBUG:
         print(" Printing scalebar onto first panel:")
@@ -386,8 +372,7 @@ def add_scalebar(im, box_size, angpix, scalebar_size, indent_px = 8, stroke = 4)
 
     return im
 
-def publish_image(im, save_name):
-    global scalebar_angstroms, angpix, sort_by
+def publish_image(im, save_name, scalebar_angstroms, angpix, sort_by):
     ## if scalebar is drawn, add its size and angpix used
     if scalebar_angstroms > 0:
         if sort_by == "class_distribution":
@@ -428,60 +413,132 @@ if __name__ == "__main__":
     import os
     import sys
     import re
-    from PIL import Image
     import numpy as np
-    import mrcfile
+    import cmdline_handler
+    try:
+        from PIL import Image
+    except:
+        print(" Could not import PIL.Image. Install depenency via:")
+        print(" > pip install --upgrade Pillow")
+        sys.exit()
+
+    try:
+        import mrcfile
+    except:
+        print(" Could not import mrcfile module. Install via:")
+        print(" > pip install mrcfile")
+        sys.exit()
 
     ##################################
-    ## DEFAULT VARIABLES
+    ## VARIABLES
     ##################################
-    array_dimensions = '5x3'
-    sort_by = "class_distribution"
-    angpix = 1.94
-    scalebar_angstroms = -1 # angstroms
-    ADD_SCALEBAR = False
-    scalebar_stroke = 4 # how thick the scalebar should be
-    scalebar_indent = 8 # inset from the bottom left corner to place the scalebar
-    mrcs_file = "" #sys.argv[1]
-    model_file = "" #sys.argv[2]
-    output_file_name = '2d_classes.jpg'
-    COLUMN_rlnClassDistribution = -1
-    COLUMN_rlnEstimatedResolution = -1
-    padding = 2
+    VAR_LIB = {
+    	'mrcs_file'		 				: "",
+    	'model_file' 					: "",
+    	'output_file_name' 				: '2d_classes.jpg',
+        'array_dimensions'	 			: '5x3',
+        'sort_by' 						: "class_distribution",
+        'angpix' 						: 1.94,
+        'scalebar_angstroms' 			: -1, # angstroms
+        'ADD_SCALEBAR' 					: False,
+        'scalebar_stroke' 				: 4, # how thick the scalebar should be
+        'scalebar_indent' 				: 8, # inset from the bottom left corner to place the scalebar
+        'COLUMN_rlnClassDistribution' 	: -1,
+        'COLUMN_rlnEstimatedResolution'	: -1,
+        'padding' 						: 2
+    }
+    ##################################
+    ##################################
+    ## CMD LINE PARSER VARIABLES
+    ##################################
+    EXP_FLAGS = {
+       ##  flag_name    :  VAR_LIB_key   			DATA_TYPE   RANGE/LEGAL ENTRIES,    IS_TOGGLE,   HAS_DEFAULTS
+    	'--out'     	: ('output_file_name',     	str(),		(),              		False,       True ),
+    	'--spacing'    	: ('padding',   			int(),      (1,999),                False,       True ),
+    	'--array_shape'	: ('array_dimensions',     	str(),      (),     				False,       True ),
+    	'--scalebar'    : ('scalebar_angstroms',	int(),      (0,99999),     			False,       False ),
+    	'--angpix'    	: ('angpix',     			float(),    (0.001,99999),     		False,       True ),
+    	'--sort_by'    	: ('sort_by',     			str(),      ('size', 'res'),     	False,       True ),
+    	'--indent'    	: ('scalebar_indent',     	int(),      (0, 999),     			False,       True ),
+    	'--scale'    	: ('scalebar_stroke',     	int(),      (0, 999),     			False,       True ),
+    }
 
-    ## check if user has passed in approrpiate entries & parse flags into global variables
-    parse_flags()
+    EXP_FILES = [
+      ## cmd_line_index,   expected_extension,      VAR_LIB_key
+    	(1,                '.mrcs',                 'mrcs_file' ),
+    	(2,                '.star',					'model_file')
+    ]
+    ##################################
+
+    ## parse cmd line variables into VAR_LIB
+    VAR_LIB, EXIT_CODE = cmdline_handler.parse(sys.argv, 2, VAR_LIB, EXP_FLAGS, EXP_FILES)
+    if EXIT_CODE < 0:
+        usage()
+    ##################################
+
+    ## additional post-parsing checks/set flags
+    if not "x" in VAR_LIB['array_dimensions'] :
+        print("ERROR: Incorrect --array_shape provided: ", VAR_LIB['array_dimensions'], "; instead, try: 5x3")
+        usage()
+    else:
+        nrows = int(VAR_LIB['array_dimensions'].split('x')[0]) # Define number of rows
+        ncols = int(VAR_LIB['array_dimensions'].split('x')[1]) # Define number of columns
+        if nrows > 0 and ncols > 0:
+            pass
+        else:
+            print("ERROR: Incorrect --array_shape provided: ", VAR_LIB['array_dimensions'], "; instead, try: 5x3")
+            usage()
+
+    if VAR_LIB['scalebar_angstroms'] > 0:
+        VAR_LIB['ADD_SCALEBAR'] = True
+
+    if VAR_LIB['sort_by'] in ['size', 'res']:
+        if VAR_LIB['sort_by'] == "size":
+            VAR_LIB['sort_by'] = "class_distribution"
+        elif VAR_LIB['sort_by'] == "res":
+            VAR_LIB['sort_by'] = "estimated_resolution"
+
+    ## print warning if no --angpix is given but --scalebar is (i.e. user may want to use a differnet pixel size)
+    if VAR_LIB['ADD_SCALEBAR'] == True:
+        commands = []
+        ## get all commands
+        for n in range(len(sys.argv[1:]) + 1):
+            commands.append(sys.argv[n])
+        ## check if --angpix was given
+        if not '--angpix' in commands:
+            print(" !! WARNING: --scalebar was given without an explicit --angpix, using default value of 1.94 Ang/px !!")
+    ##################################
 
     print("=============================================================")
     print(" ... running: display_class2D.py")
     print("=============================================================")
 
     ## initially parse through the model file to get the line numbers we need to extract data from our specific table of interest
-    HEADER_START, DATA_START, DATA_END = get_table_line_numbers(model_file, "data_model_classes")
+    HEADER_START, DATA_START, DATA_END = get_table_line_numbers(VAR_LIB['model_file'], "data_model_classes")
 
     ## subsequently, get the column numbers for the desired data types
     print(" Find column values from header loop:")
-    COLUMN_rlnReferenceImage = find_star_column(model_file, "_rlnReferenceImage", HEADER_START, DATA_START - 1)
-    if sort_by == "class_distribution":
-        COLUMN_rlnClassDistribution = find_star_column(model_file, "_rlnClassDistribution", HEADER_START, DATA_START - 1)
-    elif sort_by == "estimated_resolution":
-        COLUMN_rlnEstimatedResolution = find_star_column(model_file, "_rlnEstimatedResolution", HEADER_START, DATA_START - 1)
+    VAR_LIB['COLUMN_rlnReferenceImage'] = find_star_column(VAR_LIB['model_file'], "_rlnReferenceImage", HEADER_START, DATA_START - 1)
+    if VAR_LIB['sort_by'] == "class_distribution":
+        VAR_LIB['COLUMN_rlnClassDistribution'] = find_star_column(VAR_LIB['model_file'], "_rlnClassDistribution", HEADER_START, DATA_START - 1)
+    elif VAR_LIB['sort_by'] == "estimated_resolution":
+        VAR_LIB['COLUMN_rlnEstimatedResolution'] = find_star_column(VAR_LIB['model_file'], "_rlnEstimatedResolution", HEADER_START, DATA_START - 1)
     else:
         print("ERROR: Unsupported sorting method requested.")
 
     ## once I have column positions, I can parse through the dataset, ordering it by the desired column type
-    sorted_dataset = sort_data_by_column(model_file, DATA_START, DATA_END, COLUMN_rlnReferenceImage, COLUMN_rlnClassDistribution, COLUMN_rlnEstimatedResolution)
+    sorted_dataset = sort_data_by_column(VAR_LIB['model_file'], DATA_START, DATA_END, VAR_LIB['COLUMN_rlnReferenceImage'], VAR_LIB['COLUMN_rlnClassDistribution'], VAR_LIB['COLUMN_rlnEstimatedResolution'])
 
     ## use the sorted data to publish the image based on user input
-    images_as_array = get_mrcs_images(mrcs_file)
-    output_extension = os.path.splitext(output_file_name)[1]
-    im_array = create_image_array(array_dimensions, sorted_dataset, images_as_array, output_extension, padding)
+    images_as_array = get_mrcs_images(VAR_LIB['mrcs_file'])
+    output_extension = os.path.splitext(VAR_LIB['output_file_name'])[1]
+    im_array = create_image_array(VAR_LIB['array_dimensions'], sorted_dataset, images_as_array, output_extension, VAR_LIB['padding'])
 
-    if ADD_SCALEBAR:
+    if VAR_LIB['ADD_SCALEBAR']:
         box_size = images_as_array[0].shape[0]
-        im_array = add_scalebar(im_array, box_size, angpix, scalebar_angstroms, scalebar_indent, scalebar_stroke)
+        im_array = add_scalebar(im_array, box_size, VAR_LIB['angpix'], VAR_LIB['scalebar_angstroms'], VAR_LIB['scalebar_indent'], VAR_LIB['scalebar_stroke'])
 
-    publish_image(im_array, output_file_name)
+    publish_image(im_array, VAR_LIB['output_file_name'], VAR_LIB['scalebar_angstroms'], VAR_LIB['angpix'], VAR_LIB['sort_by'])
 
     print("=============================================================")
     print(" ... job completed.")
