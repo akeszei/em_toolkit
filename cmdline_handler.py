@@ -195,6 +195,7 @@ if __name__ == "__main__":
          'variable' : 4,         # e.g., default value is 4
          'choice'   : 'one',      # e.g., default value of 'one'
          'name'     : 'alex',     # e.g., default entry of 'alex'
+		 'threads'  : None,
     }
 
     EXP_FLAGS = {
@@ -202,7 +203,8 @@ if __name__ == "__main__":
           '--flag'     : ('TOGGLE',     bool(),      (),                      True,        True ),
           '--flag2'    : ('variable',   int(),       (1,999),                 False,       True ),
           '--flag3'    : ('choice',     str(),       ('one', 'two', 'three'), False,       True ),
-          '--flag4'    : ('name',       str(),       (),                      False,       True)
+          '--flag4'    : ('name',       str(),       (),                      False,       True),
+		  '--j'        : ('threads',    int(),       (1,999),                 False,       False)
     }
 
     EXP_FILES = [
@@ -256,10 +258,18 @@ if __name__ == "__main__":
     VAR_LIB, EXIT_CODE = parse(test_cmd, 2, VAR_LIB, EXP_FLAGS, EXP_FILES)
     print("EXIT CODE = ", EXIT_CODE)
 
-    test_cmd = ['cmdline_handler.py', '*.ser', '@.jpg', '--flag', '--flag2', '22', '--flag3', 'two']
+    test_cmd = ['cmdline_handler.py', '@.jpg', '--flag', '--flag2', '22', '--flag3', 'two']
     VAR_LIB, EXIT_CODE = parse(test_cmd, 2, VAR_LIB, EXP_FLAGS, EXP_FILES)
     print("EXIT CODE = ", EXIT_CODE)
 
-    test_cmd = ['cmdline_handler.py', '*.ser', '@.jpg', '--flag', '--flag2', '22', '--flag3', 'two', '--flag4', 'peter']
+    test_cmd = ['cmdline_handler.py', '@.jpg', '--flag', '--flag2', '22', '--flag3', 'two', '--flag4', 'peter']
+    VAR_LIB, EXIT_CODE = parse(test_cmd, 2, VAR_LIB, EXP_FLAGS, EXP_FILES)
+    print("EXIT CODE = ", EXIT_CODE)
+
+    test_cmd = ['cmdline_handler.py', '@.jpg', '--flag', '--flag2', '22', '--flag3', 'two', '--flag4', 'peter', '--j', '4']
+    VAR_LIB, EXIT_CODE = parse(test_cmd, 2, VAR_LIB, EXP_FLAGS, EXP_FILES)
+    print("EXIT CODE = ", EXIT_CODE)
+
+    test_cmd = ['cmdline_handler.py', '@.jpg', '--flag', '--flag2', '22', '--flag3', 'two', '--flag4', 'peter', '--j']
     VAR_LIB, EXIT_CODE = parse(test_cmd, 2, VAR_LIB, EXP_FLAGS, EXP_FILES)
     print("EXIT CODE = ", EXIT_CODE)
