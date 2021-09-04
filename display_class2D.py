@@ -414,7 +414,7 @@ if __name__ == "__main__":
     import sys
     import re
     import numpy as np
-    import cmdline_handler
+    import cmdline_parser
     try:
         from PIL import Image
     except:
@@ -453,25 +453,28 @@ if __name__ == "__main__":
     ##################################
     EXP_FLAGS = {
        ##  flag_name    :  VAR_LIB_key   			DATA_TYPE   RANGE/LEGAL ENTRIES,    IS_TOGGLE,   HAS_DEFAULTS
-    	'--out'     	: ('output_file_name',     	str(),		(),              		False,       True ),
-    	'--spacing'    	: ('padding',   			int(),      (1,999),                False,       True ),
-    	'--array_shape'	: ('array_dimensions',     	str(),      (),     				False,       True ),
-    	'--scalebar'    : ('scalebar_angstroms',	int(),      (0,99999),     			False,       False ),
-    	'--angpix'    	: ('angpix',     			float(),    (0.001,99999),     		False,       True ),
-    	'--sort_by'    	: ('sort_by',     			str(),      ('size', 'res'),     	False,       True ),
-    	'--indent'    	: ('scalebar_indent',     	int(),      (0, 999),     			False,       True ),
-    	'--scale'    	: ('scalebar_stroke',     	int(),      (0, 999),     			False,       True ),
+    	'--out'     	: ('output_file_name',     	str(),		(),              		False,       False, True ),
+    	'--spacing'    	: ('padding',   			int(),      (1,999),                False,       False, True ),
+    	'--array_shape'	: ('array_dimensions',     	str(),      (),     				False,       False, True ),
+    	'--scalebar'    : ('scalebar_angstroms',	int(),      (0,99999),     			False,       False, False ),
+    	'--angpix'    	: ('angpix',     			float(),    (0.001,99999),     		False,       False, True ),
+    	'--sort_by'    	: ('sort_by',     			str(),      ('size', 'res'),     	False,       False, True ),
+    	'--indent'    	: ('scalebar_indent',     	int(),      (0, 999),     			False,       False, True ),
+    	'--scale'    	: ('scalebar_stroke',     	int(),      (0, 999),     			False,       False, True ),
     }
 
-    EXP_FILES = [
-      ## cmd_line_index,   expected_extension,      VAR_LIB_key
-    	(1,                '.mrcs',                 'mrcs_file' ),
-    	(2,                '.star',					'model_file')
-    ]
+    EXP_FILES = {
+    'mrcs_file' :   (1, '.mrcs', False),
+    'model_file':   (2, '.star', False)
+      # ## cmd_line_index,   expected_extension,      VAR_LIB_key
+    	# (1,                '.mrcs',                 'mrcs_file' ),
+    	# (2,                '.star',					'model_file')
+    }
     ##################################
 
     ## parse cmd line variables into VAR_LIB
-    VAR_LIB, EXIT_CODE = cmdline_handler.parse(sys.argv, 2, VAR_LIB, EXP_FLAGS, EXP_FILES)
+    # VAR_LIB, EXIT_CODE = cmdline_handler.parse(sys.argv, 2, VAR_LIB, EXP_FLAGS, EXP_FILES)
+    VAR_LIB, EXIT_CODE = cmdline_parser.parse(sys.argv, 2, VAR_LIB, EXP_FLAGS, EXP_FILES)
     if EXIT_CODE < 0:
         usage()
     ##################################

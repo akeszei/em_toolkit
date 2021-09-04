@@ -10,7 +10,7 @@ import glob
 ##################################
 ## FLAGS
 ##################################
-DEBUG = False
+DEBUG = True
 
 ##################################
 ## FUNCTIONS
@@ -18,7 +18,7 @@ DEBUG = False
 def parse(cmdline, min_args, PARAMS, FLAGS, FILES):
     EXIT_CODE = -1 ## -1 = failed, 1 = passed
     if DEBUG:
-        print("Comman line arguments = ")
+        print("Command line arguments = ")
         print(" ", cmdline)
 
     ## check if help flag was called or we have a minimum number of arguments to evaluate
@@ -36,7 +36,7 @@ def parse(cmdline, min_args, PARAMS, FLAGS, FILES):
         return PARAMS, EXIT_CODE
 
     ## figure out file set up from cmd line and if batch mode is being used instead of explicit entry
-    if check_batchmode(FILES):
+    if check_batchmode(FILES)[0]:
         ## if we can batch, then we need to check with priority for '@' token against the expected extensions
         extensions = check_batchmode(FILES)[1]
         for allowed_extension in extensions:
@@ -50,9 +50,9 @@ def parse(cmdline, min_args, PARAMS, FLAGS, FILES):
     ## if batch mode is active, we dont need to parse names for the files, they will be created by glob matching and string manipulation at runtime
     if DEBUG:
         print("==========================================")
-        print(" PARSE FILES")
+        print(" PARSE FILES FROM CMD LINE")
         print("==========================================")
-    if not PARAMS['BATCH_MODE']:
+    if not 'BATCH_MODE' in PARAMS or PARAMS['BATCH_MODE']:
         ## if batch mode is off, we need to find explicit entries for each expected file
         for file in FILES:
             cmdline_index = FILES[file][0]
@@ -61,8 +61,8 @@ def parse(cmdline, min_args, PARAMS, FLAGS, FILES):
                 ## inflexible indexing, check extension at specific position on cmd line
                 MATCH = False
                 for allowed_extension in extensions:
-                    if len(cmdline[cmdline_index]) > 3: ## lowest cmd size is 4, e.g.: '.ext'
-                        if cmdline[cmdline_index][-4:] == allowed_extension:
+                    if len(cmdline[cmdline_index]) > len(allowed_extension) - 1: ## lowest cmd size is 4, e.g.: '.ext'
+                        if cmdline[cmdline_index][-len(allowed_extension):] == allowed_extension:
                             PARAMS[file] = cmdline[cmdline_index]
                             if DEBUG:
                                 print(" ... assigned '%s' = %s " % (file, cmdline[cmdline_index]) )
@@ -120,7 +120,7 @@ def parse_flag(cmdline, index, PARAMS, flag_options, FLAGS, FILES):
     EXIT_CODE = -2
     if DEBUG:
         print("==========================================")
-        print(" PARSE FLAG :: %s " % cmdline[index])
+        print(" PARSE FLAG FROM CMD LINE :: %s " % cmdline[index])
         # print("  ... flag_options = ", flag_options)
         print("==========================================")
 
