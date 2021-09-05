@@ -52,7 +52,7 @@ def parse(cmdline, min_args, PARAMS, FLAGS, FILES):
         print("==========================================")
         print(" PARSE FILES FROM CMD LINE")
         print("==========================================")
-    if not 'BATCH_MODE' in PARAMS or PARAMS['BATCH_MODE']:
+    if not 'BATCH_MODE' in PARAMS or not PARAMS['BATCH_MODE']:
         ## if batch mode is off, we need to find explicit entries for each expected file
         for file in FILES:
             cmdline_index = FILES[file][0]
