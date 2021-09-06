@@ -39,8 +39,11 @@ def parse(cmdline, min_args, PARAMS, FLAGS, FILES):
     if check_batchmode(FILES)[0]:
         ## if we can batch, then we need to check with priority for '@' token against the expected extensions
         extensions = check_batchmode(FILES)[1]
+        if not isinstance(extensions, list):
+            extensions = make_list(extensions)
         for allowed_extension in extensions:
             for cmd in cmdline:
+                print("CHECK BATCH MODE = ", cmd, allowed_extension)
                 if len(cmd) > 4: ## lowest cmd size is 5, e.g.: '@.ext'
                     if cmd[-5:] == '@' + allowed_extension:
                         PARAMS['BATCH_MODE'] = True
@@ -262,6 +265,7 @@ def print_parameters(PARAMS, cmdline):
     print("=========================================================================")
     for param in PARAMS:
         print("  %s : %s" % ("{:<20}".format(param[:20]), PARAMS[param]))
+    print("=========================================================================")
     return
 
 ##################################
