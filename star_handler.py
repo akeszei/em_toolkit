@@ -51,7 +51,7 @@ def get_table_position(file, table_title, DEBUG = True):
                 TABLE_START = line_num
                 continue
             ## catch the header start position
-            if line_to_list[0] == "loop_":
+            if line_to_list[0] == "loop_" and TABLE_START > 0:
                 HEADER_START = line_num + 1
                 continue
             ## if we in the header, check if we have entered the data section by checking when the first character is no longer a `_'
@@ -138,5 +138,6 @@ def remove_path(file_w_path):
 	---------------------------------------------------------------
 		file_wo_path = str() (e.g. /path/to/file -> 'file')
     """
+    globals()['os'] = __import__('os')
     file_wo_path = os.path.basename(file_w_path)
     return file_wo_path
