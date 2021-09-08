@@ -33,6 +33,18 @@ Run this script in a `Class2D` job, pointing to the final iteration `_model.star
 
 Optionally can include a scalebar of defined size (in Angstroms) with custom position, stroke, and other options.
 
+-----
+#### remove_mics_from_star.py
+The goal of this script is to take an input micrographs.star file and a list of micrographs (basenames only) and return a new .STAR file where micrographs have been removed. Typically, this script should be run on a ManualPick job 'micrographs_selected.star' file to unselect bad micrographs from the dataset after manual curation.
+
+`remove_mics_from_star.py  image_list.txt  micrographs_selected.star  `
+
+In the above example, the command will write out a new file of the name: `micrographs_selected_micsRemoved.star`.
+
+Optionally, can target a different data table in the `.star` file using the `--table` flag, or change the output name of the file from the default one, e.g.:
+
+`remove_mics_from_star.py  image_list.txt  run_it020_data.star  --table data_particles --out edited_data_file.star`
+
 ---
 
 ## Dependencies
