@@ -41,7 +41,7 @@ The goal of this script is to take an input micrographs.star file and a list of 
 
 In the above example, the command will write out a new file of the name: `micrographs_selected_micsRemoved.star`.
 
-Optionally, can target a different data table in the `.star` file using the `--table` flag, or change the output name of the file from the default one, e.g.:
+Optionally, can target a different data table in the `.star` file using the `--table` flag, or change the output name of the file to a specific one via the `--out` flag, e.g.:
 
 `remove_mics_from_star.py  image_list.txt  run_it020_data.star  --table data_particles --out edited_data_file.star`
 
