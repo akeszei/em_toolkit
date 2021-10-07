@@ -1,3 +1,12 @@
+def usage():
+    print("===================================================================================================")
+    print(" For a given EPU Atlas directory, atlas .JPG file, and .XML file for a position of interest")
+    print(" (containing stage position <X> and <Y> coordinates), print an image of the atlas with the ")
+    print(" stage position indicated by a red circle. Useful for following up after screening.")
+    print(" Usage:")
+    print("    $ show_atlas_position.py  /path/to/Atlas  atlas.jpg  position_metadata.xml  output_name.jpg")
+    print("===================================================================================================")
+    sys.exit()
 
 def header_from_xml(input_string):
     """ By default convension, the names of XML headers for EPU files contains a lot of unnecessary
@@ -26,9 +35,9 @@ def image2array(file, DEBUG = True):
 
     return im_data
 
-def get_tile_files():
+def get_tile_files(directory):
     file_list = []
-    for file in glob.glob("*.xml"):
+    for file in glob.glob(directory + "*.xml"):
         if 'Tile' in file:
             file_list.append(file)
     ## organize file list by alpha numeric
@@ -154,14 +163,29 @@ if __name__ == '__main__':
     import xml.etree.ElementTree as ET
     import glob
     import sys # for sys.exit() calls while building script
-    ## plot points for sanity checking
     import matplotlib.pyplot as plt
 
+    cmd_line = sys.argv
+    if len(cmd_line) != 5:
+        usage()
 
-    basename = 'test'
+    # show_atlas_position.py  /path/to/Atlas  atlas.jpg  position_metadata.xml")
+    atlas_directory = sys.argv[1]
+    atlas_jpg = sys.argv[2]
+    input_xml = sys.argv[3]
+    output_fname = sys.argv[4]
+
+    print("==================================================")
+    print(" show_atlas_position.py ")
+    print("--------------------------------------------------")
+    print("  atlas_directory = %s " % atlas_directory)
+    print("  atlas_jpg = %s " % atlas_jpg)
+    print("  input_xml = %s" % input_xml)
+    print("  output_fname = %s " % output_fname)
+    print("==================================================")
 
     ## get all .xml files corresponding to Tiles in the atlas
-    tile_files = get_tile_files()
+    tile_files = get_tile_files(atlas_directory)
 
     ## pass each xml file through a parser and get the cached X and Y coordinates
     tile_coordinates = get_tile_coords(tile_files)
@@ -170,11 +194,7 @@ if __name__ == '__main__':
     # plot_points(tile_coordinates)
 
     ## get the point of interest in real space (the values found in the EPU .XML file)
-    # random_point = np.array([float(7.781908499999994E-05), float(-0.00021753891599999995)]) ## grid square #2
-    # random_point = np.array([float(-0.00012568632000000007), float(8.0770758000000062E-05)]) ## grid square #1
-    # random_point = np.array([float(-0.00014601762000000007), float(0.00033083228400000009)]) ## grid square #3
-    # poi_real = np.array([float(0.00036143162999999992), float(0.00023559537600000008)]) ## grid square #4
-    poi_real = np.array(point_from_xml('GridSquare_20211004_100411.xml'))
+    poi_real = np.array(point_from_xml(input_xml))
 
     ## for visualization, plot the position of the real POI
     # plt.scatter(poi_real[0], poi_real[1], s = 30, color = 'red', alpha = 1)
@@ -196,7 +216,7 @@ if __name__ == '__main__':
     relative_x, relative_y = point_to_relative_basis_lengths(poi_real, realspace_basis)
 
     ## load the atlas image
-    im_atlas = image2array('C2g2_atlas.jpg', DEBUG = False)
+    im_atlas = image2array(atlas_jpg, DEBUG = False)
     print(" image dimensions = ", im_atlas.shape)
 
     ## move the image so the origin (0, 0) is at the center
@@ -218,12 +238,11 @@ if __name__ == '__main__':
 
     ## multiply the image-space basis vectors by the determined scaling factor to find the target pixel position of the input point
     img_pixel_position = (x_basis_im[0] * relative_x, y_basis_im[1] * relative_y)
-    print( "position of remapped pixel coordinate = ", img_pixel_position)
+    print( " position of remapped pixel coordinate = ", img_pixel_position)
 
     ## draw a red cicle of arbitrary size centered at the target pixel position
     plt.plot(img_pixel_position[0], img_pixel_position[1], 'o', markersize = 20, markerfacecolor="None", markeredgecolor = 'tab:red', markeredgewidth=2)
 
     ## save the image
-    # plt.show()
     plt.axis('off')
-    plt.savefig(basename + '.jpg', format="jpg", bbox_inches=0, dpi = 350)
+    plt.savefig(output_fname, format="jpg", bbox_inches=0, dpi = 350)
