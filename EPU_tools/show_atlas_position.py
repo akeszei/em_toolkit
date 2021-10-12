@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+###############################
+##  FLAGS
+###############################
+VERBOSE = False
+###############################
+
+
 def usage():
     print("===================================================================================================")
     print(" For a given EPU Atlas directory, atlas .JPG file, and .XML file for a position of interest")
@@ -19,7 +26,7 @@ def header_from_xml(input_string):
     output_sting = input_string.split('{')[1].split('}')[1]
     return output_sting
 
-def image2array(file, DEBUG = True):
+def image2array(file, DEBUG = VERBOSE):
     """
         Import an image into a grayscal 2d numpy array with values from (0 - 255), where
             0 == black
@@ -51,7 +58,8 @@ def get_tile_coords(file_list):
     for xml_file in file_list:
         tile_coordinates.append(point_from_xml(xml_file))
 
-    print(" >> %s atlas tiles parsed" % len(tile_coordinates))
+    if VERBOSE:
+        print(" >> %s atlas tiles parsed" % len(tile_coordinates))
     return tile_coordinates
 
 def plot_points(coordinates):
@@ -98,7 +106,8 @@ def point_to_relative_basis_lengths(point, basis_vectors):
     ## 3. determine the fold difference of the POI inner products against the magnitude of each basis vector along that axis (since the position of each basis vector is known relative to the final image, we can use this fold difference to rescale the image basis vectors correctly)
     fold_difference_point2basis_x = inner_product_x / np.linalg.norm(basis_vectors[0])
     fold_difference_point2basis_y = inner_product_y / np.linalg.norm(basis_vectors[1])
-    print(" percent position of point to basis vectors = %s, %s " % (fold_difference_point2basis_x, fold_difference_point2basis_y))
+    if VERBOSE:
+        print(" percent position of point to basis vectors = %s, %s " % (fold_difference_point2basis_x, fold_difference_point2basis_y))
 
     return (fold_difference_point2basis_x, fold_difference_point2basis_y)
 
@@ -177,14 +186,15 @@ if __name__ == '__main__':
     input_xml = sys.argv[3]
     output_fname = sys.argv[4]
 
-    print("==================================================")
-    print(" show_atlas_position.py ")
-    print("--------------------------------------------------")
-    print("  atlas_directory = %s " % atlas_directory)
-    print("  atlas_jpg = %s " % atlas_jpg)
-    print("  input_xml = %s" % input_xml)
-    print("  output_fname = %s " % output_fname)
-    print("==================================================")
+    if VERBOSE:
+        print("==================================================")
+        print(" show_atlas_position.py ")
+        print("--------------------------------------------------")
+        print("  atlas_directory = %s " % atlas_directory)
+        print("  atlas_jpg = %s " % atlas_jpg)
+        print("  input_xml = %s" % input_xml)
+        print("  output_fname = %s " % output_fname)
+        print("==================================================")
 
     ## get all .xml files corresponding to Tiles in the atlas
     tile_files = get_tile_files(atlas_directory)
@@ -219,7 +229,8 @@ if __name__ == '__main__':
 
     ## load the atlas image
     im_atlas = image2array(atlas_jpg, DEBUG = False)
-    print(" image dimensions = ", im_atlas.shape)
+    if VERBOSE:
+        print(" image dimensions = ", im_atlas.shape)
 
     ## move the image so the origin (0, 0) is at the center
     ## see: https://stackoverflow.com/questions/34458251/plot-over-an-image-background-in-python
@@ -235,12 +246,12 @@ if __name__ == '__main__':
     y_basis_im = np.array([0, 1]) * int(top / scaling_factor)
     # plt.plot([0, x_basis_im[0]], [0, x_basis_im[1]], color='green', alpha = 0.5)
     # plt.plot([0, y_basis_im[0]], [0, y_basis_im[1]], color='orange', alpha = 0.5)
-    print(" img basis vectors = %s, %s" % (x_basis_im, y_basis_im))
+    # print(" img basis vectors = %s, %s" % (x_basis_im, y_basis_im))
 
 
     ## multiply the image-space basis vectors by the determined scaling factor to find the target pixel position of the input point
     img_pixel_position = (x_basis_im[0] * relative_x, y_basis_im[1] * relative_y)
-    print( " position of remapped pixel coordinate = ", img_pixel_position)
+    # print( " position of remapped pixel coordinate = ", img_pixel_position)
 
     ## draw a red cicle of arbitrary size centered at the target pixel position
     plt.plot(img_pixel_position[0], img_pixel_position[1], 'o', markersize = 20, markerfacecolor="None", markeredgecolor = 'tab:red', markeredgewidth=2)
