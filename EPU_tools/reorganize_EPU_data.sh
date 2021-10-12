@@ -69,15 +69,18 @@ for grid in $(ls -d */); do
 
     save_parent_path="reorganized/"${grid} ## parent folder where Raw_data and Jpgs folders will be
     retrieve_square_path=${grid}"Images-Disc1/" ## path to the folder containing the grid square images
-
+    atlas_directory=${grid}Atlas
+    echo "WIP: atlas_directory = " $atlas_directory
 
     ## check there is an atlas file and convert it to a .jpg if so
     if [ $(find ${grid}Atlas -name "Atlas*.mrc" | wc -l) -gt 0 ]; then
         atlas_path=$(find ${grid}Atlas -name "Atlas*.mrc")
         atlas_basename=${grid%/}"_atlas"
+        atlas_jpg_path=${save_parent_path}"Jpgs/"${atlas_basename}.jpg
+        echo "WIP: atlas_jpg_path = " $atlas_jpg_path
         echo "  ... preparing atlas at: reorganized/"${grid}"Jpgs/"${atlas_basename}.jpg
         mrc2img.py $atlas_path ${save_parent_path}"Jpgs/"${atlas_basename}.jpg --bin 1 >> /dev/null
-        mogrify -normalize ${save_parent_path}"Jpgs/"${atlas_basename}.jpg   
+        mogrify -normalize ${save_parent_path}"Jpgs/"${atlas_basename}.jpg
     else
         echo "No atlas found in " $grid
     fi
@@ -91,8 +94,16 @@ for grid in $(ls -d */); do
         ## copy the square .mrc to a .jpg with a new name
         sq_basename=${grid///}"_sq_"${square_counter}
         current_sq_mrc=$(ls ${sq_dir}/*.mrc | head -1) ## get the only/first .mrc file in the directory
+        current_sq_xml=$(ls ${sq_dir}/*.xml | head -1) ## get the only/first .xml file in the directory
+        echo "WIP: current_sq_xml = " $current_sq_xml
         mrc2img.py $current_sq_mrc ${save_parent_path}"Jpgs/"${sq_basename}.jpg --bin 2 >> /dev/null
         echo "      ... grid square img saved"
+
+        ## check if ew have an atlas reference, in which case try to map the position of this square to the atlas; othwerise, skip this procedure
+        if [ -f $atlas_jpg_path ]; then
+            output_atlas_location_fname=${save_parent_path}"Jpgs/"${sq_basename}_location.jpg
+            show_atlas_position.py $atlas_directory $atlas_jpg_path $current_sq_xml $output_atlas_location_fname
+        fi
 
         ## while in a grid square directory, iterate over files in its data subdirectory
         exposure_counter=0

@@ -245,4 +245,4 @@ if __name__ == '__main__':
 
     ## save the image
     plt.axis('off')
-    plt.savefig(output_fname, format="jpg", bbox_inches=0, dpi = 350)
+    plt.savefig(output_fname, format="jpg", bbox_inches='tight', dpi = 350, pad_inches=0)
