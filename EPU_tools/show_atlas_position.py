@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 def usage():
     print("===================================================================================================")
     print(" For a given EPU Atlas directory, atlas .JPG file, and .XML file for a position of interest")
