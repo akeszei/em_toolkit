@@ -93,13 +93,13 @@ for grid in $(ls -d */); do
         sq_basename=${grid///}"_sq_"${square_counter}
         current_sq_mrc=$(ls ${sq_dir}/*.mrc | head -1) ## get the only/first .mrc file in the directory
         current_sq_xml=$(ls ${sq_dir}/*.xml | head -1) ## get the only/first .xml file in the directory
-        mrc2img.py $current_sq_mrc ${save_parent_path}"Jpgs/"${sq_basename}.jpg --bin 2 >> /dev/null
+        mrc2img.py $current_sq_mrc ${save_parent_path}"Jpgs/"${sq_basename}_lm.jpg --bin 2 >> /dev/null
         echo "      ... grid square img saved"
 
-        ## check if ew have an atlas reference, in which case try to map the position of this square to the atlas; othwerise, skip this procedure
+        ## check if we have an atlas reference, in which case try to map the position of this square to the atlas; othwerise, skip this procedure
         if [ -f $atlas_jpg_path ]; then
             echo "      ... atlas location of square drawn"
-            output_atlas_location_fname=${save_parent_path}"Jpgs/"${sq_basename}_lm.jpg
+            output_atlas_location_fname=${save_parent_path}"Jpgs/"${sq_basename}_atlas.jpg
             show_atlas_position.py $atlas_directory $atlas_jpg_path $current_sq_xml $output_atlas_location_fname
         fi
 
