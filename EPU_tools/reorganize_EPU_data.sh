@@ -91,8 +91,7 @@ for grid in $(ls -d */); do
 
         ## check the max number of micrographs in this directory and determine the padding factor (leading zeroes) to add
         total_mics_in_dir=$(ls -f ${sq_dir}/Data/*.mrc | wc -l)
-        padding_factor=$(echo -n $total_mics_in_dir | wc -l)
-        echo "WIP: total_mics_in_dir, padding_factor" $total_mics_in_dir $padding_factor
+        padding_factor=$(echo -n $total_mics_in_dir | wc -m)
 
         ## add a sanity check to find any *.mrc files, otherwise skip the directory ...
         if [ $total_mics_in_dir -eq 0 ]; then
@@ -129,7 +128,6 @@ for grid in $(ls -d */); do
             ## store a formatted string of the number to append to the micrograph with padded zeroes
             printf -v padded_number "%0${padding_factor}d" ${exposure_counter}
             mic_basename=${sq_basename}"_mic_"${padded_number}
-            echo "WIP: padding_factor, padded_number, mic_basename = " $padding_factor $padded_number $mic_basename
             echo -en "\r\033[K          ... processing mic #${exposure_counter}  (${mic##*/})"
             ## save a .jpg image
             mrc2img.py $mic ${save_parent_path}"Jpgs/"${mic_basename}.jpg --bin 4 >> /dev/null
