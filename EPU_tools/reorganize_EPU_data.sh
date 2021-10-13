@@ -92,6 +92,7 @@ for grid in $(ls -d */); do
         ## check the max number of micrographs in this directory and determine the padding factor (leading zeroes) to add
         total_mics_in_dir=$(ls -f ${sq_dir}/Data/*.mrc | wc -l)
         padding_factor=$(echo -n $total_mics_in_dir | wc -l)
+        echo "WIP: total_mics_in_dir, padding_factor" $total_mics_in_dir $padding_factor
 
         ## add a sanity check to find any *.mrc files, otherwise skip the directory ...
         if [ $total_mics_in_dir -eq 0 ]; then
