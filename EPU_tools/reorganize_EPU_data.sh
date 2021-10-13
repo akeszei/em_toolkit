@@ -89,17 +89,15 @@ for grid in $(ls -d */); do
         ## advance the counter
         ((square_counter++))
 
+        ## check the max number of micrographs in this directory and determine the padding factor (leading zeroes) to add
+        total_mics_in_dir=$(ls -f ${sq_dir}/Data/*.mrc | wc -l)
+        padding_factor=$(echo -n $total_mics_in_dir | wc -l)
+
         ## add a sanity check to find any *.mrc files, otherwise skip the directory ...
-        mrc_file_num_in_sq_dir=$(find ${sq_dir}/Data/ -name "*.mrc" | wc -l)
-        if [ $mrc_file_num -eq 0 ]; then
+        if [ $total_mics_in_dir -eq 0 ]; then
             echo "No mrcs in ${sq_dir}, skipping..."
             continue
         fi
-
-        ## check the max number of micrographs in this directory and determine the padding factor (leading zeroes) to add
-        total_mics_in_dir=$(ls -f ${sq_dir}/Data/*.mrc | wc -l)
-        echo "WIP: total mics in dir = " $total_mics_in_dir
-        padding_factor=$(echo -n $total_mics_in_dir | wc -l)
 
         echo "  ... processing grid square #" ${square_counter}
         ## copy the square .mrc to a .jpg with a new name
@@ -107,11 +105,11 @@ for grid in $(ls -d */); do
         current_sq_mrc=$(ls ${sq_dir}/*.mrc | head -1) ## get the only/first .mrc file in the directory
         current_sq_xml=$(ls ${sq_dir}/*.xml | head -1) ## get the only/first .xml file in the directory
         mrc2img.py $current_sq_mrc ${save_parent_path}"Jpgs/"${sq_basename}_lm.jpg --bin 2 >> /dev/null
-        echo "      ... grid square img saved"
+        echo "      ... grid square low mag img saved"
 
         ## check if we have an atlas reference, in which case try to map the position of this square to the atlas; othwerise, skip this procedure
         if [ -f $atlas_jpg_path ]; then
-            echo "      ... atlas location of square drawn"
+            echo "      ... grid square atlas location drawn"
             output_atlas_location_fname=${save_parent_path}"Jpgs/"${sq_basename}_atlas.jpg
             show_atlas_position.py $atlas_directory $atlas_jpg_path $current_sq_xml $output_atlas_location_fname
         fi
@@ -130,6 +128,7 @@ for grid in $(ls -d */); do
             ## store a formatted string of the number to append to the micrograph with padded zeroes
             printf -v padded_number "%0${padding_factor}d" ${exposure_counter}
             mic_basename=${sq_basename}"_mic_"${padded_number}
+            echo "WIP: padding_factor, padded_number, mic_basename = " $padding_factor $padded_number $mic_basename
             echo -en "\r\033[K          ... processing mic #${exposure_counter}  (${mic##*/})"
             ## save a .jpg image
             mrc2img.py $mic ${save_parent_path}"Jpgs/"${mic_basename}.jpg --bin 4 >> /dev/null
