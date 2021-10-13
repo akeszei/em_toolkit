@@ -99,7 +99,7 @@ for grid in $(ls -d */); do
         ## check if ew have an atlas reference, in which case try to map the position of this square to the atlas; othwerise, skip this procedure
         if [ -f $atlas_jpg_path ]; then
             echo "      ... atlas location of square drawn"
-            output_atlas_location_fname=${save_parent_path}"Jpgs/"${sq_basename}_location.jpg
+            output_atlas_location_fname=${save_parent_path}"Jpgs/"${sq_basename}_lm.jpg
             show_atlas_position.py $atlas_directory $atlas_jpg_path $current_sq_xml $output_atlas_location_fname
         fi
 
@@ -113,8 +113,8 @@ for grid in $(ls -d */); do
                 echo "      ... no data images for square, skipping "
                 break
             fi
-            mic_basename=${sq_basename}"_exp_"${exposure_counter}
-            echo -en "\r\033[K          ... processing exp #${exposure_counter}  (${mic##*/})"
+            mic_basename=${sq_basename}"_mic_"${exposure_counter}
+            echo -en "\r\033[K          ... processing mic #${exposure_counter}  (${mic##*/})"
             ## save a .jpg image
             mrc2img.py $mic ${save_parent_path}"Jpgs/"${mic_basename}.jpg --bin 4 >> /dev/null
             ## copy .mrc to Raw_data directory with new name
