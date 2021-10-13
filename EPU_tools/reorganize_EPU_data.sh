@@ -88,6 +88,19 @@ for grid in $(ls -d */); do
     for sq_dir in $(ls -d ${retrieve_square_path}*); do
         ## advance the counter
         ((square_counter++))
+
+        ## add a sanity check to find any *.mrc files, otherwise skip the directory ...
+        mrc_file_num_in_sq_dir=$(find ${sq_dir}/Data/ -name "*.mrc" | wc -l)
+        if [ $mrc_file_num -eq 0 ]; then
+            echo "No mrcs in ${sq_dir}, skipping..."
+            continue
+        fi
+
+        ## check the max number of micrographs in this directory and determine the padding factor (leading zeroes) to add
+        total_mics_in_dir=$(ls -f ${sq_dir}/Data/*.mrc | wc -l)
+        echo "WIP: total mics in dir = " $total_mics_in_dir
+        padding_factor=$(echo -n $total_mics_in_dir | wc -l)
+
         echo "  ... processing grid square #" ${square_counter}
         ## copy the square .mrc to a .jpg with a new name
         sq_basename=${grid///}"_sq_"${square_counter}
@@ -113,7 +126,10 @@ for grid in $(ls -d */); do
                 echo "      ... no data images for square, skipping "
                 break
             fi
-            mic_basename=${sq_basename}"_mic_"${exposure_counter}
+            ## update the exposure counter to use leading zeros, using only as many are necessary for how large the pool of images will be (i.e. if 99 or less use 01, 02, ...; if 100 or more use 001, 002, etc)
+            ## store a formatted string of the number to append to the micrograph with padded zeroes
+            printf -v padded_number "%0${padding_factor}d" ${exposure_counter}
+            mic_basename=${sq_basename}"_mic_"${padded_number}
             echo -en "\r\033[K          ... processing mic #${exposure_counter}  (${mic##*/})"
             ## save a .jpg image
             mrc2img.py $mic ${save_parent_path}"Jpgs/"${mic_basename}.jpg --bin 4 >> /dev/null
