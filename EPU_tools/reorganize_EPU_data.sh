@@ -102,8 +102,10 @@ for grid in $(ls -d */); do
         echo "  ... processing grid square #" ${square_counter}
         ## copy the square .mrc to a .jpg with a new name
         sq_basename=${grid///}"_sq_"${square_counter}
-        current_sq_mrc=$(ls ${sq_dir}/*.mrc | head -1) ## get the only/first .mrc file in the directory
-        current_sq_xml=$(ls ${sq_dir}/*.xml | head -1) ## get the only/first .xml file in the directory
+        current_sq_mrc=$(ls ${sq_dir}/*.mrc | tail -1) ## get the only/last .mrc file in the directory
+        current_sq_xml=$(ls ${sq_dir}/*.xml | head -1) ## get the only/last .xml file in the directory (can try: tail -1 to get the first one for the .xml if its more accurate tbh!)
+            ## for the XML file take the first one, which corresponds to the more accruate position on the Atlas
+            ## for the MRC file take the last one, which is usually the recentered image of the square but whose XML coordinates are offset from the stitched Atlas 
         mrc2img.py $current_sq_mrc ${save_parent_path}"Jpgs/"${sq_basename}_lm.jpg --bin 2 >> /dev/null
         echo "      ... grid square low mag img saved"
 
