@@ -136,7 +136,7 @@ for sq_dir in $(ls -d Images-Disc1/*); do
         ## make a named symbolic link of the on-the-fly corrected micrograph
         ln -sr $corrected_mic ${corrected_mics_dir}/${corrected_mic_basename}.mrc
     done
-    echo -en "\r\033[K      ... #${exposure_counter} micrographs total "
+    echo -en "\r\033[K      ... #${movie_counter} micrographs total "
     echo ""
 
 done
