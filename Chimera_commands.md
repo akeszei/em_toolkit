@@ -2,6 +2,19 @@
 
 Commonly used (and oft forgotten!) commands to easy driving in **UCSF Chimera** (https://www.cgl.ucsf.edu/chimera/). For full details of all commands, refer to: <https://www.cgl.ucsf.edu/chimera/current/docs/UsersGuide/framecommand.html>.
 
+## Accelerators 
+Chimera allows the use of *keyboard accelerators*, which can allow the user to quickly open tools/windows using sequential keystrokes (see: [link](https://www.cgl.ucsf.edu/chimera/docs/ContributedSoftware/accelerators/alist.html)). To enable it for all future sessions you need to toggle it on:
+
+> **Tools... > General Controls... > Keyboard Shortcuts >**  toggle **Enable keyboard shortcuts**
+
+When enabled, you can quickly launch commonly used panels and activate the command line (you may need to re-focus Chimera to run sequential commands):
+
+    mp
+    sv
+    cl
+
+Note that `ac hc` will close the command line if it is active, so you can run other accelerators before turning it back on.
+
 ## Opening & viewing models
 Pull a structure from rcsb.org and focus the camera on a specific residue of interest, with automatic clipping:
 
