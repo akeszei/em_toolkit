@@ -13,7 +13,7 @@ When enabled, you can quickly launch commonly used panels and activate the comma
     sv
     cl
 
-Note that `ac hc` will close the command line if it is active, so you can run other accelerators before turning it back on.
+Note that `ac hc` will close the command line if it is active, so you can run other accelerators before turning it back on. Alternatively, accelerators can be disabled entirely with `ac af`.
 
 ## Opening & viewing models
 Pull a structure from rcsb.org and focus the camera on a specific residue of interest, with automatic clipping:
