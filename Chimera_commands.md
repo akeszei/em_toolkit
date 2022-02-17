@@ -29,3 +29,29 @@ To make the side chain visible, we can show it and then change its appearance & 
     represent bs sel 
     color red sel 
     color byhetero sel 
+    
+## Opening & viewing maps
+
+Open your density map from local disc and adjust sampling rate & thresholding with preferred scene setup:
+
+    volume <model_ID> step <n> level <y>
+    background solid white; set silhouette; lighting reflectivity 0
+    cofr models
+
+The target volume can be chosen specifically, or if many volumes are loaded (say, after a 3D classification) and should be treated identically you can use the `all` keyword. For example a common command I always run is:
+
+    volume all step 1 level 0.01 
+
+I then re-run the command (use the arrow-up key to call back the previously submitted command) with different level values until I am happy). 
+
+If many maps are open and should be compared side-by-side, we can array them simply by running:
+
+    tile 
+
+The maps can be returned to their initial origins by simply running:
+
+    reset 
+
+When working with models docked in maps, it is important to ensure the pivot point for each loaded model is at its corresponding origin via:
+
+    cofr models
