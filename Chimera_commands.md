@@ -42,7 +42,7 @@ The target volume can be chosen specifically, or if many volumes are loaded (say
 
     volume all step 1 level 0.01 
 
-I then re-run the command (use the arrow-up key to call back the previously submitted command) with different level values until I am happy). 
+I then re-run the command (use the arrow-up key to call back the previously submitted command) with different level (thresholding) values until I am happy. 
 
 If many maps are open and should be compared side-by-side, we can array them simply by running:
 
