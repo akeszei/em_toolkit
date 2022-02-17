@@ -69,3 +69,17 @@ When working with models docked in maps, it is important to ensure the pivot poi
 
     cofr models
 
+## Scene management
+
+When honed in on a specific view, you can cache the position by name via:
+
+    savepos <name>
+
+This will allow you to return to that view via:
+
+    reset <name> 
+
+The name of all cached positions can be found via:
+
+    savepos list 
+This functionality can be useful to quickly jump between multiple active sites/other regions when trying to assess different maps. 
