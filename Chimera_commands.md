@@ -83,3 +83,16 @@ The name of all cached positions can be found via:
 
     savepos list 
 This functionality can be useful to quickly jump between multiple active sites/other regions when trying to assess different maps. 
+
+## Advanced functionalities
+
+Some examples of more advanced uses of chimera for specific cases:
+
+### Color density by docked model
+After docking a model/ligand, you may want to have the density around the model colored in a way that shows the density that the model occupies. This is easily achieved by first coloring the model a solid color, then applying the color to a volume using a specific range cutoff, and finally recoloring the model back to the desired heteroatom color:
+
+    sel <model/range/chain/ligand>
+    color <magenta/blue/red/other> sel 
+    scolor <density_model_ID> zone sel range <n, Angstroms>
+    color byhetero sel 
+    transparency 30 <density_model_ID>
