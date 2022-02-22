@@ -1,6 +1,6 @@
-# Chimera command line cheat-sheet
+# UCSF Chimera quick reference
 
-Commonly used (and oft forgotten!) commands to easy driving in **UCSF Chimera** (https://www.cgl.ucsf.edu/chimera/). For full details of all commands, refer to [the index guide](https://www.cgl.ucsf.edu/chimera/current/docs/UsersGuide/framecommand.html).
+Commonly used (and oft forgotten!) commands & controls for easy driving in **UCSF Chimera** (https://www.cgl.ucsf.edu/chimera/). For full details of all commands, refer to [the index guide](https://www.cgl.ucsf.edu/chimera/current/docs/UsersGuide/framecommand.html).
 
 ## Accelerators 
 Chimera allows the use of *keyboard accelerators*, which can allow the user to quickly open tools/windows using sequential keystrokes (see: [link](https://www.cgl.ucsf.edu/chimera/docs/ContributedSoftware/accelerators/alist.html)). To enable it for all future sessions you need to toggle it on:
@@ -96,3 +96,10 @@ After docking a model/ligand, you may want to have the density around the model 
     scolor <density_model_ID> zone sel range <n, Angstroms>
     color byhetero sel 
     transparency 30 <density_model_ID>
+
+### Show density around selection only
+For viewing/interpretability, it can be necessary to only show density around a selected region (i.e. a small ligand). This is easily achieved by making your selection and then using the *Volume Viewer* panel to only show density around the selection by a given distance by the zone menu:
+
+> **Volume Viewer > Features > ** toggle  **Zone**
+
+Once open, you can then choose a radius size and click `Zone`. 
