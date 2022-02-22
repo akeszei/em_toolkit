@@ -100,6 +100,6 @@ After docking a model/ligand, you may want to have the density around the model 
 ### Show density around selection only
 For viewing/interpretability, it can be necessary to only show density around a selected region (i.e. a small ligand). This is easily achieved by making your selection and then using the *Volume Viewer* panel to only show density around the selection by a given distance by the zone menu:
 
-> **Volume Viewer > Features > ** toggle  **Zone**
+> **Volume Viewer > Features >** toggle  **Zone**
 
 Once open, you can then choose a radius size and click `Zone`. 
