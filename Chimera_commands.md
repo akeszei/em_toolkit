@@ -1,3 +1,4 @@
+
 # UCSF Chimera quick reference
 
 Commonly used (and oft forgotten!) commands & controls for easy driving in **UCSF Chimera** (https://www.cgl.ucsf.edu/chimera/). For full details of all commands, refer to [the index guide](https://www.cgl.ucsf.edu/chimera/current/docs/UsersGuide/framecommand.html).
@@ -103,3 +104,20 @@ For viewing/interpretability, it can be necessary to only show density around a 
 > **Volume Viewer > Features >** toggle  **Zone**
 
 Once open, you can then choose a radius size and click `Zone`. 
+
+### Docking symmetry-related molecules 
+In cases where you have a density where you have docked a model and wish to copy that model to all other symmetry-related densities it is most accurate to use symmetry commands in chimera to duplicate the model.
+
+First, we need to prepare a feature at the center of the box that we can use as a landmark for symmetry operations:
+
+    measure center #<density_id> mark true
+This will create a new model entry we can use in the symmetry operation. 
+
+    sym #<model> group <point_group> center #<center> coordinateSystem #<center> 
+
+ In some cases, we may need to explicitly specify which axis to use for an operator by adding the `axis <x,y, or z>` flag as well. 
+
+For example, a protein with D3 symmetry where the 2-fold lies on the alternate y-axis (recall, 3-fold is along z-axis by convention, and 2-fold is assumed to be along x-axis) would need to run the symmetry commands in two steps, first use the defaults along the 3-fold and then save the models and used the in a second command using the `axis y` flag to set the correct 2-fold orientation:
+
+    sym #<model> group c3 center #<center> coordinateSystem #<center>
+    sym #<model> group c2 center #<center> coordinateSystem #<center> axis y
