@@ -123,7 +123,7 @@ For example, a protein with D3 symmetry where the 2-fold lies on the alternate y
     sym #<model> group c2 center #<center> coordinateSystem #<center> axis y
 
 ### Preparing volumes from models 
-`Chimera` is incredibly useful for quickly generating `.mrc` volumes from atomic models that can be used as initial models or to generate masks for use in processing software. A volume is easly created from a model or selection by using the `molmap`function:
+`Chimera` is incredibly useful for quickly generating `.mrc` volumes from atomic models (eg, `.pdb` files) that can be used as initial maps or to generate masks for use in processing software. A volume is easly created from a model or selection by using the `molmap`function:
 
     molmap <model, or selection> <resolution>
 
