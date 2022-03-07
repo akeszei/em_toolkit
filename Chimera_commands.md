@@ -121,3 +121,22 @@ For example, a protein with D3 symmetry where the 2-fold lies on the alternate y
 
     sym #<model> group c3 center #<center> coordinateSystem #<center>
     sym #<model> group c2 center #<center> coordinateSystem #<center> axis y
+
+### Preparing volumes from models 
+`Chimera` is incredibly useful for quickly generating `.mrc` volumes from atomic models that can be used as initial models or to generate masks for use in processing software. A volume is easly created from a model or selection by using the `molmap`function:
+
+    molmap <model, or selection> <resolution>
+
+The output density can then be saved using the `Volume Viewer` widget, making sure your volume-of-interest is selected (highlighted white):
+
+> **Volume Viewer > File > Save map as...**
+
+For example, here is a command for generating an 8 Ang density around a selected region:
+
+    molmap sel 8
+
+If you have a density from your processing software already open, you can immediately dock the created density into that box at the same sampling resolution (useful for generating masks around specific regions):
+
+    vop resample #<molmap_density> onGrid #<processing_density>
+
+The output density can then be saved as above and used directly to make a mask (apply soft edges) or as a map. 
