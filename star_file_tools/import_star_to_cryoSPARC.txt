@@ -1,0 +1,30 @@
+#### Importing coordinates from .star to cryoSPARC
+
+## 1. Merge all particle coordinates into one .star file. For a stack of crYOLO coordinates or manualpick files, use a small script to do this (i.e. merge_coordinates.sh)
+
+## 2. Check the difference between the name of the micrograph in the .star file and the name of the micrograph in the cryoSPARC job to be used (i.e. after motion correction)
+    >> For example our motion correction job was J2, if we navigate into J2/motioncorrected/, we can see names for our micrographs:
+            9a4a37_014881075426873432806_20170629_00029_frameImage_patch_aligned_doseweighted.mrc
+    ... this corresponds to our micrograph in the .star file of the name:
+            20170629_00029_frameImage
+    ... the difference between these two names in characters is:
+            SUFFIX = 31, we set this value to the 'Length of the input micrograph path suffix to cut'
+            
+
+## 3. Build an `Import Particle Stack' job and place in your micrographs node.
+    >> Set Ignore raw data to true
+    >> Set Particle meta path to the .star file with all coordinates
+    >> Set Remove leading UID in input micrograph path to true  
+    >> Set the suffix values to properly match the node name of micrographs with those in rlnMicrographName column
+        ... alternatively, leave it zero and read the traceback to then calculate the proper suffix value after clearing the job and running again 
+
+## 4. When running extract job, you may need to use 'Flip mic. in y before extract?' if your coordinates are coming from RELION. See this answer on the forums: 
+
+    """
+        cryoSPARC reads TIFF images in their native byte order on disk (positive x fast axis, positive y slow axis) whereas other programs 
+        including Relion read the y-axis in the opposite order. This means that if you import movies (rather than micrographs which would 
+        be in MRC format and don’t have this issue), cryoSPARC and Relion would read them flipped relative to eachother.
+        If you are trying to extract particles from pre-motion-corrected micrographs, you should be able to do so by importing the particles
+        .star file (with particle locations) and importing the micrographs (in MRC format) rather than the TIFF movies. Then there should not 
+        be any discrepancy.
+    """
