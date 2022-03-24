@@ -67,24 +67,23 @@ for grid in $(ls -d */); do
        mkdir "reorganized/"${grid}Jpgs
     fi
 
-    ## NOT YET TESTED :: Deal with custom prepared 'Screening' folders
     ## Check if there is a folder called 'Screening' in the grid directory, if so then copy the relevant files over to the reorganized directory
     if [ -d ${grid}Screening ]; then
         echo "  ... Screening directory present at: ${grid}Screening, copying relevant files over (.ser,.jpg,.png,.bmp,.txt)"
         mkdir "reorganized/"${grid}Screening
         ## check if there are .ser files and copy them over with convertion to .mrc & preparing a binned .jpg
         if [ $(ls ${grid}Screening/*.ser | head -n 1 | wc -l) -gt 0 ]; then
-		    for n in ${grid}Screening/*.ser; do n2=${n/.ser/}.mrc; ser2mrc.py $n reorganized/${grid}Screening/${n2##*/} --jpg >> /dev/null; done
+            for n in ${grid}Screening/*.ser; do n2=${n/.ser/}.mrc; ser2mrc.py $n reorganized/${grid}Screening/${n2##*/} --jpg >> /dev/null; done
         else
-		    echo "No .SER files in Screening directory";
-	    fi
-	    ## also copy any existing images or text files
+            echo "No .SER files in Screening directory";
+        fi
+        ## also copy any existing images or text files
         cp ${grid}Screening/*.jpg reorganized/${grid}Screening/
         cp ${grid}Screening/*.png reorganized/${grid}Screening/
         cp ${grid}Screening/*.bmp reorganized/${grid}Screening/
         cp ${grid}Screening/*.txt reorganized/${grid}Screening/
     fi
-    ############
+
 
     save_parent_path="reorganized/"${grid} ## parent folder where Raw_data and Jpgs folders will be
     retrieve_square_path=${grid}"Images-Disc1/" ## path to the folder containing the grid square images
