@@ -67,6 +67,19 @@ for grid in $(ls -d */); do
        mkdir "reorganized/"${grid}Jpgs
     fi
 
+    ## NOT YET TESTED :: Deal with custom prepared 'Screening' folders
+    ## Check if there is a folder called 'Screening' in the grid directory, if so then copy the relevant files over to the reorganized directory
+    if [ -d ${grid}Screening ]; then
+        echo "  ... Screening directory present at: ${grid}Screening, copying '.ser,.jpg,.png,.bmp,.txt' files over"
+        mkdir "reorganized/"${grid}Screening
+        cp ${grid}Screening/*.ser reorganized/${grid}Screening/
+        cp ${grid}Screening/*.jpg reorganized/${grid}Screening/
+        cp ${grid}Screening/*.png reorganized/${grid}Screening/
+        cp ${grid}Screening/*.bmp reorganized/${grid}Screening/
+        cp ${grid}Screening/*.txt reorganized/${grid}Screening/
+    fi
+    ############
+
     save_parent_path="reorganized/"${grid} ## parent folder where Raw_data and Jpgs folders will be
     retrieve_square_path=${grid}"Images-Disc1/" ## path to the folder containing the grid square images
     atlas_directory=${grid}Atlas/
@@ -105,7 +118,7 @@ for grid in $(ls -d */); do
         current_sq_mrc=$(ls ${sq_dir}/*.mrc | tail -1) ## get the only/last .mrc file in the directory
         current_sq_xml=$(ls ${sq_dir}/*.xml | head -1) ## get the only/last .xml file in the directory (can try: tail -1 to get the first one for the .xml if its more accurate tbh!)
             ## for the XML file take the first one, which corresponds to the more accruate position on the Atlas
-            ## for the MRC file take the last one, which is usually the recentered image of the square but whose XML coordinates are offset from the stitched Atlas 
+            ## for the MRC file take the last one, which is usually the recentered image of the square but whose XML coordinates are offset from the stitched Atlas
         mrc2img.py $current_sq_mrc ${save_parent_path}"Jpgs/"${sq_basename}_lm.jpg --bin 2 >> /dev/null
         echo "      ... grid square low mag img saved"
 
