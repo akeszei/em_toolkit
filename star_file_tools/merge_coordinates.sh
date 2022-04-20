@@ -16,9 +16,17 @@ echo '_rlnMicrographName #1' >> $OUT_FNAME
 echo '_rlnCoordinateX #2' >> $OUT_FNAME
 echo '_rlnCoordinateY #3' >> $OUT_FNAME
 
+echo "========================================="
+echo " Running merge_coordinates.sh"
+echo "-----------------------------------------"
+
 ### Read data from each star file and extract the X and Y coordinates
+# give the user feedback on progress
+total_coordinates_parsed=0
+
 for STAR_FILE in *.star ; do
-    # echo " Reading star file: $STAR_FILE"
+    coordinates_parsed=0
+    echo -en "\r\033[K   ... reading coordinates from: ${STAR_FILE} (${total_coordinates_parsed} coordinates parsed so far)"
     while IFS= read -r line; do
         # echo "Text read from file: $line"
         ### Use awk to grab column data, only if the line contains at least 4 columns (i.e. avoid header and empty lines)
@@ -36,7 +44,16 @@ for STAR_FILE in *.star ; do
         fi
 
         # echo "    ... coordinate found = $X, $Y"
+        ## advance the iterator
+        ((coordinates_parsed++))
         MIC_BASE_NAME=${STAR_FILE/.star/}
         printf "$MIC_BASE_NAME \t $X \t $Y \n" >> $OUT_FNAME
     done < $STAR_FILE
+    ## advace the total value
+    total_coordinates_parsed=$(($total_coordinates_parsed + $coordinates_parsed))
+
 done
+echo ""
+echo "-----------------------------------------"
+echo " merge_coordinates.sh complete"
+echo "========================================="
