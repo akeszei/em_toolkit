@@ -60,6 +60,10 @@ def get_table_position(file, table_title, DEBUG = True):
                 if first_character != '_':
                     DATA_START = line_num
                     continue
+    ## in cases where there is no empty line at the end of the file we need to manually update the DATA_END to match this line value
+    if DATA_END == -1:
+        DATA_END = line_num
+        
     if DEBUG:
         print(" Find line numbers for table '%s' in %s" % (table_title, file))
         print("   >> Table starts at line:  %s" % TABLE_START)
@@ -101,7 +105,7 @@ def find_star_column(file, column_name, header_start, header_end, DEBUG = True) 
                     if DEBUG:
                         print("  ... %s column value: #%s" % (column_name, column_num))
                         # print("-------------------------------------------------------------")
-                        return column_num
+                    return column_num
 
 def get_star_data(line, column, DEBUG = False):
     """ For a given .STAR file line entry, extract the data at the given column index.
