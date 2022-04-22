@@ -13,7 +13,7 @@ def usage():
     print(" (containing stage position <X> and <Y> coordinates), print an image of the atlas with the ")
     print(" stage position indicated by a red circle. Useful for following up after screening.")
     print(" Usage:")
-    print("    $ show_atlas_position.py  /path/to/Atlas  atlas.jpg  position_metadata.xml  output_name.jpg")
+    print("    $ show_atlas_position.py  /path/to/Atlas/  atlas.jpg  position_metadata.xml  output_name.jpg")
     print("===================================================================================================")
     sys.exit()
 
@@ -62,7 +62,7 @@ def get_tile_coords(file_list):
         print(" >> %s atlas tiles parsed" % len(tile_coordinates))
     return tile_coordinates
 
-def plot_points(coordinates):
+def plot_points(coordinates, color='gray'):
     """ For a given set of coordinates, add points to an open 'matplotlib.pyplot as plt' canvas
     PARAMETERS
         coordinates = [(x1, y1), (x2, y2), ... (xn, yn)]
@@ -74,7 +74,11 @@ def plot_points(coordinates):
     xs = list(xs)
     ys = list(ys)
     ## pass the unzipped values into the scatter function
-    plt.scatter(xs, ys, s = 15, color = 'gray', alpha = 0.5)
+    plt.scatter(xs, ys, s = 15, color = color, alpha = 0.5)
+    ## add labels to better choose tiles for basis vectors
+    for i in range(len(xs)):
+        plt.annotate(i, (xs[i], ys[i]))
+    # plt.show()
     return
 
 def as_unit_vector(input_vector):
@@ -153,18 +157,18 @@ def find_scaling_factor(tile_num):
     RETURNS
         scaling_factor = float()
     """
-    if tile_num <= 9:
-        return 1.5
-    elif tile_num <= 25:
-        return 2.5
-    elif tile_num <= 49:
-        return 3.5
-    elif tile_num <= 81:
-        return 4.5
-    elif tile_num <= 121:
-        return 5.5
-    elif tile_num <= 169:
-        return 6.5
+    ## the number of tiles making up an atlas can give you the expected basis lengths using a simple algorithm
+    x = np.sqrt(tile_num) / 2
+    # print(" # tiles = %s, x = %s, int(x) = %s" % (tile_num, x, int(x)))
+    if x == int(x):
+        # print(" return %s" % x)
+        return x
+    elif x <= int(x) + 0.5:
+        # print(" return %s" % (int(x) + 0.5))
+        return int(x) + 0.5
+    elif x > int(x) + 0.5:
+        # print(" return %s" % (int(x) + 1))
+        return int(x) + 1
     else:
         return print("ERROR :: Unexpected number of tiles for atlas (%s)!" % tile_num)
 
@@ -202,30 +206,30 @@ if __name__ == '__main__':
     ## pass each xml file through a parser and get the cached X and Y coordinates
     tile_coordinates = get_tile_coords(tile_files)
 
-    ## for visualization, plot tile coordinates
-    # plot_points(tile_coordinates)
+    # ## for visualization, plot tile coordinates
+    # plot_points(tile_coordinates, 'gray')
 
-    ## get the point of interest in real space (the values found in the EPU .XML file)
-    poi_real = np.array(point_from_xml(input_xml))
+    # ## get the point of interest in real space (the values found in the EPU .XML file)
+    # for square in glob.glob('squares/*xml'):
+    #     poi_real = np.array(point_from_xml(square))
+    #     ## for visualization, plot the position of the real POI
+    #     plt.scatter(poi_real[0], poi_real[1], s = 30, color = 'red', alpha = 1)
+    # plt.show()
 
-    ## for visualization, plot the position of the real POI
-    # plt.scatter(poi_real[0], poi_real[1], s = 30, color = 'red', alpha = 1)
-
-    ## determine the basis vectors for real space
-    real_origin = np.array(tile_coordinates[0])
-
-    ## after trial-and-error, I have determined that EPU atlases can be aligned with real space coordinates by using Tile 3 and 5 as basis vectors representing a fixed step in the positive x and y directions, respectively
-    x_basis_real = np.array(tile_coordinates[3]) - real_origin
-    y_basis_real = np.array(tile_coordinates[5]) - real_origin
+    ## determine the basis vectors for real space by using the first three stage positions (positions 0, 1, 2), which define the corner of a rectangle:
+    ##             2
+    ##            |
+    ##      0 -- 1
+    real_origin = np.array([0, 0])
+    x_basis_real = np.array(tile_coordinates[1]) - np.array(tile_coordinates[0])
+    y_basis_real = np.array(tile_coordinates[2]) - np.array(tile_coordinates[1])
     realspace_basis = (x_basis_real, y_basis_real)
 
-    ## for visualization, plot these basis vectors
+    # ## for visualization, plot these basis vectors
     # plt.plot([real_origin[0], x_basis_real[0]], [real_origin[1], x_basis_real[1]], color='blue', alpha = 0.5)
-    # plt.plot([real_origin[0], y_basis_real[0]], [real_origin[1], y_basis_real[1]], color='blue', alpha = 0.5)
+    # plt.plot([real_origin[0], y_basis_real[0]], [real_origin[1], y_basis_real[1]], color='tab:orange', alpha = 0.5)
     # print("Basis vectors = %s, %s)" % (x_basis_real, y_basis_real))
-
-    ## determine for the given point, how much it lies on each axis defined by basis vectors of a fixed (known) length:
-    relative_x, relative_y = point_to_relative_basis_lengths(poi_real, realspace_basis)
+    # plt.show()
 
     ## load the atlas image
     im_atlas = image2array(atlas_jpg, DEBUG = False)
@@ -247,15 +251,36 @@ if __name__ == '__main__':
     # plt.plot([0, x_basis_im[0]], [0, x_basis_im[1]], color='green', alpha = 0.5)
     # plt.plot([0, y_basis_im[0]], [0, y_basis_im[1]], color='orange', alpha = 0.5)
     # print(" img basis vectors = %s, %s" % (x_basis_im, y_basis_im))
+    # plt.show()
 
 
+    ## get the point of interest in real space (the values found in the EPU .XML file)
+    poi_real = np.array(point_from_xml(input_xml))
+    ## determine for the given point, how much it lies on each axis defined by basis vectors of a fixed (known) length:
+    relative_x, relative_y = point_to_relative_basis_lengths(poi_real, realspace_basis)
     ## multiply the image-space basis vectors by the determined scaling factor to find the target pixel position of the input point
     img_pixel_position = (x_basis_im[0] * relative_x, y_basis_im[1] * relative_y)
     # print( " position of remapped pixel coordinate = ", img_pixel_position)
-
     ## draw a red cicle of arbitrary size centered at the target pixel position
     plt.plot(img_pixel_position[0], img_pixel_position[1], 'o', markersize = 20, markerfacecolor="None", markeredgecolor = 'tab:red', markeredgewidth=2)
 
+    # ## get the point of interest in real space (the values found in the EPU .XML file)
+    # for square in glob.glob('squares/*xml'):
+    #     poi_real = np.array(point_from_xml(square))
+    #     # ## for visualization, plot the position of the real POI
+    #     # plt.scatter(poi_real[0], poi_real[1], s = 30, color = 'red', alpha = 1)
+    #
+    #     ## determine for the given point, how much it lies on each axis defined by basis vectors of a fixed (known) length:
+    #     relative_x, relative_y = point_to_relative_basis_lengths(poi_real, realspace_basis)
+    #
+    #     ## multiply the image-space basis vectors by the determined scaling factor to find the target pixel position of the input point
+    #     img_pixel_position = (x_basis_im[0] * relative_x, y_basis_im[1] * relative_y)
+    #     # print( " position of remapped pixel coordinate = ", img_pixel_position)
+    #
+    #     ## draw a red cicle of arbitrary size centered at the target pixel position
+    #     plt.plot(img_pixel_position[0], img_pixel_position[1], 'o', markersize = 10, markerfacecolor="None", markeredgecolor = 'tab:red', markeredgewidth=2)
+
     ## save the image
     plt.axis('off')
+    # plt.show()
     plt.savefig(output_fname, format="jpg", bbox_inches='tight', dpi = 350, pad_inches=0)
