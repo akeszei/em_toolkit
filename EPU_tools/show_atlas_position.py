@@ -216,13 +216,13 @@ if __name__ == '__main__':
     #     plt.scatter(poi_real[0], poi_real[1], s = 30, color = 'red', alpha = 1)
     # plt.show()
 
-    ## determine the basis vectors for real space by using the first three stage positions (positions 0, 1, 2), which define the corner of a rectangle:
-    ##             2
-    ##            |
-    ##      0 -- 1
+    ## determine the basis vectors for real space by using the first three stage positions (positions 0, 3, 5), which define the corner of a rectangle in the correct orientation:
+    ##      4 -- 3 -- 2
+    ##     |         |
+    ##    5    0 -- 1
     real_origin = np.array([0, 0])
-    x_basis_real = np.array(tile_coordinates[1]) - np.array(tile_coordinates[0])
-    y_basis_real = np.array(tile_coordinates[2]) - np.array(tile_coordinates[1])
+    x_basis_real = np.array(tile_coordinates[3]) - np.array(tile_coordinates[0])
+    y_basis_real = np.array(tile_coordinates[5]) - np.array(tile_coordinates    [0])
     realspace_basis = (x_basis_real, y_basis_real)
 
     # ## for visualization, plot these basis vectors
@@ -262,10 +262,10 @@ if __name__ == '__main__':
     img_pixel_position = (x_basis_im[0] * relative_x, y_basis_im[1] * relative_y)
     # print( " position of remapped pixel coordinate = ", img_pixel_position)
     ## draw a red cicle of arbitrary size centered at the target pixel position
-    plt.plot(img_pixel_position[0], img_pixel_position[1], 'o', markersize = 20, markerfacecolor="None", markeredgecolor = 'tab:red', markeredgewidth=2)
+    plt.plot(img_pixel_position[0], img_pixel_position[1], 'o', markersize = 10, markerfacecolor="None", markeredgecolor = 'tab:red', markeredgewidth=2)
 
     # ## get the point of interest in real space (the values found in the EPU .XML file)
-    # for square in glob.glob('squares/*xml'):
+    # for square in glob.glob('Squares/*xml'):
     #     poi_real = np.array(point_from_xml(square))
     #     # ## for visualization, plot the position of the real POI
     #     # plt.scatter(poi_real[0], poi_real[1], s = 30, color = 'red', alpha = 1)
