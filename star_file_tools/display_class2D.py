@@ -391,9 +391,9 @@ def publish_image(im, save_name, scalebar_angstroms, angpix, sort_by):
         usage()
 
     if os.path.splitext(save_name)[1].lower() == '.png':
-        im = Image.fromarray(im_array).convert('RGBA')
+        im = Image.fromarray(im).convert('RGBA')
     else:
-        im = Image.fromarray(im_array).convert('RGB')
+        im = Image.fromarray(im).convert('RGB')
 
     im.save(save_name)
     if DEBUG:
