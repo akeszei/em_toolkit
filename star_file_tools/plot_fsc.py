@@ -138,8 +138,8 @@ def plot_data(data):
     ax.set_xlabel('Resolution (Å)', fontsize=14)
     ax.set_ylabel('Correlation', fontsize=14)
     ax.set_title('Fourier Shell Correlation', fontsize=14)
-    ax.grid(b=True, which='major', color='gray', linestyle='-', alpha=0.5)
-    ax.grid(b=True, which='minor', color='gray', linestyle='--', alpha=0.2)
+    ax.grid(visible=True, which='major', color='gray', linestyle='-', alpha=0.5)
+    ax.grid(visible=True, which='minor', color='gray', linestyle='--', alpha=0.2)
 
     ##
     plt.yticks(fontsize=12)
@@ -147,6 +147,7 @@ def plot_data(data):
     ## adjust tick thickness to match the spine thickness
     ax.xaxis.set_tick_params(width=1.15)
     ax.yaxis.set_tick_params(width=1.15)
+
     #
     for axis in ['top','bottom','left','right']:
         ax.spines[axis].set_linewidth(1.15)
@@ -211,6 +212,7 @@ def plot_data(data):
             # print(i, ", ", x_coord, " ->", res)
             transformed_labels.append("{:.2f}".format(res))
     ax.set_xticklabels(transformed_labels)
+
 
     ax.legend(fontsize=10)
     plt.minorticks_on()
