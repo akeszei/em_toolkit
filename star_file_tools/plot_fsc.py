@@ -46,7 +46,7 @@ def parse_star_file(file):
             ## grab the value from the phase randomized entry in the star file  when it appears
             if '_rlnRandomiseFrom' in line:
                 phase_randomize_from = line_to_list[1]
-                print(" Phase radomize from >> %s Ang" % phase_randomize_from)
+                print(" Phase randomize from >> %s Ang" % phase_randomize_from)
 
 
             ## find the start of the data table we are interested in
@@ -127,10 +127,24 @@ def get_star_column_info(line, column):
     except:
         return False
 
+
 def plot_data(data):
     print("Loading matplotlib...")
     from matplotlib import pyplot as plt
     from matplotlib import rcParams # update figure formatting params
+    from matplotlib import ticker
+
+    ## update the ticker labels by passing in a function to the FuncFormatter
+    @ticker.FuncFormatter
+    def major_formatter(x, pos):
+        """ For a given x coordinate as 1/Ang, return the corresponding Ang resolution for that point
+        """
+        ## avoid infinity cases where x == 0
+        if x == 0:
+            return " "
+
+        resolution = 1/ x
+        return "{:.2f}".format(resolution)
 
     rcParams.update({'font.family': "Arial"})
 
@@ -141,14 +155,14 @@ def plot_data(data):
     ax.grid(visible=True, which='major', color='gray', linestyle='-', alpha=0.5)
     ax.grid(visible=True, which='minor', color='gray', linestyle='--', alpha=0.2)
 
-    ##
     plt.yticks(fontsize=12)
     plt.xticks(fontsize=12)
     ## adjust tick thickness to match the spine thickness
     ax.xaxis.set_tick_params(width=1.15)
     ax.yaxis.set_tick_params(width=1.15)
+    ## define the formatter for the x axis major ticks to be 1/x
+    ax.xaxis.set_major_formatter(major_formatter)
 
-    #
     for axis in ['top','bottom','left','right']:
         ax.spines[axis].set_linewidth(1.15)
 
@@ -176,11 +190,8 @@ def plot_data(data):
     plt.plot(x_values, fsc_unmask_y_values, label='No Mask', color = 'tab:blue', linewidth = 3)
     plt.plot(x_values, fsc_mask_y_values, label='Masked', color = 'tab:red', linewidth = 3)
 
-    # fig.canvas.draw()
     ax.set_xlim(xmin=0)
     locs,labels = plt.xticks()
-    # ylocs,ylabels = plt.yticks()
-    # ax.set_ylim(ymin=ylocs[0])
 
     ## draw a vertical line where phases were randomized from
     if phase_radomize_from > 0:
@@ -190,29 +201,8 @@ def plot_data(data):
 
 
 
-    ## draw fsc 0.143 cutoff lines
+    ## draw fsc 0.143 cutoff line
     plt.axhline(y = 0.143, color = 'black', label = None, alpha = 0.5, linewidth = 1.5, linestyle = '--')
-    # OFFSET = 0.02 ## percent to offset the label from the point
-    # point1 = [0, EST_RES_coord[1]]
-    # point2 = [ EST_RES_coord[0], EST_RES_coord[1]]
-    # point3 = [ EST_RES_coord[0], ylocs[0]]
-    # plt.plot([point1[0], point2[0]], [point1[1], point2[1]], '-', color = 'black', alpha = 0.5)
-    # plt.plot([point2[0], point3[0]], [point2[1], point3[1]], '-', color = 'black', alpha = 0.5)
-    # plt.plot([point2[0]], [point2[1]], 'o', color = 'black', alpha = 0.5)
-    # plt.annotate("%.2f Å" % EST_RES, (point2[0] + point2[0] * OFFSET, point2[1] + point2[1] * OFFSET))
-
-
-    transformed_labels = []
-    for i in range(len(locs)):
-        if i == 0:
-            transformed_labels.append(" ")
-        else:
-            x_coord = locs[i]
-            res = 1/ x_coord
-            # print(i, ", ", x_coord, " ->", res)
-            transformed_labels.append("{:.2f}".format(res))
-    ax.set_xticklabels(transformed_labels)
-
 
     ax.legend(fontsize=10)
     plt.minorticks_on()
