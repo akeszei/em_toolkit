@@ -96,8 +96,10 @@ def get_all_files_older_than(path, age_cutoff):
     for root, sub_dirs, files in os.walk(path):
         for f in files:
             f_w_path = os.path.join(root, f)
-            ## ignore hidden Windows folders we dont care about
+            ## ignore specific folders
             if '$RECYCLE.BIN' in f_w_path:
+                continue
+            if 'Service' in f_w_path:
                 continue
             age, size = file_age_in_seconds(f_w_path)
             if age >= age_cutoff:
