@@ -1,4 +1,10 @@
 
+## NOTE FROM TALOS PC
+## 1. Open powershell and navigate to the share direcotry:
+##      $ cd //TALOSL-9952094/Data
+## 2. Run script from that directory
+##      $ python C:\Users\Public\manage_files_by_age.py
+
 def usage():
     print("====================================================================================================")
     print(" Run in the working directory to delete or transfer files older than a given number of days.")
@@ -34,6 +40,8 @@ def parse_flags(PARAMS):
         else:
             print(" ERROR :: No value provided for '--days' flag, using default value.")
 
+        print(" Look for files older than %s days" % PARAMS['days_threshold'])
+    else:
         print(" Look for files older than %s days" % PARAMS['days_threshold'])
 
     if check_for_flag(cmdline, ['--move_only']):
@@ -88,6 +96,9 @@ def get_all_files_older_than(path, age_cutoff):
     for root, sub_dirs, files in os.walk(path):
         for f in files:
             f_w_path = os.path.join(root, f)
+            ## ignore hidden Windows folders we dont care about
+            if '$RECYCLE.BIN' in f_w_path:
+                continue
             age, size = file_age_in_seconds(f_w_path)
             if age >= age_cutoff:
                 # print(f_w_path, age, True)
@@ -119,9 +130,9 @@ def print_report(file_list, disk_size_mb, MOVE_ONLY):
 
     print("--------------------------------------")
     if MOVE_ONLY:
-        print(" Example files to delete:")
-    else:
         print(" Example files to transfer:")
+    else:
+        print(" Example files to delete:")
     print("--------------------------------------")
     for i in range(6):
         if i < 3:
@@ -205,7 +216,10 @@ if __name__ == "__main__":
     print_report(old_files, total_size_mb, MOVE_ONLY)
 
     ## prompt the user to continue after displaying the proposed action of the script
-    user_input = input(" Proceed with deleting files? (y/n): ")
+    if MOVE_ONLY:
+        user_input = input(" Proceed with file transfer? (y/n): ")
+    else:
+        user_input = input(" Proceed with deleting files? (y/n): ")
     if user_input in ['y', 'Y', 'yes', 'YES']:
         if MOVE_ONLY:
             transfer_files(old_files, DESTINATION)
