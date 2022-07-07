@@ -17,13 +17,24 @@ Revert to full volume with
 `molmap` command works as usual from regular Chimera.
 
 ### Dock volume into box
-`vop resample <volume> onGrid <box>` works as usual from Chimerma
+`vop resample <volume> onGrid <box>` works as usual from Chimera
 
 ### Color density by nearby model
 WIP
 
 ### Scene management
-WIP
+When honed in on a specific view, you can cache the position by name via:
+
+    view name <name>
+
+This will allow you to return to that view via its unique name:
+
+    view <name>
+
+The name of all cached positions can be found via:
+
+    view list
+This functionality can be useful to quickly jump between multiple active sites/other regions when trying to assess different maps.
 
 ### Figure styles
 #### Cartoon models with clear edges
