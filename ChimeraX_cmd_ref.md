@@ -27,13 +27,21 @@ WIP
 
 ### Figure styles
 #### Cartoon models with clear edges
-Ambient occlusion with thick coil diameter and heavy stroke/outline can highlight cartoon regions especially when surrounded by other subunits. 
+Ambient occlusion with thick coil diameter and heavy stroke/outline can highlight cartoon regions especially when surrounded by other subunits.
+
 `preset 1; lighting soft `
+
 `show cartoon; hide atoms`
+
 `graphics silhouettes width 5; cartoon style coil thickness 1`
+
 #### Cartoon slab with specific side chains
 When viewing side chains we want to color by heteroatom type and can improve visibility by making the side chains a bit thicker than default.
+
 `preset 1; lighting soft `
+
 `show cartoon; hide atoms`
+
 `graphics silhouettes width 2; color byHetero; style stick; size stickRadius 0.25`
+
 `view sel`  (adjust camera and slab thickness manually)
