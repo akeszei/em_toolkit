@@ -84,8 +84,14 @@ def get_array_index_from_linear_index(cols, rows, index):
     """ Convert a linear index (e.g. 0, 1, 2, ..., n) to an array index in a serpentine fashion (e.g. tile index in EPU).
         EPU's first image is in the center, then it continues by going down and counter clockwise
     """
-    ox = int(cols / 2) - 1
-    oy = int(rows / 2) - 1
+    ## depending on if the tile dimensions are even or odd we need to adjust which index is the correct center
+    if cols % 2 == 1:
+        ox = int(cols / 2)
+        oy = int(rows / 2)
+    else:
+        ox = int(cols / 2) - 1
+        oy = int(rows / 2) - 1
+
     origin = np.array([ox, oy])
 
     displacement = get_serpentine_displacement_index(index)
