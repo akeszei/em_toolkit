@@ -24,7 +24,7 @@ def get_mics_from_cs_data(cs_data):
     return mics
 
 def write_list_to_file(list_obj, out_fname = "mics.txt"):
-    with open(out_fname, 'a') as f:
+    with open(out_fname, 'w') as f:
         for item in list_obj:
             f.write("%s\n" % item) 
     return 
