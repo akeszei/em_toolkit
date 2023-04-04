@@ -3,6 +3,34 @@
 # UCSF ChimeraX quick reference  
 Common commands used for structural analysis are shown here for easy reference.
 
+### Prepare an initial volume from an atomic model
+Load a model and prepare a density, shifting it to a zero origin:
+```
+open <pdb_id>
+molmap <model_id> <res>
+volume <molmap_id> origin 0,0,0
+```
+Prepare an empty box with the correct dimensions and pixel size:
+```
+vop new size <box_size> gridSpacing <apix> origin 0,0,0
+
+// example for a box size of 200 px, 1.03 Ang/px:
+vop new size 200 gridSpacing 1.03 origin 0,0,0
+
+// note you may need to adjust the threshold to see the box
+```
+Finally, resample the molmap into the box as usual:
+```
+vop resample <molmap_id> onGrid <empty_box_id>
+```
+The resulting resampled volume can be saved to disk via:
+```
+save /path/to/disk models <resampled_id> 
+
+// example on Windows PC:
+save C:\Users\Alexander\Desktop\test.mrc models #2
+```
+
 ### Segment a volume around a selected model
 `volume zone <map> near <selection> range <ang dist>`
 For example:
@@ -14,7 +42,14 @@ Revert to full volume with
 `view <selection> `
 
 ### Create volume from atomic model
-`molmap` command works as usual from regular Chimera.
+Command works as usual from regular Chimera:
+```
+molmap  <model_id>  <res> 
+
+// example making a density from an atomic model
+molmap #1 10 
+```
+
 
 ### Dock volume into box
 `vop resample <volume> onGrid <box>` works as usual from Chimera

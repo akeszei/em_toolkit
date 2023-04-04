@@ -140,3 +140,10 @@ If you have a density from your processing software already open, you can immedi
     vop resample #<molmap_density> onGrid #<processing_density>
 
 The output density can then be saved as above and used directly to make a mask (apply soft edges) or as a map. 
+
+---
+Alternatively, an empty box can be created with the correct box and pixel size that can be used for resampling via:
+```
+vop new size <box_size> gridSpacing <apix> origin 0,0,0
+```
+You should then shift the molmap into the same origin (`volume <id> origin 0,0,0`) and run the `vop resample ...` command.
