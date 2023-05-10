@@ -5,11 +5,9 @@
 """
 To Do:
     - Clean up unused functions
-    - Fix extraction box size label 
+    - Re-implement save_jpg function and Ctrl + s hotkey
+    - Are top functions best packed into MrcData object?
 """ 
-
-DEBUG = False
-start_time = None
 
 def usage():
     print("================================================================================================")
@@ -28,59 +26,6 @@ def usage():
     print("    Ctrl + q : Quit program")
     print("================================================================================================")
     return 
-
-def speedtest(method):
-    global start_time
-    if method == 'start': 
-        start_time = time.time()
-    
-    if method == 'stop':
-        end_time = time.time()
-        total_time_taken = end_time - start_time
-        print("... runtime = %.2f sec" % total_time_taken)
-    return
-
-def add_scalebar(image_obj, scalebar_px, scalebar_stroke):
-    """ Adds a scalebar to the input image and returns a new edited image
-    PARAMETERS
-        image_obj = PIL.Image object
-    """
-    ## set the indentation to be ~2.5% inset from the bottom left corner of the image
-    indent_px = int(image_obj.height * 0.025)
-    # ## set the stroke to be ~0.5% image size
-    # scalebar_stroke = int(image_obj.height * 0.005)
-    # if scalebar_stroke < 1:
-    #     scalebar_stroke = 1
-
-    if DEBUG: print("Scale bar info: (offset px, stroke) = (%s, %s)" % (indent_px, scalebar_stroke))
-    ## find the pixel range for the scalebar, typically 5 x 5 pixels up from bottom left
-    LEFT_INDENT = indent_px # px from left to indent the scalebar
-    BOTTOM_INDENT = indent_px # px from bottom to indent the scalebar
-    STROKE = scalebar_stroke # px thickness of scalebar
-    x_range = (LEFT_INDENT, LEFT_INDENT + scalebar_px)
-    y_range = (image_obj.height - BOTTOM_INDENT - STROKE, image_obj.height - BOTTOM_INDENT)
-
-    ## set the pixels white for the scalebar
-    for x in range(x_range[0], x_range[1]):
-        for y in range(y_range[0], y_range[1]):
-            # image_obj.putpixel((x, y), (255, 255, 255))
-            image_obj.putpixel((x, y), (255)) # grayscale so 1 dimension
-    return image_obj
-
-def find_file_index(fname, directory_list, IGNORE_CAPS = True):
-    """ For a given file name and list of files in directory, return the index that corresponds to the input file name or None if not present
-    """
-    fname = os.path.basename(fname)
-    i = 0
-    for file_w_path in directory_list:
-        basename = os.path.basename(file_w_path)
-        if fname.lower() == basename.lower():
-            return i
-        i += 1
-
-    ## if we have not returned an index, then return an error
-    if DEBUG: print(" No match found for file (%s)" % fname)
-    return None
 
 def sigma_contrast(im_array, sigma, DEBUG = True):
     """ Rescale the image intensity levels to a range defined by a sigma value (the # of
@@ -107,16 +52,6 @@ def sigma_contrast(im_array, sigma, DEBUG = True):
     im_array = ((im_array - minval) / (maxval - minval)) * 255
 
     return im_array.astype('uint8')
-
-def gamma_contrast(im_array, gamma=1.0):
-    # build a lookup table mapping the pixel values [0, 255] to their adjusted gamma values
-    ## REF: https://pyimagesearch.com/2015/10/05/opencv-gamma-correction/
-    invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
-    # apply gamma correction using the lookup table
-    im = cv2.LUT(im_array, table)
-    if DEBUG: print(" gamma_contrast (g = %s)" % gamma)
-    return im
 
 def lowpass(img, threshold, pixel_size, DEBUG = True):
     """ An example of a fast implementation of a lowpass filter (not used here)
@@ -221,7 +156,7 @@ def mrc2grayscale(mrc_raw_data, pixel_size, lowpass_threshold):
 
     return lowpassed, ctf
 
-def coord2freq(x, y, fft_width, fft_height, angpix):
+def coord2freq(x, y, fft_width, fft_height, angpix, DEBUG = False):
     """ For a given coordinate in an FFT image, return the frequency spacing corresponding to that position (i.e. resolution ring)
     PARAMETERS
         x = int(), x-axis pixel position in centered FFT
@@ -252,30 +187,6 @@ def coord2freq(x, y, fft_width, fft_height, angpix):
         print(" ==============================================================================")
     return frequency, difference_vector_magnitude
 
-def auto_contrast(self, im_array, DEBUG = True):
-    """ Rescale the image intensity levels to a reasonable range using the top/bottom 2 percent
-        of the data to define the intensity levels
-    """
-    ## avoid hotspot pixels by looking at a group of pixels at the extreme ends of the image
-    minval = np.percentile(im_array, 2)
-    maxval = np.percentile(im_array, 98)
-
-    if DEBUG:
-        print("=======================================")
-        print(" image_handler :: auto_contrast")
-        print("---------------------------------------")
-        print("  input img dim = ", im_array.shape)
-        print("  original img min, max = (%s, %s)" % (np.min(im_array), np.max(im_array)))
-        print("  stretch to new min, max = (%s %s)" % (minval, maxval))
-        print("=======================================")
-
-    ## remove pixles above/below the defined limits
-    im_array = np.clip(im_array, minval, maxval)
-    ## rescale the image into the range 0 - 255
-    im_array = ((im_array - minval) / (maxval - minval)) * 255
-
-    return im_array
-
 def resize_image(img_nparray, scaling_factor, DEBUG = True):
     """ Uses OpenCV to resize an input grayscale image (0-255, 2d array) based on a given scaling factor
             scaling_factor = float()
@@ -290,20 +201,13 @@ def resize_image(img_nparray, scaling_factor, DEBUG = True):
 
     return resized_im
 
-
 class MrcData():
+    """
+    A class object for loading an .MRC/.MRCS image and handling its accompanying data (e.g. processed images, associated coordinates, ...). Initialize this object with the file and desired default parameters:
+        mrcdata = MrcData(image_name, scale_factor, lowpass_threshold, sigma_contrast)
+    """
 
-    # raw_data = None
-    # pixel_size = None
-    # scale_factor = None 
-    # processed_data = [] 
-    # x = None 
-    # y = None
-    # z = None 
-    # fname = None
-    # coordinates_raw = {} 
-
-    def __init__(self, fname, input_scale, input_lowpass, input_sigma):
+    def __init__(self, fname, input_scale = 0.25, input_lowpass = 10, input_sigma = 3):
         print("=========================================")
         print("      MrcData class initialized")
         print("-----------------------------------------")
@@ -346,7 +250,7 @@ class MrcData():
             print(" Adding coordinate to slice: %s -> (%s, %s)" % (slice_index, x, y))
         return 
 
-    def is_clashing(self, input_x, input_y, box_width, coordinates, slice_index):
+    def is_clashing(self, input_x, input_y, box_width, coordinates, slice_index, DEBUG = False):
         """
         PARAMETERS
             input_x, input_y = coordinates of the new coordinate in raw pixel values 
@@ -451,7 +355,12 @@ class MrcData():
                 extracted_img = im_array[y0:y1,x0:x1]
                 extracted_imgs.append(extracted_img)
 
-        output_mrcs_name = self.fname + "_extracted.mrcs"
+        ## prepare a reasonable output name adjusting for both expected extensions
+        if self.fname[-5:].lower() == '.mrcs':
+            output_mrcs_name =  self.fname[-5:] + "_extracted.mrcs"
+        elif self.fname[-4:].lower() == '.mrc':
+            output_mrcs_name = self.fname[-4:] + "_extracted.mrcs"
+
         if len(extracted_imgs) > 0:
             self.make_empty_mrcs(len(extracted_imgs), (x1 - x0, y1 - y0), dtype, output_mrcs_name)
             self.write_frames_to_empty_mrcs(output_mrcs_name, extracted_imgs)
@@ -466,7 +375,7 @@ class MrcData():
 
         return
     
-    def make_empty_mrcs(self, stack_size, mrc_dimensions, dtype, fname):
+    def make_empty_mrcs(self, stack_size, mrc_dimensions, dtype, fname, DEBUG = True):
         """ Prepare an empty .MRCS in memory of the correct dimensionality
         """
         with mrcfile.new(fname, overwrite=True) as mrcs:
@@ -498,6 +407,7 @@ class MrcData():
         for i in range(len(input_data)):
             ## grab the frame data 
             frame_data = input_data[i]
+            print(" Writing frame %s to file " % i, frame_data.shape)
 
             ## sanity check there is a frame expected
             if i in range(0, input_mrcs.data.shape[0]):
@@ -523,12 +433,11 @@ class MrcData():
         return
 
 
-
 class MainUI:
     def __init__(self, instance, input_scale, input_lowpass, input_sigma, input_file):
         self.instance = instance
         instance.title("Tomography picker")
-        # instance.geometry("520x500")
+        # instance.geometry("520x500") ## geometry now set by a function 
 
         ## CLASS VARIABLES
         self.displayed_widgets = list() ## container for all widgets packed into the main display UI, use this list to update each
@@ -637,23 +546,15 @@ class MainUI:
 
         ## KEYBINDINGS
         self.instance.bind("<F1>", lambda event: self.debugging())
-        # self.instance.bind("<F2>", lambda event: self.redraw_canvases())
-        # self.instance.bind('<Control-KeyRelease-s>', lambda event: self.save_selected_mrcs())
-
         self.instance.bind('<Left>', lambda event: self.next_img('left'))
         self.instance.bind('<Right>', lambda event: self.next_img('right'))
         self.instance.bind('<Up>', lambda event: self.next_img('left'))
         self.instance.bind('<Down>', lambda event: self.next_img('right'))
-
         self.instance.bind('<z>', lambda event: self.next_img('left'))
         self.instance.bind('<x>', lambda event: self.next_img('right'))
-        # self.instance.bind('<c>', lambda event: self.toggle_SHOW_CTF()) ## will need to set the toggle
         self.instance.bind('<Control-KeyRelease-e>', lambda event: self.extract_particles())
+        self.instance.bind('<Control-KeyRelease-q>', lambda event: self.quit())
 
-
-        # self.image_name_label.bind('<Control-KeyRelease-a>', lambda event: self.select_all(self.image_name_label))
-        # self.image_name_label.bind('<Return>', lambda event: self.image_name_updated())
-        # self.image_name_label.bind('<KP_Enter>', lambda event: self.image_name_updated())
         self.scale_ENTRY.bind('<Control-KeyRelease-a>', lambda event: self.select_all(self.scale_ENTRY))
         self.scale_ENTRY.bind('<Return>', lambda event: self.scale_updated())
         self.scale_ENTRY.bind('<KP_Enter>', lambda event: self.scale_updated())
@@ -677,6 +578,7 @@ class MainUI:
         return 
 
     def save_jpg(self):
+        ## WIP 
         suggested_jpg_fname = os.path.splitext(self.image_name)[0] + ".jpg"
 
         file_w_path = asksaveasfilename(  parent = self.instance, initialfile = suggested_jpg_fname,
@@ -723,7 +625,7 @@ class MainUI:
 
         return
 
-    def draw_image_coordinates(self):
+    def draw_image_coordinates(self, DEBUG = False):
         """ Read a dictionary of pixel coordinates and draw boxes centered at each point
         """
         canvas = self.displayed_widgets[0]
@@ -793,20 +695,16 @@ class MainUI:
 
         return
 
-    def on_left_mouse_down(self, x, y):
+    def on_left_mouse_down(self, x, y, DEBUG = False):
         """ Add coordinates to the dictionary at the position of the cursor, then call a redraw.
         """
         mouse_position = x, y
 
-        # if self.is_clashing(mouse_position): # this function will also remove the point if True
-        #     pass
-        # else:
         if DEBUG: print(" Add coordinate: x, y =", mouse_position[0], mouse_position[1])
-            # x_coord = mouse_position[0]
-            # y_coord = mouse_position[1]
-            # self.coordinates[(x_coord, y_coord)] = 'new_point'
+
         self.mrcdata.add_coordinate(self.slice_index, x, y, self.picks_diameter)
         self.draw_image_coordinates()
+
         return
 
     def load_file(self):
@@ -817,22 +715,31 @@ class MainUI:
         # See: https://stackoverflow.com/questions/9239514/filedialog-tkinter-and-opening-files
         file_w_path = askopenfilename(parent=self.instance, initialdir=".", title='Select file', filetypes=(
                                             # ("All files", "*.*"),
-                                            ("Medical Research Council format", "*.mrc"),
+                                            ("MRC/MRCS", "*.mrc *.mrcs"),
+                                            (".MRC", "*.mrc"),
+                                            (".MRCS", "*.mrcs"),
                                             ))
         if file_w_path:
             try:
                 # extract file information from selection
                 file_dir, file_name = os.path.split(str(file_w_path))
-                # print("File selected: ", file_name)
-                # print("Working directory: ", file_dir)
+                print("File selected: ", file_name)
+                print("Working directory: ", file_dir)
                 self.working_dir = file_dir
-                self.load_img(file_w_path)
+
+                ## Pack the image data into the MrcData object
+                self.slice_index = 0
+                self.mrcdata = MrcData(self.image_name, self.scale_factor, self.lowpass_threshold, self.sigma_contrast)
+                self.load_img()
+
+                ## SET THE SIZE OF THE PROGRAM WINDOW BASED ON THE SIZE OF THE DATA FRAME AND THE SCREEN RESOLUTION
+                self.resize_program_to_fit_screen_or_data()
 
             except:
                 showerror("Open Source File", "Failed to read file\n'%s'" % file_w_path)
             return
 
-    def next_img(self, direction):
+    def next_img(self, direction, DEBUG = False):
         """ Increments the current image index based on the direction given to the function.
         """
         ## Check if an entry widget has focus, in which case do not run this function
@@ -864,7 +771,7 @@ class MainUI:
         # self.load_img()
         return
 
-    def toggle_SHOW_PICKS(self):
+    def toggle_SHOW_PICKS(self, DEBUG = False):
         """
         """
         if self.SHOW_PICKS.get() == True:
@@ -878,7 +785,7 @@ class MainUI:
 
         return
 
-    def pick_diameter_updated(self):
+    def pick_diameter_updated(self, DEBUG = True):
         user_input = self.picks_diameter_ENTRY.get().strip()
         ## cast the input to an integer value
         try:
@@ -908,32 +815,7 @@ class MainUI:
         self.next_img("none")
         return
 
-    def image_name_updated(self):
-        user_input = self.image_name_label.get().strip()
-
-        ## find the files in the working directory
-        image_list = get_mrc_files_in_dir(self.working_dir)
-
-        if DEBUG: print(" Look for input fname (%s) in working dir (%s)" % (user_input, self.working_dir))
-        match_index = find_file_index(user_input, image_list)
-        if match_index == None:
-            print(" No match found for image in working directory:")
-            print("     >> Image = %s" % user_input)
-            print("     >> Working dir = %s" % self.working_dir)
-            self.image_name_label.delete(0, tk.END)
-            self.image_name_label.insert(0," No match found")
-            ## pass focus back to the main instance
-            self.instance.focus()
-        else:
-            self.index = match_index
-            ## pass focus back to the main instance
-            self.instance.focus()
-            self.next_img('none')
-            ## reset the size of the main program
-            self.resize_program_to_fit_screen_or_data()
-        return
-
-    def scale_updated(self):
+    def scale_updated(self, DEBUG = True):
         user_input = self.scale_ENTRY.get().strip()
         ## cast the input to a float value
         try:
@@ -1010,65 +892,20 @@ class MainUI:
 
         return
 
-    def scalebar_updated(self):
-        user_input = self.scalebar_length_ENTRY.get().strip()
-        ## cast the input to an integer value
-        try:
-            user_input = int(user_input)
-        except:
-            self.scalebar_length_ENTRY.delete(0, tk.END)
-            self.scalebar_length_ENTRY.insert(0,self.scalebar_length)
-            print(" Input requires integer values > 0")
-        ## check if input is in range
-        if user_input > 0:
-            if DEBUG: print("scalebar length updated %s" % user_input )
-            self.scalebar_length = user_input
-            ## pass focus back to the main instance
-            self.instance.focus()
-            self.next_img('none')
-        else:
-            self.scalebar_length_ENTRY.delete(0, tk.END)
-            self.scalebar_length_ENTRY.insert(0,self.scalebar_length)
-            print(" Input requires positive integer values")
-        return
-
-    def load_img(self):
+    def load_img(self, DEBUG = False):
         
         self.pixel_size = self.mrcdata.pixel_size
         mrc_im_array = self.mrcdata.processed_data[self.slice_index]
 
         self.mrc_dimensions = (self.mrcdata.x, self.mrcdata.y)
 
-        ###################################
-        # FAST = self.SPEED_OVER_ACCURACY.get()
-        # if not FAST:
-        #     ## slow but accurate method
-        #     img_array, ctf_img_array = mrc2grayscale(mrc_im_array, self.pixel_size, self.lowpass_threshold)
-        #     img_scaled = resize_image(img_array, self.scale_factor)
-        #     img_contrasted = sigma_contrast(img_scaled, self.sigma_contrast)
-        #     im_obj = get_PhotoImage_obj(img_contrasted, self.SHOW_SCALEBAR.get(), scalebar_px = int(self.scalebar_length / (self.pixel_size / self.scale_factor)), scalebar_stroke = self.scalebar_stroke)
-        #     ctf_scaled = resize_image(ctf_img_array, self.scale_factor)
-        #     ctf_contrasted = sigma_contrast(ctf_scaled, self.sigma_contrast)
-        #     ctf_contrasted = gamma_contrast(ctf_contrasted, 0.4)
-        #     ctf_obj = get_PhotoImage_obj(ctf_contrasted)
-        # else:
-        #     ## it is much faster if we scale down the image prior to doing filtering
-        #     img_scaled = resize_image(mrc_im_array, self.scale_factor)
-        #     img_array, ctf_img_array = mrc2grayscale(img_scaled, self.pixel_size / self.scale_factor, self.lowpass_threshold)
-        #     img_contrasted = sigma_contrast(img_array, self.sigma_contrast)  
-        #     im_obj = get_PhotoImage_obj(img_contrasted, self.SHOW_SCALEBAR.get(), scalebar_px = int(self.scalebar_length / (self.pixel_size / self.scale_factor)), scalebar_stroke = self.scalebar_stroke)
-        #     ctf_contrasted = sigma_contrast(ctf_img_array, self.sigma_contrast)
-        #     ctf_contrasted = gamma_contrast(ctf_contrasted, 0.4)
-        #     ctf_obj = get_PhotoImage_obj(ctf_contrasted)
-        ####################################
-
+        ## get the image object from the MrcData object
         im_obj = self.mrcdata.processed_data[self.slice_index]
         ## update the display data on the class
         self.display_data = [ im_obj ]
         ## update the raw np array for saving jpgs 
         # self.display_im_arrays = img_contrasted
 
-        # a, b = get_fixed_array_index(1, 1)
         ## initialize a canvas if it doesnt exist yet
         if len(self.displayed_widgets) == 0:
             self.add_canvas(self.scrollable_frame, img_obj = im_obj, row = 0, col = 0, canvas_reference = self.displayed_widgets, img_reference = self.display_data)
@@ -1078,7 +915,7 @@ class MainUI:
             self.load_img_on_canvas(self.displayed_widgets[0], self.display_data[0])
 
         ## update label/entry widgets
-        self.update_input_widgets()
+        self.update_display_widgets()
 
         ## draw image coordinates if necessary
         self.draw_image_coordinates()
@@ -1102,12 +939,10 @@ class MainUI:
         """
         return widget.select_range(0, tk.END)
 
-    def update_input_widgets(self):
+    def update_display_widgets(self):
         """ Updates the input widgets on the main GUI to take on the values of the global dictionary.
             Mainly used after loading a new settings file.
         """
-        # self.image_name_label.delete(0, tk.END)
-        # self.image_name_label.insert(0,self.mrcdata.fname)
         self.instance.title("Tomography picker :: " + self.mrcdata.fname)
 
         self.scale_ENTRY.delete(0, tk.END)
@@ -1126,7 +961,7 @@ class MainUI:
         self.MRC_angpix_LABEL['text'] = "%s Å/px" % (self.pixel_size)
         self.MRC_displayed_angpix_LABEL['text'] = "Display @ %0.2f Å/px" % (self.pixel_size / self.scale_factor)
 
-        # self.draw_image_coordinates()
+        self.extract_LABEL['text'] = "%s px" % (int(self.picks_diameter / self.pixel_size) - 1)
 
         return
 
@@ -1159,7 +994,7 @@ class MainUI:
         dropdown_file = tk.Menu(menubar)
         menubar.add_cascade(label="File", menu = dropdown_file)
         dropdown_file.add_command(label="Open .mrc", command=self.load_file)
-        dropdown_file.add_command(label="Save .jpg", command=self.save_jpg)
+        # dropdown_file.add_command(label="Save .jpg", command=self.save_jpg)
         dropdown_file.add_command(label="Exit", command=self.quit)
         # ## dropdown menu --> Options
         # dropdown_options = tk.Menu(menubar)
@@ -1186,7 +1021,7 @@ class MainUI:
             self.viewport_canvas.config(width=w - 140, height=h) ## add width to pad in the right-side panel
         return
 
-    def determine_program_dimensions(self, data_frame):
+    def determine_program_dimensions(self, data_frame, DEBUG = False):
         """ Use the screen size and data frame sizes to determine the best dimensions for the main UI.
         PARAMETERS
             data_frame = ttk.Frame object that holds the main display objects in the primary UI window
@@ -1212,7 +1047,7 @@ class MainUI:
 
         return w, h
 
-    def canvas_callback(self, event):
+    def canvas_callback(self, event, DEBUG = False):
         """ Tie events for specific canvases by adding this callback
         """
         if DEBUG: print (" Clicked ", event.widget, "at", event.x, event.y)
@@ -1262,7 +1097,7 @@ class MainUI:
         self.instance.geometry("%sx%s" % (w + 24, h + 24)) ## set the main program size using the updated values
         return
 
-    def quit(self):
+    def quit(self, DEBUG = False):
         if DEBUG:
             print(" CLOSING PROGRAM")
         sys.exit()
