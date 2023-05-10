@@ -357,9 +357,9 @@ class MrcData():
 
         ## prepare a reasonable output name adjusting for both expected extensions
         if self.fname[-5:].lower() == '.mrcs':
-            output_mrcs_name =  self.fname[-5:] + "_extracted.mrcs"
+            output_mrcs_name =  self.fname[:-5] + "_extracted.mrcs"
         elif self.fname[-4:].lower() == '.mrc':
-            output_mrcs_name = self.fname[-4:] + "_extracted.mrcs"
+            output_mrcs_name = self.fname[:-4] + "_extracted.mrcs"
 
         if len(extracted_imgs) > 0:
             self.make_empty_mrcs(len(extracted_imgs), (x1 - x0, y1 - y0), dtype, output_mrcs_name)
