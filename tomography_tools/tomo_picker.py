@@ -7,6 +7,8 @@ To Do:
     - Clean up unused functions
     - Re-implement save_jpg function and Ctrl + s hotkey
     - Are top functions best packed into MrcData object?
+    - Make Ctrl + S save the picked coordinates to load again later (allow for more than one feature per img?)
+    - Center-of-mass snapping on pick?? Might be interesting to have a function try to center the pick? Can add a toggle to enable/disable
 """ 
 
 def usage():
