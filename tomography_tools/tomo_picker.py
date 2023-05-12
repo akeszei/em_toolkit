@@ -575,10 +575,44 @@ class MainUI:
         # self.optionPanel_instance = None
         return
 
+    def create_gif_animation(self, FORMAT = 'unidirectional'):
+        print(" Creating GIF:")
+
+        ## prepare a reasonable output name adjusting for both expected extensions
+        if self.mrcdata.fname[-5:].lower() == '.mrcs':
+            output_fname =  self.mrcdata.fname[:-5] + ".gif"
+        elif self.mrcdata.fname[-4:].lower() == '.mrc':
+            output_fname = self.mrcdata.fname[:-4] + ".gif"
+
+        ## reprocess the ImageTk object back to PIL Image format
+        frames = []
+        for tk_img in self.mrcdata.processed_data:
+            pil_img = ImageTk.getimage(tk_img)
+            frames.append(pil_img)
+
+        if FORMAT == 'unidirectional':
+
+            frame_one = frames[0]
+            frame_one.save(output_fname, format="GIF", append_images=frames, save_all=True, duration=100, loop=0)
+
+        elif FORMAT == 'bidirectional':
+            ## deep copy the forward frames, then reverse them
+            reversed_frames = copy.deepcopy(frames)
+            reversed_frames.reverse()
+            ## append reverse direction onto the forward loop 
+            for f in reversed_frames:
+                frames.append(f)
+
+            frame_one = frames[0]
+            frame_one.save(output_fname, format="GIF", append_images=frames, save_all=True, duration=100, loop=0)
+
+        print(" ... complete. Saved as: %s" % output_fname)
+        return 
+
     def extract_particles(self):
         self.mrcdata.extract_particles(self.picks_diameter)
         return 
-
+ 
     def save_jpg(self):
         ## WIP 
         suggested_jpg_fname = os.path.splitext(self.image_name)[0] + ".jpg"
@@ -996,6 +1030,8 @@ class MainUI:
         dropdown_file = tk.Menu(menubar)
         menubar.add_cascade(label="File", menu = dropdown_file)
         dropdown_file.add_command(label="Open .mrc", command=self.load_file)
+        dropdown_file.add_command(label="Save .gif animation (unidirectional)", command=lambda: self.create_gif_animation(FORMAT = 'unidirectional'))
+        dropdown_file.add_command(label="Save .gif animation (bidirectional)", command=lambda: self.create_gif_animation(FORMAT = 'bidirectional'))
         # dropdown_file.add_command(label="Save .jpg", command=self.save_jpg)
         dropdown_file.add_command(label="Exit", command=self.quit)
         # ## dropdown menu --> Options
@@ -1041,11 +1077,18 @@ class MainUI:
             w = screen_x - 150
         else:
             w = data_x + 150
-
+        
         if data_y > screen_y:
             h = screen_y - 250
         else:
             h = data_y + 30
+
+
+        ## make a minimim dimension size  
+        if w < 250:
+            w = 350
+        if h < 200:
+            h = 400
 
         return w, h
 
@@ -1228,7 +1271,7 @@ if __name__ == '__main__':
     from tkinter.messagebox import showerror
     from tkinter import ttk
     import numpy as np
-    import os, sys
+    import os, sys, copy
     import time
     try:
         from PIL import Image as PIL_Image
