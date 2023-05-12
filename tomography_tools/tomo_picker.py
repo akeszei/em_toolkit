@@ -1085,10 +1085,10 @@ class MainUI:
 
 
         ## make a minimim dimension size  
-        if w < 250:
-            w = 350
-        if h < 200:
-            h = 400
+        if w < 430:
+            w = 430
+        if h < 480:
+            h = 480
 
         return w, h
 
