@@ -24,7 +24,7 @@ if [ "${MAIN_DIR: -1}" != "/" ]; then
 fi
 
 ## Step 1
-## Create a list of files that exist in the first copy session into memory 
+## Create a list of files that exist in the first copy session 
 
 echo "============================================"
 echo " Determine files already present in: "

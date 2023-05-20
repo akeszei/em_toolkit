@@ -1,0 +1,253 @@
+#### Custom bash script to assist the use of commands I often forget & have to look up.
+
+# TO DO, add grep, pipe, search, etc...
+
+# Install this script by sourcing it
+
+# To use in terminal simply type: $ howto <command>, for example:
+#    $ howto chmod
+
+howto() {
+   if [ "$1" = "" ]
+   then
+      echo "========================================
+Retreive useful notes for common and not-so-common bash commands:
+  $ howto <command>
+
+For example, try:
+  $ howto chmod
+  $ howto rsync
+  $ howto top
+  $ howto mount
+  $ howto find
+========================================"
+   fi
+# chmod 
+   if [ "$1" = "chmod" -o "$1" = "permissions" ] ##note that -o is a logical OR operator in shell script
+   then
+      echo "========================================
+Alter permissions for owner, group, or others (in this order) using 'chmod ### filename':
+  0 = ---
+  1 = --x
+  2 = -w-
+  4 = r--
+  3 = -wx (1+2)
+  5 = r-x (4+1)
+  6 = rw- (2+4)
+  7 = rwx (3+4)
+Note: r = read ; w = write ; x = execute
+
+Note: find out the owner and group of a file using $ ls -l
+
+e.g. $ chmod 744 filename = user has rwx, group has r--, others have r--
+e.g. $ chmod 600 directory = user has rw, others have no access to directory
+========================================"
+   fi
+# rsync
+   if [ "$1" = "rsync" ]
+   then
+      echo "========================================
+Synchronization of files from the source to the destination, only taking new or updated files. Can be used with ssh command for synchronization across a network.
+Typical usage would include flags for verbose (-v), archiving flags (-a), white space-friendly (-s), use compression (-z), human-readable output (-h), skip files that are newer at destination than source (-u):
+  $ rsync -varhu --stats --preallocate ~/source/ ~/dest/
+Additional modifiers to consider are:
+  --stats = give some file-transfer statistics
+  --dry-run = test the command with a mock run
+  --preallocate = ensure space on the destination before transfer from source
+  --delete = delete files from destination that are absent in the source
+
+In complex cases it may be useful to have a list of files to skip, 
+  $ rsync -varhu --exclude-from=file_list.txt source/ dest/
+... for complex example comparing two directories to use such a list see my copy_missing.sh script.
+========================================"
+   fi
+# ls
+   if [ "$1" = "ls" ]
+   then
+      echo "========================================
+List files and devices:
+  ls -a = list files, including hidden files
+  lsblk = list disks and their partitions
+  lspci = list all PCI connected devices
+  lsusb = list all USB ports and connected devices
+========================================"
+   fi
+# top
+   if [ "$1" = "top" ]
+   then
+      echo "========================================
+Terminal-based task manager that displays CPU and memory utilization and lists all processes and their usage accoding to their process ID (PID) number, user running the process, and executable command article. If installed, a fancy version of top is 'htop', which has easier to use controls and readout.
+
+Common keystrokes that are useful when using top include (note that capital letters mean using 'shift' button with the corresponding letter):
+  q = quit
+  P = sort commands by CPU usage
+  M = sort commands by memory usage
+
+  1 = toggle between single vs individual CPU core usage
+  t = toggle between CPU display types
+  m = toggle between memory display types
+
+  L = search by string
+  u = search by username
+  c = show full path of executables
+  d = change refresh speed (default = 3 s)
+  k = kill a program by its PID
+
+  W = saves the current display settings into ~/.toprc, if possible, allowing top to remember the current layout for next use
+
+Sometimes it can be useful to search for a process name to quickly find its associated PID number (for cases where the L command does not retreive the process). To do this requires a few pipes to properly generate a comma-separated list:
+   $  top -p \`pgrep <process_name> | tr \"\\\n\" \",\" | sed 's/,$//'\`
+========================================"
+   fi
+# tmux
+   if [ "$1" = "tmux" ]
+   then
+      echo "========================================
+tmux (terminal multiplexer) allows simultaneous access to a
+single terminal session by multiple users.
+
+  tmux ls
+  tmux new -s <name>
+  tmux attach -t <name>
+
+... within a tmux session, use the Ctrl+b command to navigate or leave
+  Ctrl+b , d = detach from current session
+For more hotkeys see: tmuxcheatsheet.com
+========================================"
+   fi
+# convert
+if [ "$1" = "convert" ]
+   then
+      echo "========================================
+ImageMagick can be used to manipulate common image formats. Common uses include:
+  Batch normalize images,
+    $  for fname in *.jpg; do convert \$fname -normalize \$fname; done
+========================================"
+   fi
+# vi 
+if [ "$1" = "vi" -o "$1" = "vim"]
+   then
+      echo "========================================
+vi/vim usage
+================
+VIM operates in two mode, you can transition between them via the following keys:
+   Esc = activate command mode
+   i = activate insert/edit mode
+
+Basic commands:
+   :q<Enter> = quit vim
+   :w<Enter> = write file
+   :wq<Enter> = save & quit
+   :q!<Enter> = quit without saving
+   ./<string> = search for line with string, hit 'n' to go to next match in file
+
+Other useful commands:
+   yy = copy current line into buffer
+   p = paste buffered text into line below cursor
+   dd = delete current line
+   o = insert empty line below cursor line
+========================================"
+fi
+# mount 
+if [ "$1" = "mount" ]
+then
+   echo "========================================
+mount allows users to mount a partition to a folder.
+Use 'lsblk' command to see all partitions and their device
+names. For example, if the output of lsblk is:
+
+NAME    MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+sda       8:0    0   3.7T  0 disk
+└─sda1   8:1    0   3.7T  0 part
+sdb      8:16    0 931.5G  0 disk
+├─sdb1   8:17   0   512M  0 part /boot/efi
+└─sdb2   8:18   0   931G  0 part /
+
+You might want to mount 'sda1', which is a 4Gig partition
+not yet mounted. To do this you might make a folder in
+/mnt/alex/data and run:
+
+sudo mount /dev/sda1 /mnt/alex/data
+
+Partitions can be unmounted via:
+sudo umount /mnt/alex/data
+========================================"
+fi
+# cryolo 
+if [ "$1" = "cryolo" ] ## -o is a logical OR operator in shell script
+then
+   echo "========================================
+crYOLO is a machine-learning autopicker. Common cmds are:
+
+i) Make a config file:
+  cryolo_gui.py config config_cryolo.json <box_size> --train_image_folder training_mics --train_annot_folder train_annotate --filter NONE
+
+ii) Train a model:
+  cryolo_train.py -c config_cryolo.json -w 5 -g <gpu ids, e.g. 0 1>
+
+iii) Test the autopicker on some micrographs, use the cbox file to find a good threshold:
+
+  cryolo_predict.py -c config_cryolo.json -w cryolo_model.h5 -i test_mics/ -o test_annotate -g <gpu ids, e.g. 0 1>
+
+iv) Run autopicker at desired threshold on full dataset:
+  t=<value>; cryolo_predict.py -c config_cryolo.json -w cryolo_model.h5 -i full_data/ -o boxfiles_\$t -t \$t -g 0 1
+========================================"
+fi
+# conda 
+if [ "$1" = "conda" ]
+then
+   echo "========================================
+conda is an environment management system. Common cmds are:
+
+i) Activate/deactivate an environment via:
+  conda activate <env>
+  conda deactivate
+
+ii) List all available envronments via:
+  conda env list
+
+iii) Create a new conda environment with a specific version of python:
+
+  conda create --name <env> --python=3.5
+
+iv) Check if a package is installable via:
+  conda search <pkg_name>
+========================================"
+fi
+# janni
+if [ "$1" = "janni" ]
+then
+   echo "========================================
+JANNI is an image denoiser implementation packaged with crYOLO.
+Run in same environment as cryolo. Default denoising cmd is:
+
+  janni_denoise.py denoise -g 0 ./full_data/ ./denoised/ /programs/sphire_general_models/gmodel_janni_20190703.h5
+========================================"
+fi
+# vpn 
+if [ "$1" = "vpn" -o "$1" = "openconnect" ] ## -o is a logical OR operator in shell script
+then
+   echo "========================================
+UHN uses GlobalProtect VPN on site. We can login to the VPN on the workstation to access internal resources 
+(mainly the bioinform01 server) by using our credentials we prepared in advance:
+
+  sudo openconnect --protocol=gp connect2.uhn.ca
+  
+  ## Credentials are something like: 
+       User: uhnresearch\akeszei 
+       Pass: *******
+       Should recieve text on phone with confirmation password
+========================================"
+fi
+# find 
+if [ "$1" = "find" ] 
+then
+   echo "========================================
+find is a powerful program for locating files by name in a complex directory structure. 
+It can be particularly useful when combined with a for loop.
+
+## Find a file by extension, then finding the total matches 
+  $ find -name *EER.eer | wc -l
+========================================"
+fi
+}
