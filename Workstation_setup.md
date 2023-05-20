@@ -131,6 +131,62 @@ Add/remove packages as desired. This is a list of the usual suspects I use:
 $ sudo apt install gedit git cmake fonts-inconsolata fonts-roboto ttf-mscorefonts-installer okular evince imagemagick gnuplot xorg openssh-server build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev python3-pip python3-setuptools libx11-dev tk8.6-dev python-tk csh tmux python3-tk python3-pil.imagetk yakuake tree gimp openconnect network-manager-openconnect
 ```
 
+## Set up base python environment 
+As of the time of writing these notes, aptitude installed python as `python3`. For simplicity, make this version the base version for the 'native' user environment by creating a symlink to this one at `/usr/bin` via:
+```
+    $ sudo ln -s /usr/bin/python3 /usr/bin/python 
+```
+Check that `pip` is also set up for this python version by checking its callback with:
+```sh
+    $ pip -V ## look for (python 3.x) in callback 
+```
+### Install common python modules to root account 
+Using the root account to install a module makes it available for all users, preventing the need to install it in multiple locations: 
+```
+    $ sudo pip install matplotlib mrcfile numpy scipy opencv-python tifffile 
+```
+
+## Set up RSA keys & (if possible) SSH handshake the servers
+If all programs are working properly, it is worth establishing a direct RSA handshake between all common servers so work can be transferred between them easily. 
+
+### Set up user RSA key 
+Each user will need its own key and must run through these steps independently. Generate a key via:
+```sh
+    $ ssh-keygen -t rsa -b 4096 -C "kasparov-remote"
+```
+When prompted use defaults and, for ease, to not add a passphrase (just hit enter). 
+
+### If necessary, set the server to allow password attempts: 
+It is good practice to lock a server so it does not allow password attempts. This way only known clients are accepted. However, for new clients, you need to temporarily allow password attempts so an initial handshake can be performed. This is done by editing the `sshd_config` file:
+```sh 
+    $ sudo nano /etc/ssh/sshd_config
+      ## comment out: PasswordAuthentication no 
+    $ service sshd restart ## restart service after saving
+```
+
+### Use password to add RSA key to server
+The remote user can then use the username & password of the server to send its RSA key via:
+```sh
+    $ ssh-copy-id user@server-address
+```
+After this you can then lock the server to avoid password attempts if desired. 
+
+
+## Optionally, customize user experience
+For familiarity I like to install my own icon set and themes. This is easily done by copying the icon and theme sets into their respective folders from which they can then me 'installed' using the systems themes menu:
+1. Icons can be installed at: `/usr/share/icons/`
+```
+    $ sudo cp -r AK_icon_theme /usr/share/icons/
+```
+2. Themes can be installed at: `/usr/share/themes/`
+```sh
+    $ sudo cp -r HighContrast_AK /usr/share/themes/ ## does not work Mint 21.1!
+```
+I like to change the clock format to include the date and time in AM/PM notation. Right click the clock and customize its display using this string:
+```
+    %Y/%m/%d | %l:%M%p
+```
+
 ## Set up EM software & environment
 Keeping together all programs related to processing in one place is helpful as the number and versions expands. It is also helpful for having a direct place to go for altering the base envrionment using an internal resource file. 
 
@@ -210,8 +266,6 @@ Notes to follow
 ### CrYOLO
 Notes to follow
 
-
-
 ### Miniconda 
 Get the [Linux 64-bit installer](https://docs.conda.io/en/latest/miniconda.html). Run the installer:
 ```sh
@@ -222,63 +276,6 @@ When installer is complete, set it to initialize Miniconda3 before closing it. T
 $ conda config --set auto_activate_base false
 ```
 You will need to run this command on each account you wish to prevent auto-activation.
-
-
-## Set up base python environment 
-As of the time of writing these notes, aptitude installed python as `python3`. For simplicity, make this version the base version for the 'native' user environment by creating a symlink to this one at `/usr/bin` via:
-```
-    $ sudo ln -s /usr/bin/python3 /usr/bin/python 
-```
-Check that `pip` is also set up for this python version by checking its callback with:
-```sh
-    $ pip -V ## look for (python 3.x) in callback 
-```
-### Install common python modules to root account 
-Using the root account to install a module makes it available for all users, preventing the need to install it in multiple locations: 
-```
-    $ sudo pip install matplotlib mrcfile numpy scipy opencv-python tifffile 
-```
-
-## Set up RSA keys & (if possible) SSH handshake the servers
-If all programs are working properly, it is worth establishing a direct RSA handshake between all common servers so work can be transferred between them easily. 
-
-### Set up user RSA key 
-Each user will need its own key and must run through these steps independently. Generate a key via:
-```sh
-    $ ssh-keygen -t rsa -b 4096 -C "kasparov-remote"
-```
-When prompted use defaults and, for ease, to not add a passphrase (just hit enter). 
-
-### If necessary, set the server to allow password attempts: 
-It is good practice to lock a server so it does not allow password attempts. This way only known clients are accepted. However, for new clients, you need to temporarily allow password attempts so an initial handshake can be performed. This is done by editing the `sshd_config` file:
-```sh 
-    $ sudo nano /etc/ssh/sshd_config
-      ## comment out: PasswordAuthentication no 
-    $ service sshd restart ## restart service after saving
-```
-
-### Use password to add RSA key to server
-The remote user can then use the username & password of the server to send its RSA key via:
-```sh
-    $ ssh-copy-id user@server-address
-```
-After this you can then lock the server to avoid password attempts if desired. 
-
-
-## Optionally, customize user experience
-For familiarity I like to install my own icon set and themes. This is easily done by copying the icon and theme sets into their respective folders from which they can then me 'installed' using the systems themes menu:
-1. Icons can be installed at: `/usr/share/icons/`
-```
-    $ sudo cp -r AK_icon_theme /usr/share/icons/
-```
-2. Themes can be installed at: `/usr/share/themes/`
-```sh
-    $ sudo cp -r HighContrast_AK /usr/share/themes/ ## does not work Mint 21.1!
-```
-I like to change the clock format to include the date and time in AM/PM notation. Right click the clock and customize its display using this string:
-```
-    %Y/%m/%d | %l:%M%p
-```
 
 
 ## (Optional) Setting up ZFS raid scratch space 
