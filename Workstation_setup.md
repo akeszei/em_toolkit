@@ -32,6 +32,7 @@ $ sudo apt update -y && sudo apt upgrade -y
 Internal drives can be mounted permanently easily using the `disks` program. 
 
 Common external drives that will be added/removed over time can be given fixed mount points so they automount on plugin/restart (avoiding need for `sudo` access) by adding their entry to the `fstab` file:
+0. Prepare a mount point and make it accessible to all users. 
 1. Plug in disk and find its UUID via. You may need to format it and mount it to get the UUID:
 ```
 $ sudo blkid
@@ -41,6 +42,8 @@ or $ sudo fdisk -l
 ```
 2. Add entry into `/etc/fstab` file, for example:
 ```sh
+  ## Mount internal 2Tb SSD 
+  UUID=c135a8dc-b2c1-418f-j114-255d94d8b401 /scratch ext4 defaults 0 2  
   ## Mount data_1 4Tb drive for all users  
   UUID=6146392E568902AB /media/usb/data_1  ntfs  user,gid=remote,umask=0002,rw,exec,X-mount.mkdir 0 2
 ```
@@ -316,7 +319,14 @@ Follow instructions at its [git page](https://github.com/3dem/relion) to compile
   $ cmake ..
   $ make
 ```
-There can be some issues building with newer `gcc`, `g++` compilers. In our case we succeeded by installing older versions and swapping the symlink at `/usr/bin` for the older version:
+There can be some issues building with newer `gcc`, `g++` compilers, e.g.:
+```
+...
+CMake Error at relion_gpu_util_generated_cuda_projector_plan.cu.o.Release.cmake:280 (message): 
+  Error generating file
+...
+``` 
+In our case we succeeded by installing older versions and swapping the symlink at `/usr/bin` for the older version:
 ```sh
   $ sudo apt install gcc-10 g++-10
   ## Update the softlinks to point to them, i.e.
