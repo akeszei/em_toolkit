@@ -147,3 +147,9 @@ Alternatively, an empty box can be created with the correct box and pixel size t
 vop new size <box_size> gridSpacing <apix> origin 0,0,0
 ```
 You should then shift the molmap into the same origin (`volume <id> origin 0,0,0`) and run the `vop resample ...` command.
+
+--- 
+In some cases, reconstructions are solved with the incorrect hand, you can flip a volume along the z-axis to generate the opposite hand volume:
+```
+vop zflip #<id>
+```
