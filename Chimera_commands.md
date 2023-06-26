@@ -144,7 +144,7 @@ The output density can then be saved as above and used directly to make a mask (
 ---
 Alternatively, an empty box can be created with the correct box and pixel size that can be used for resampling via:
 ```
-vop new size <box_size> gridSpacing <apix> origin 0,0,0
+vop new <volume_name> size <box_size> gridSpacing <apix> origin 0,0,0
 ```
 You should then shift the molmap into the same origin (`volume <id> origin 0,0,0`) and run the `vop resample ...` command.
 
