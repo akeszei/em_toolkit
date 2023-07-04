@@ -125,7 +125,7 @@ ImageMagick can be used to manipulate common image formats. Common uses include:
 ========================================"
    fi
 # vi 
-if [ "$1" = "vi" -o "$1" = "vim"]
+if [ "$1" = "vi" -o "$1" = "vim" ]
    then
       echo "========================================
 vi/vim usage
