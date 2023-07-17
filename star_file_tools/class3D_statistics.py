@@ -160,7 +160,7 @@ def plot_data(input_dict):
 
     rcParams.update({'font.family': "Arial"})
 
-    fig, axs = plt.subplots(2, 1, constrained_layout=True, figsize=(12,8)) # 2 rows, 1 column
+    fig, axs = plt.subplots(2, 1, constrained_layout=True, figsize=(10,6)) # 2 rows, 1 column
 
     # axs[0].set_xlabel('itr #')
     axs[0].set_ylabel('Proportion', fontsize=14)
@@ -203,8 +203,14 @@ def plot_data(input_dict):
 
         axs[1].plot(x_values, y_resolution_values, label=each_class)
 
+
     axs[0].legend(fontsize=12)
     axs[1].legend(fontsize=12)
+
+    # Put legends to the right of the current axis
+    axs[0].legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    axs[1].legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    
     plt.minorticks_on()
     plt.show()
 
