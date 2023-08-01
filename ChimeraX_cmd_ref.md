@@ -3,6 +3,16 @@
 # UCSF ChimeraX quick reference  
 Common commands used for structural analysis are shown here for easy reference.
 
+### Basic commands
+Re-initialize scene rotations & translations:
+```
+view initial
+```
+At the moment I am unclear how to set the mouse rotation to use a common pivot point for multiple models. Center of rotation commands will use a bounding box for the *visible* regions of a model, which will not accurately correlate with the box center! However, you can use the turn command to pivot models correctly it seems:
+```
+turn x/y/z <degrees>
+```
+
 ### Prepare an initial volume from an atomic model
 Load a model and prepare a density, shifting it to a zero origin:
 ```
@@ -49,7 +59,6 @@ molmap  <model_id>  <res>
 // example making a density from an atomic model
 molmap #1 10 
 ```
-
 
 ### Dock volume into box
 `vop resample <volume> onGrid <box>` works as usual from Chimera
