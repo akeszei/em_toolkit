@@ -3,7 +3,7 @@
 #############################
 ###     GLOBAL FLAGS
 #############################
-DEBUG = True
+DEBUG = False
 
 #############################
 ###     DEFINITION BLOCK
@@ -133,8 +133,8 @@ def analyse_dZ_range(mic_data):
 
 def write_all_mics_to_file(mic_data, out_fname = "mics.txt"):
     with open(out_fname, 'w') as f:
-        for item in mic_data[0]:
-            f.write("%s\n" % item) 
+        for item in mic_data:
+            f.write("%s\n" % item[0]) 
     return 
 
 def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size):
@@ -172,8 +172,13 @@ def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size):
         ## Add the discovered micrograph to the subset list 
         subset.append(chosen_micrograph)
         
-    # print(" Micrograph subset found:")
-    # print("  ", subset)
+    print(" >> Randomly selected %s micrographs across the dZ range" % (len(subset)))
+    for i in range(len(subset)):
+        if i > 8: 
+            break 
+        print("   %s [dZ %s]" % (subset[i][0], subset[i][1]))
+    print("   ...")
+
     return subset
 
 
@@ -252,6 +257,6 @@ if __name__ == '__main__':
         dZ_thresholds = analyse_dZ_range(mics)
         ## overwrite the micrograph list data to grab only the subset we want
         mics = get_subset_by_dZ(mics, dZ_thresholds, subset_size)
-        write_all_mics_to_file(mics)
+        write_all_mics_to_file(mics, out_fname = 'subset_mics.txt')
     else:
         write_all_mics_to_file(mics)
