@@ -13,7 +13,7 @@ def usage():
     print("===================================================================================================")
     print(" Read a .CSV file output from cryosparc live session and return a list of ")
     print(" all movies rejected by name. This list can be used to delete images, e.g.:")
-    print("    $ for mic in $(cat rejected_movies.txt); do mic_path=$(find -name $mic); rm $mic_path; done")
+    print("    $ for mic in $(cat rejected_movies.txt); do mic_path=$(find -name ${mic}); rm $mic_path; done")
     print(" Usage:")
     print("    $ list_rejected_movies.py  input.csv ")
     # print(" -----------------------------------------------------------------------------------------------")
