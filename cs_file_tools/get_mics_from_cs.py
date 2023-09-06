@@ -15,7 +15,7 @@ def usage():
     print(" Can use options to grab a random subset across the defocus range for manual picking.")
     print(" Usage:")
     print("    $ get_mics_from_cs.py  input.cs  ")
-    print("    $ get_mics_from_cs.py  input.cs  --subset 20")
+    print("    $ get_mics_from_cs.py  exposures_accepted.cs  --subset 20")
     print(" ")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
