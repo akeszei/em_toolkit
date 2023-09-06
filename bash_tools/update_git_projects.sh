@@ -22,7 +22,6 @@ fi
 git clone https://github.com/akeszei/em_image_conversion
 git clone https://github.com/akeszei/em_dataset_curator
 git clone https://github.com/akeszei/em_toolkit
-git clone https://github.com/akeszei/bash_toolkit
 
 ## Make specific scripts executable
 chmod +x em_dataset_curator/em_dataset_curator.py
