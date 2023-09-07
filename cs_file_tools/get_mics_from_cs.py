@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+## To do:
+##   - Internally keep track of micrographs selected already to prevent double picking! 
+
 #############################
 ###     GLOBAL FLAGS
 #############################
