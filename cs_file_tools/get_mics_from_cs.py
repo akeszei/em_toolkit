@@ -2,6 +2,7 @@
 
 ## To do:
 ##   - Internally keep track of micrographs selected already to prevent double picking! 
+##   - Maybe add an option to check against other directories? Useul for grabbing random micrographs outside of a training set 
 
 #############################
 ###     GLOBAL FLAGS
