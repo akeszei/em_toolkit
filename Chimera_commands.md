@@ -44,6 +44,15 @@ To make the side chain visible, we can show it and then change its appearance & 
     color red sel 
     color byhetero sel 
 
+When you have two similar models you want to superimpose to compare, you can try to use the `matchmaker` function to align them spatially:
+
+    mmaker <ref> <moving_model>
+
+For example, if you want to align a newly imported model `#6` to a carefully positioned model `#1`, you would run:
+
+    mmaker #1 #6
+
+
 ## Opening & viewing maps
 
 Open your density map from local disc and adjust sampling rate & thresholding with preferred scene setup:
