@@ -419,3 +419,44 @@ $ git clone https://github.com/zhonge/cryodrgn.git
 $ cd cryodrgn
 $ pip install . 
 ```
+
+
+## Install `NAMD` and accompanying simulation software 
+
+### Installing `NAMD`
+NAMD can be installed easily by requesting the CUDA enabled binaries from their [website](https://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=NAMD) (at the time of writing it was the `Linux-x86_64-multicore-CUDA` version).
+
+On unzipping the software can be used immediately. For system-wide installation put it into the `/programs/` folder and add the binaries to the `$PATH`
+
+### Installing `CPPTRAJ`
+Pull the latest version from their [github page](https://github.com/Amber-MD/cpptraj). 
+```
+git clone https://github.com/Amber-MD/cpptraj.git 
+```
+Install it via several steps in `/programs`:
+```
+cd cpptraj
+export CUDA_HOME=/usr/local/cuda
+./configure -cuda -openmp gnu --buildlibs
+```
+If it runs successfully, source the envrionment script and continue with the installation:
+
+```sh
+source cpptraj.sh
+make -j 12 install
+## add a symlink so the program is recognized by its usual name
+cd /programs/cpptraj/bin/
+ln -s cpptraj.OMP.cuda cpptraj
+## return to the main directory and run the test 
+cd /programs/cpptraj 
+make check 
+```
+For permanent installation, add the binaries and envrionment to the startup resource file `bins.rc`, e.g.:
+```sh
+export PATH=$PATH:\
+...
+/programs/cpptraj/bin:\
+
+## source cpptraj envrionment via its bash script 
+source /programs/cpptraj/cpptraj.sh
+```
