@@ -1,13 +1,39 @@
 #!/usr/bin/env bash 
 
 echo "======================================================================================================"
-echo " Script to easily find movies not present in a given file: "
-echo "    $ find_missing_movies.sh  <txt_file_with_fnames_to_skip>  /path/to/search/dir "
-echo " The reference text file should have only the name of the movie in full (no path data)"
+echo " The goal of this script is to quickly figure out which movies were not transferred to disk in the "
+echo " rare case where the initial HDD filled up during data collection. Running this script with a list " 
+echo " of the movies on the HDD will return a new list of the movies that remain on the camera server in "
+echo " the form of a text file: 'missing_movies.txt'. You can then use that list to iteratively transfer "
+echo " the movies using a bash one-liner."
+echo " Usage:"
+echo "    $ find_missing_movies.sh  <txt_file>  /path/to/EPU/dir "
+echo "------------------------------------------------------------------------------------------------------"
+echo " The reference text file should have only the name of each movie in full (no path data), e.g.:"
+echo "     FoilHole_#######_Data_#####_#####_#####_#####_EER.eer"
+echo "     ... "
+echo " You can generate such a file from a disk containing a partial transfer via:"
+echo "    $ cd /path/to/HDD/EPU/dir"
+echo '    $ for f in $(find -name *EER.eer); do echo ${f##*/} >> already_transferred.txt; done'
 echo "======================================================================================================"
+
+######################################################################
+## Check the user supplied expected arguments
+if [ -z "$1" ]; then
+    echo " ERROR :: No input text file was supplied as the first argument"
+    exit 1
+fi
+
+if [ -z "$2" ]; then
+    echo " ERROR :: No EPU directory was supplied as the second argument"
+    exit 1
+fi
+
 
 txt_path=$1
 search_path=$2
+######################################################################
+
 
 set +e # prevent exiting the script on error, needed for array matching function
 
