@@ -3,7 +3,7 @@
 #############################
 ###     GLOBAL FLAGS
 #############################
-DEBUG = True
+DEBUG = False
 WRITE_LIST = False
 
 #############################
@@ -133,47 +133,54 @@ def get_rejected_mics(csv_data):
     for row in csv_data.iterrows():
         index, row_obj = row 
         # print(row_obj)
-        REJECT = row_obj['Threshold Reject']
-        CTF_FIT = row_obj['CTF Fit (A)']
-        dZ_FIT = row_obj['Defocus Avg. (μm)']
-        ICE_THICKNESS = row_obj['Relative Ice Thickness']
-        MAX_INFRAME_MOTION = row_obj['Max In-frame Motion']
+        if CSV_columns['REJECT'] in row_obj:
+            REJECT = row_obj[CSV_columns['REJECT']]
+        # CTF_FIT = row_obj['CTF Fit (A)']
+        CTF_FIT = row_obj[CSV_columns['CTF_FIT']]
+        # dZ_FIT = row_obj['Defocus Avg. (μm)']
+        dZ_FIT = row_obj[CSV_columns['dZ_FIT']]
+        # ICE_THICKNESS = row_obj['Relative Ice Thickness']
+        ICE_THICKNESS = row_obj[CSV_columns['ICE_THICKNESS']]
+        # MAX_INFRAME_MOTION = row_obj['Max In-frame Motion']
+        MAX_INFRAME_MOTION = row_obj[CSV_columns['MAX_INFRAME_MOTION']]
+        mic_basename = os.path.splitext(os.path.basename(row_obj[CSV_columns["MIC_PATH"]]))[0]
+
 
         ## Ignore the 'Threshold Reject' column and use the stats given 
-        # if REJECT:
-            # ## Modify the associated color for this point in the data frame 
-            # csv_data.at[index, 'color'] = red
-            # mic_basename = os.path.splitext(os.path.basename(row_obj['File Path']))[0]
-            # rejection_list.append(mic_basename)
-            # if DEBUG:
-            #     print("===================================================================")
-            #     print(" Rejected: %s" % mic_basename)
-            #     print("-------------------------------------------------------------------")
-            #     print("   ... ID = %s" % row_obj['ID'])
-            #     print("   ... CTF Fit (A) = %.2f" % row_obj['CTF Fit (A)'])
+        if True:
+            ## Modify the associated color for this point in the data frame 
+            csv_data.at[index, 'color'] = red
+            mic_basename = os.path.splitext(os.path.basename(row_obj[CSV_columns["MIC_PATH"]]))[0]
+            rejection_list.append(mic_basename)
+            if DEBUG:
+                print("===================================================================")
+                print(" Rejected: %s" % mic_basename)
+                print("-------------------------------------------------------------------")
+                print("   ... ID = %s" % row_obj[CSV_columns["ID"]])
+                print("   ... CTF Fit (A) = %.2f" % row_obj[CSV_columns["CTF_FIT"]])
         
         if ctf_fit_max != None and CTF_FIT > ctf_fit_max:
             csv_data.at[index, 'color'] = red
-            mic_basename = os.path.splitext(os.path.basename(row_obj['File Path']))[0]
+            # mic_basename = os.path.splitext(os.path.basename(row_obj['File Path']))[0]
             rejection_list.append(mic_basename)
             continue 
 
         if dZ_min != None:
             if dZ_FIT > (dZ_max * 10000) or dZ_FIT < (dZ_min * 10000):
                 csv_data.at[index, 'color'] = red
-                mic_basename = os.path.splitext(os.path.basename(row_obj['File Path']))[0]
+                # mic_basename = os.path.splitext(os.path.basename(row_obj['File Path']))[0]
                 rejection_list.append(mic_basename)
                 continue
         
         if ice_thickness_max != None and ICE_THICKNESS > ice_thickness_max:
             csv_data.at[index, 'color'] = red
-            mic_basename = os.path.splitext(os.path.basename(row_obj['File Path']))[0]
+            # mic_basename = os.path.splitext(os.path.basename(row_obj['File Path']))[0]
             rejection_list.append(mic_basename)
             continue
 
         if in_frame_motion_max != None and MAX_INFRAME_MOTION > in_frame_motion_max:
             csv_data.at[index, 'color'] = red
-            mic_basename = os.path.splitext(os.path.basename(row_obj['File Path']))[0]
+            # mic_basename = os.path.splitext(os.path.basename(row_obj['File Path']))[0]
             rejection_list.append(mic_basename)
             continue
 
@@ -214,7 +221,7 @@ def plot_cutoffs(csv_data):
     fig, axes = plt.subplots(4, 1, figsize=(11,7))
     marker_size = 5
 
-    csv_data.plot(x='ID', y='Defocus Avg. (μm)', s = marker_size, kind='scatter', ax=axes[0], c=csv_data['color'])
+    csv_data.plot(x=CSV_columns['ID'], y=CSV_columns['dZ_FIT'], s = marker_size, kind='scatter', ax=axes[0], c=csv_data['color'])
     axes[0].set(xlabel="", ylabel="Ang", title="Avg. dZ")
 
     if dZ_max != None:
@@ -226,21 +233,21 @@ def plot_cutoffs(csv_data):
         text = axes[0].text(1.01, (dZ_min*10000), "%s" % (dZ_min), verticalalignment='center', horizontalalignment='left', transform=axes[0].get_yaxis_transform(), color='red', fontsize=10)
     
 
-    csv_data.plot(x='ID', y='CTF Fit (A)', s = marker_size, kind='scatter', ax=axes[1], c=csv_data['color'])
+    csv_data.plot(x=CSV_columns['ID'], y=CSV_columns['CTF_FIT'], s = marker_size, kind='scatter', ax=axes[1], c=csv_data['color'])
     axes[1].set(xlabel="", ylabel="Ang", title="CTF fit")
 
     if ctf_fit_max != None:
         axes[1].axhline(y=ctf_fit_max, c="red",linewidth=1,zorder=1)
         text = axes[1].text(1.01, ctf_fit_max, "%s" % ctf_fit_max, verticalalignment='center', horizontalalignment='left', transform=axes[1].get_yaxis_transform(), color='red', fontsize=10)
     
-    csv_data.plot(x='ID', y='Max In-frame Motion', s = marker_size, kind='scatter', ax=axes[2], c=csv_data['color'])
+    csv_data.plot(x=CSV_columns['ID'], y=CSV_columns['MAX_INFRAME_MOTION'], s = marker_size, kind='scatter', ax=axes[2], c=csv_data['color'])
     axes[2].set(xlabel="", ylabel="px", title="Max. in-frame motion")
 
     if in_frame_motion_max != None:
         axes[2].axhline(y=in_frame_motion_max, c="red",linewidth=1,zorder=1)
         text = axes[2].text(1.01, in_frame_motion_max, "%s" % in_frame_motion_max, verticalalignment='center', horizontalalignment='left', transform=axes[2].get_yaxis_transform(), color='red', fontsize=10)
 
-    csv_data.plot(x='ID', y='Relative Ice Thickness', s = marker_size, kind='scatter', ax=axes[3], c=csv_data['color'])
+    csv_data.plot(x=CSV_columns['ID'], y=CSV_columns["ICE_THICKNESS"], s = marker_size, kind='scatter', ax=axes[3], c=csv_data['color'])
     axes[3].set(xlabel="", ylabel="signal", title="Relative ice thickness")
     if ice_thickness_max != None:
         axes[3].axhline(y=ice_thickness_max, c="red",linewidth=1,zorder=1)
@@ -274,6 +281,17 @@ if __name__ == "__main__":
     import pandas as pd
     import matplotlib.pyplot as plt
 
+    CS_ver = 4.2
+    if CS_ver == 4.2:
+        CSV_columns = {
+            'REJECT' : 'Threshold Reject',
+            'CTF_FIT' : 'CTF Fit',
+            'dZ_FIT' : 'DF Avg',
+            'ICE_THICKNESS' : 'Rel Ice Thick.',
+            'MAX_INFRAME_MOTION' : 'Motion dist.',
+            'ID' : 'Index',
+            'MIC_PATH' : 'File'
+        }
 
     ## prepare the output file name 
     out_fname = 'rejected_mics.txt'

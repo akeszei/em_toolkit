@@ -93,18 +93,24 @@ def get_mics_from_cs_data(cs_data):
     mics = []
 
     ## assign the headers we need to read from for each entry in the recarray 
-    mic_path_header = 'micrograph_thumbnail_blob_1x/micrograph_path'
+    mic_path_header = 'micrograph_blob/path'
     dZ_1_header = 'ctf/df1_A'
     dZ_2_header = 'ctf/df2_A'
     ## load the headers from the recarray 
     headers = cs_data.dtype.names
+    NO_CTF = False
+    if dZ_1_header not in headers:
+        NO_CTF = True
 
     ## iterate over each entry in the recarray and extract the relevant data 
     for entry in cs_data:
         mic_path = str(entry[headers.index(mic_path_header)], 'UTF-8')
-        dZ_1 = entry[headers.index(dZ_1_header)]
-        dZ_2 = entry[headers.index(dZ_2_header)]
-        dZ_avg = ((dZ_1 + dZ_2) / 2)/10000
+        if not NO_CTF:
+            dZ_1 = entry[headers.index(dZ_1_header)]
+            dZ_2 = entry[headers.index(dZ_2_header)]
+            dZ_avg = ((dZ_1 + dZ_2) / 2)/10000
+        else:
+            dZ_avg = -1
 
         mics.append((mic_path, dZ_avg))
 
