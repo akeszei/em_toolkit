@@ -147,7 +147,7 @@ def get_rejected_mics(csv_data):
 
 
         # ## Ignore the 'Threshold Reject' column and use the stats given 
-        # if True:
+        # if REJECT:
         #     ## Modify the associated color for this point in the data frame 
         #     csv_data.at[index, 'color'] = red
         #     mic_basename = os.path.splitext(os.path.basename(row_obj[CSV_columns["MIC_PATH"]]))[0]
