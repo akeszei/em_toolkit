@@ -3,7 +3,7 @@
 #############################
 ###     GLOBAL FLAGS
 #############################
-DEBUG = False
+DEBUG = True
 WRITE_LIST = False
 
 #############################
@@ -23,7 +23,7 @@ def usage():
     print("                  --dZ (0.8-2.5) : Keep movies within this target range")
     print("                   --ctf_fit (5) : Keep movies with CTF fits equal or better (Ang)")
     print("          --ice_thickness (1.06) : Keep movies less than this value")
-    print("         --in-frame_motion (2.5) : Keep moves less than this value")
+    print("         --in-frame_motion (25) : Keep moves less than this value")
     print("                  --use_defaults : Use all above flags at their default values")
     print("     --write (rejected_mics.txt) : Write out a list of movies that are rejected")
     print("===================================================================================================")
@@ -60,7 +60,7 @@ def parse_flags(cmdline):
                 dZ_max = 2.5 # set default
                 ctf_fit_max = 5.0 # set default 
                 ice_thickness_max = 1.06
-                in_frame_motion_max = 2.5
+                in_frame_motion_max = 25
 
         if param == '--dZ':
             try:
@@ -146,18 +146,18 @@ def get_rejected_mics(csv_data):
         mic_basename = os.path.splitext(os.path.basename(row_obj[CSV_columns["MIC_PATH"]]))[0]
 
 
-        ## Ignore the 'Threshold Reject' column and use the stats given 
-        if True:
-            ## Modify the associated color for this point in the data frame 
-            csv_data.at[index, 'color'] = red
-            mic_basename = os.path.splitext(os.path.basename(row_obj[CSV_columns["MIC_PATH"]]))[0]
-            rejection_list.append(mic_basename)
-            if DEBUG:
-                print("===================================================================")
-                print(" Rejected: %s" % mic_basename)
-                print("-------------------------------------------------------------------")
-                print("   ... ID = %s" % row_obj[CSV_columns["ID"]])
-                print("   ... CTF Fit (A) = %.2f" % row_obj[CSV_columns["CTF_FIT"]])
+        # ## Ignore the 'Threshold Reject' column and use the stats given 
+        # if True:
+        #     ## Modify the associated color for this point in the data frame 
+        #     csv_data.at[index, 'color'] = red
+        #     mic_basename = os.path.splitext(os.path.basename(row_obj[CSV_columns["MIC_PATH"]]))[0]
+        #     rejection_list.append(mic_basename)
+        #     if DEBUG:
+        #         print("===================================================================")
+        #         print(" Rejected: %s" % mic_basename)
+        #         print("-------------------------------------------------------------------")
+        #         print("   ... ID = %s" % row_obj[CSV_columns["ID"]])
+        #         print("   ... CTF Fit (A) = %.2f" % row_obj[CSV_columns["CTF_FIT"]])
         
         if ctf_fit_max != None and CTF_FIT > ctf_fit_max:
             csv_data.at[index, 'color'] = red
