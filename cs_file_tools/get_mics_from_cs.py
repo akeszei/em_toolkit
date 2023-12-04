@@ -19,7 +19,7 @@ def usage():
     print(" Can use options to grab a random subset across the defocus range for manual picking.")
     print(" Usage:")
     print("    $ get_mics_from_cs.py  input.cs  ")
-    print("    $ get_mics_from_cs.py  exposures_accepted.cs  --subset 20")
+    print("    $ get_mics_from_cs.py  passthrough_exposures_accepted.cs  --subset 20")
     print(" ")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
@@ -94,6 +94,7 @@ def get_mics_from_cs_data(cs_data):
 
     ## assign the headers we need to read from for each entry in the recarray 
     mic_path_header = 'micrograph_blob/path'
+    mic_path_header_alt = 'micrograph_blob_non_dw/path'
     dZ_1_header = 'ctf/df1_A'
     dZ_2_header = 'ctf/df2_A'
     ## load the headers from the recarray 
@@ -104,7 +105,12 @@ def get_mics_from_cs_data(cs_data):
 
     ## iterate over each entry in the recarray and extract the relevant data 
     for entry in cs_data:
-        mic_path = str(entry[headers.index(mic_path_header)], 'UTF-8')
+        ## there are inconsistencies in the headers used to indicate paths, so use fallback headers to try and shore up gaps 
+        try: 
+            mic_path = str(entry[headers.index(mic_path_header)], 'UTF-8')
+        except:
+            mic_path = str(entry[headers.index(mic_path_header_alt)], 'UTF-8')
+
         if not NO_CTF:
             dZ_1 = entry[headers.index(dZ_1_header)]
             dZ_2 = entry[headers.index(dZ_2_header)]
