@@ -98,7 +98,7 @@ Linux systems can be run in different modes with varying featuers/accessibility.
 ```
     $ lsmod | grep nouveau 
 ```
-4. Conform all X graphics are disabled by running:
+4. Confirm all X graphics are disabled by running:
 ```
     $ sudo service lightdm stop 
 ```
@@ -112,6 +112,8 @@ Execute the runfile (you may need to make it executable):
 It may take time to unpack the installer, wait until it opens to accept the conditions and wait for it to finish. It can be useful to copy the output text of the installer for later reference. Reboot when ready. 
 
 On reboot you should now get a graphical display. Use a terminal to confirm the drivers are installed and all GPUs are detected with `nvidia-smi`. If defaults were used you should also find the CUDA toolkit installed at `/usr/local/cuda-11.6` with a symlink of that folder next to it at `/usr/local/cuda`. 
+
+> *Note:* when upgrading to a new driver, can simply boot into text mode and execute the runfile as administrator. It should overwrite the install and point the symlink to the new driver 
 
 ### Add toolkit to `$PATH`
 The final step is to add the toolkit binaries and compilers onto `$PATH` so it can be found by other programs. This is easily done by editing the user `~/.bashrc` file to include a check:
