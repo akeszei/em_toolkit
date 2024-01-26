@@ -250,4 +250,16 @@ It can be particularly useful when combined with a for loop.
   $ find -name *EER.eer | wc -l
 ========================================"
 fi
+# ftp protocls for downloading datasets form EMPIAR 
+if [ "$1" = "ftp" -o "$1" = "wget" -o "$1" = "empiar" ] 
+then
+   echo "========================================
+Download data from FTP servers using wget
+  $ wget --show-process -mc ftp://address
+
+E.g. here is how you would download a dataset from EMPIAR 
+  $ wget --show-process -mc ftp://ftp.ebi.ac.uk/empiar/world_availability/10076/data 
+========================================"
+fi
+
 }

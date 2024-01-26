@@ -392,6 +392,21 @@ $ ./bin/cryosparcw connect --worker localhost --master localhost --port 39000 --
 ```
 
 ## Install `cryoDRGN`
+Since March 2023 `cryoDRGN` has become available via `PyPI`. In our case we needed to update the pytorch install to match the current CUDA toolkit in our system:
+
+```sh
+# Prep the conda environment 
+    $ conda create --name cryodrgn python=3.10
+    $ conda activate cryodrgn 
+    $ pip install cryodrgn 
+# Try testing the install using their testing directory in their git project
+    $ git clone https://github.com/ml-struct-bio/cryodrgn 
+    $ cd cryodrgn/testing 
+    $ ./quicktest.sh 
+# Check the logs, if it does not use CUDA and complains then try installing pytorch again with the relevant toolkit version 
+    $ conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+```
+
 These are old notes on installing `cryoDRGN`:
 
 ```sh
