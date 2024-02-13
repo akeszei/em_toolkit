@@ -406,6 +406,11 @@ Since March 2023 `cryoDRGN` has become available via `PyPI`. In our case we need
 # Check the logs, if it does not use CUDA and complains then try installing pytorch again with the relevant toolkit version 
     $ conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
 ```
+This new install had to be tweaked to use `jupyter notebook`. The error was related to `COMMON_SAFE_ASCII_CHARACTERS` flag. This was resolved by re-installing `charset-normalizer` via the `conda` repo:
+```sh 
+    (cryodrgn) $ pip uninstall charset-normalizer
+    (cryodrgn) $ conda install -c conda-forge charset-normalizer
+```
 
 These are old notes on installing `cryoDRGN`:
 
