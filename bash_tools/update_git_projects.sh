@@ -35,6 +35,7 @@ chmod +x em_image_conversion/mrc_viewer.py
 chmod +x em_image_conversion/stack_mrc.py
 chmod +x em_toolkit/cs_file_tools/get_particle_locations_from_cs.py
 chmod +x em_toolkit/cs_file_tools/read_cs.py
+chmod +x em_toolkit/cs_file_tools/export_cs_particle_stack.py
 chmod +x em_toolkit/star_file_tools/class3D_statistics.py
 chmod +x em_toolkit/star_file_tools/display_class2D.py
 chmod +x em_toolkit/star_file_tools/remap_optics_groups.py
@@ -71,6 +72,7 @@ ln -s ../em_image_conversion/mrc_viewer.py bin/
 ln -s ../em_image_conversion/stack_mrc.py bin/
 ln -s ../em_toolkit/cs_file_tools/get_particle_locations_from_cs.py bin/
 ln -s ../em_toolkit/cs_file_tools/read_cs.py bin/
+ln -s ../em_toolkit/cs_file_tools/export_cs_particle_stack.py bin/
 ln -s ../em_toolkit/star_file_tools/class3D_statistics.py bin/
 ln -s ../em_toolkit/star_file_tools/display_class2D.py bin/
 ln -s ../em_toolkit/star_file_tools/remap_optics_groups.py bin/

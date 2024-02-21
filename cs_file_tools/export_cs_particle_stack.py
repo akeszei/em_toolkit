@@ -462,77 +462,31 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, out
 
     return 
 
-# def write_star_and_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, output_star_fname, mrcs_output_dir):
-#     import sys, os
-#     import numpy as np
-#     import mrcfile
+def prep_working_dir(mrcs_output_dir_name):
+    ## prepare the root directory for all .mrcs files and clean it up if anything already exists in it 
+    if os.path.isdir(mrcs_output_dir_name):
+        # print(" ERROR :: An existing folder already is present at the target output location for particle .MRCS stacks: %s" % mrcs_output_dir)
+        # print("  ... doublecheck & delete this folder before proceeding")
+        # exit()
 
-#     write_optics_table(optics_data, output_star_fname)
+        ## check the directory for .mrcs files and delete them 
+        dir_contents = os.listdir(mrcs_output_dir_name)
+        for f in dir_contents:
+            f_path = mrcs_output_dir_name + f
+            if os.path.isfile(f_path):
+                if os.path.splitext(f_path)[1] in ['.mrcs', '.MRCS']:
+                    os.remove(f_path)
+    else:
+        os.mkdir(mrcs_output_dir_name)
 
-#     write_particle_table_headers(output_star_fname)
+    return
 
-
-#     for mic in particle_data:
-#         print(" .. processing %s (%s) particles" % (mic, len(particle_data[mic])))
-#         ## determine the input and output mrc files
-#         cs_mrc_path = cs_project_dir + mic
-#         output_mrcs_fname = os.path.splitext(os.path.basename(mic))[0].split('_', 1)[1] + '.mrcs'
-#         output_mrcs_path = output_dir + mrcs_output_dir + output_mrcs_fname
-
-#         ## prepare an empty .mrcs file to hold all the frames we want to eventually write 
-#         box_size = optics_data['_rlnImageSize']
-#         make_empty_mrcs(len(particle_data[mic]), [box_size, box_size], 2, output_mrcs_path, optics_data['_rlnImagePixelSize'])
-        
-#         ## open both mrcs files simultaneously for us to operate on 
-#         input_mrcs = mrcfile.open(cs_mrc_path, mode='r')
-#         output_mrcs = mrcfile.open(output_mrcs_path, mode='r+')
-
-#         # frames_to_copy = []
-#         for i in range(len(particle_data[mic])):
-#             particle_info = particle_data[mic][i]
-#             particle_star_path = "%s@%s" % (i, output_mrcs_path)
-
-#             cs_mrc_particle_index = particle_info[PARTICLE_DATA_STRUCTURE.index('cs_mrc_index')]
-
-#             write_particle_to_star(output_dir + output_star_fname, particle_info, particle_star_path)
-
-#             write_particle_to_mrcs(input_mrcs, output_mrcs, cs_mrc_path, cs_mrc_particle_index, output_mrcs_path, i)
-
-#         output_mrcs.voxel_size = input_mrcs.voxel_size
-#         output_mrcs.update_header_from_data()
-#         output_mrcs.update_header_stats()
-
-#         output_mrcs.close()
-#         input_mrcs.close()
-
-#     return 
-
-def get_mrcs_info(fname):
-    """ Retrieve image dimensions, stack size and relevant header info from the file 
+def split_dict(d, n):
+    """ prepare a method to break the dataset into smaller chunks based on number of threads 
     """
-    with mrcfile.open(fname, mode='r') as mrc:
-        ## deal with single frame mrcs files as special case
-        if len(mrc.data.shape) == 2:
-            y_dim, x_dim = mrc.data.shape[0], mrc.data.shape[1]
-            z_dim = 1
-        else:
-            ## X axis is always the last in shape (see: https://mrcfile.readthedocs.io/en/latest/usage_guide.html)
-            y_dim, x_dim, z_dim = mrc.data.shape[1], mrc.data.shape[2], mrc.data.shape[0]
-
-        ## Read pixel size        
-        pixel_size = mrc.voxel_size['x']  
-        ## Read the dtype of the image array 
-        dtype = mrc.data.dtype
-
-    if DEBUG:
-        print("======================================")
-        print(" get_mrcs_info (%s) " % fname)
-        print("--------------------------------------")
-        print("  (x, y, z) = (%s, %s, %s)" % (x_dim, y_dim, z_dim) )
-        print("  pixel_size = %s" % pixel_size)
-        print("  dtype = %s " % dtype)
-
-    return x_dim, y_dim, z_dim, pixel_size, dtype
+    keys = list(d.keys())
+    for i in range(0, len(keys), n):
+        yield {k: d[k] for k in keys[i: i + n]}
 
 #endregion
 
@@ -550,7 +504,7 @@ if __name__ == "__main__":
         print(" Could not import mrcfile module. Install via:")
         print(" > pip install mrcfile")
         sys.exit()
-    from multiprocessing import Pool #, Process 
+    from multiprocessing import Pool 
     import time
 
     start_time = time.time()
@@ -583,7 +537,6 @@ if __name__ == "__main__":
     output_star_fname = 'particles.star'
     mrcs_output_dir_name = 'mrcs_stacks/'
     output_dir = ''
-    # output_mrcs_fname = 'particles.mrcs'
 
     print("==================================================================")
     print("  Load cs file: %s" % cs_file)
@@ -598,34 +551,12 @@ if __name__ == "__main__":
     ## run through the CS dataset to prepare the necessary data for creating .MRCS and .STAR files
     optics_data, particle_data = parse_cs_dataset(cs_dataset)
 
-    ## prepare the root directory for all .mrcs files and clean it up if anything already exists in it 
-    if os.path.isdir(mrcs_output_dir_name):
-        # print(" ERROR :: An existing folder already is present at the target output location for particle .MRCS stacks: %s" % mrcs_output_dir)
-        # print("  ... doublecheck & delete this folder before proceeding")
-        # exit()
-
-        ## check the directory for .mrcs files and delete them 
-        dir_contents = os.listdir(mrcs_output_dir_name)
-        for f in dir_contents:
-            f_path = mrcs_output_dir_name + f
-            if os.path.isfile(f_path):
-                if os.path.splitext(f_path)[1] in ['.mrcs', '.MRCS']:
-                    os.remove(f_path)
-    else:
-        os.mkdir(mrcs_output_dir_name)
-
-    ## NOTE: For parallelization, I should restrict it to writing the .mrcs files, the .star file should be already written out based on the known particle dataset no?? Otherwise the particle.star file is a mess to read! 
+    prep_working_dir(output_dir + mrcs_output_dir_name)
         
     write_star_file(optics_data, particle_data, cs_project_dir, output_dir, output_star_fname, mrcs_output_dir_name)
 
     if PARALLEL_PROCESSING:
         ## multithreading set up
-        ## prepare a method to break the dataset into smaller chunks based on number of threads 
-        def split_dict(d, n):
-            keys = list(d.keys())
-            for i in range(0, len(keys), n):
-                yield {k: d[k] for k in keys[i: i + n]}
-        ## use the method to build the working tasks
         tasks = []
         for subset in split_dict(particle_data, int(len(particle_data) / threads)):
             tasks.append(subset)
