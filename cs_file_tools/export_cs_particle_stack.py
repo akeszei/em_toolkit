@@ -590,7 +590,7 @@ if __name__ == "__main__":
     print(" --------------------------------------------------------------------------------------------------")
     print(" NOTE: Will likely need to normalize the particles for processing in RELION (this is done on extraction job)")
     print(" To do this, save a back up of the particle stack and run:")
-    print("     $ relion_preprocess --operate_on  <cs_stack>.mrcs  --operate_out <new_stack>.mrcs --norm --bg_radius <0.37 * box>")
+    print("     $ relion_preprocess --operate_on  backup/<cs_stack>.mrcs  --operate_out <new_stack>.mrcs --norm --float16 --bg_radius <0.37 * box>")
     print("===================================================================================================")
 
     end_time = time.time()
