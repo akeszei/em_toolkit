@@ -177,6 +177,7 @@ def parse_cs_dataset(cs_particles):
         ## since multiple extract jobs can exist, use the base name of the .mrc file as the dictionary, removing the UID
         # mrc_fname = os.path.splitext(os.path.basename(mrc_path))[0].split('_', 1)[1] + '.mrcs'
         mrc_fname = os.path.basename(mrc_path).split('_', 1)[1]
+        mrc_fname = os.path.splitext(mrc_fname)[0] + '.mrcs'
 
         ## Use the first particle to set the optics table data 
         if i == 0:
@@ -201,7 +202,7 @@ def parse_cs_dataset(cs_particles):
         print("  >> %s" % (random_micrograph))
         random_particles = []
         if len(particle_data[random_micrograph]) < 3:
-            for _ in range(len(particle_data[random_micrograph])):
+            for _ in range(len(particle_data[random_micrograph] - 1)):
                 random_particle_number = _
                 random_particles.append(random_particle_number)
                 print("      ", particle_data[random_micrograph][random_particles[-1]])
@@ -427,7 +428,8 @@ def write_star_file(optics_data, particle_data, output_dir, output_star_fname, m
 
     with open('%s' % (output_dir + output_star_fname), 'a' ) as f :
         for mic in particle_data:
-            output_mrcs_fname = os.path.splitext(os.path.basename(mic))[0].split('_', 1)[1] + '.mrcs'
+            # output_mrcs_fname = os.path.splitext(os.path.basename(mic))[0].split('_', 1)[1] + '.mrcs'
+            output_mrcs_fname = mic
             output_mrcs_path = output_dir + mrcs_output_dir + output_mrcs_fname
 
             for i in range(len(particle_data[mic])):
@@ -442,8 +444,8 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
     import mrcfile
 
     for output_mrcs_fname in particle_data:
-        ## crude solution, but hardcode the name change, later make this an input (i.e. fix the input dictionary during parsing?)
-        output_mrcs_fname = os.path.splitext(output_mrcs_fname)[0] + '.mrcs'
+        # ## crude solution, but hardcode the name change, later make this an input (i.e. fix the input dictionary during parsing?)
+        # output_mrcs_fname = os.path.splitext(output_mrcs_fname)[0] + '.mrcs'
 
         ## prepare an empty .mrcs file to hold all the frames we want to eventually write
         output_mrcs_path = output_dir + mrcs_output_dir + output_mrcs_fname
