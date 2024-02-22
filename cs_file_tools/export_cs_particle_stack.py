@@ -200,12 +200,18 @@ def parse_cs_dataset(cs_particles):
         random_micrograph = choice(list(particle_data.keys())) 
         print("  >> %s" % (random_micrograph))
         random_particles = []
-        for _ in range(3):
-            random_particle_number = randint(0, len(particle_data[random_micrograph]))
-            while random_particle_number in random_particles:
+        if len(particle_data[random_micrograph]) < 3:
+            for _ in range(len(particle_data[random_micrograph])):
+                random_particle_number = _
+                random_particles.append(random_particle_number)
+                print("      ", particle_data[random_micrograph][random_particles[-1]])
+        else:
+            for _ in range(3):
                 random_particle_number = randint(0, len(particle_data[random_micrograph]))
-            random_particles.append(random_particle_number)
-            print("      ", particle_data[random_micrograph][random_particles[-1]])
+                while random_particle_number in random_particles:
+                    random_particle_number = randint(0, len(particle_data[random_micrograph]))
+                random_particles.append(random_particle_number)
+                print("      ", particle_data[random_micrograph][random_particles[-1]])
         print("        ...")
         print("==================================")
 
@@ -414,7 +420,7 @@ def write_particle_to_mrcs(input_mrcs, output_mrcs, input_mrcs_path, input_mrcs_
 
     return 
 
-def write_star_file(optics_data, particle_data, cs_project_dir, output_dir, output_star_fname, mrcs_output_dir):
+def write_star_file(optics_data, particle_data, output_dir, output_star_fname, mrcs_output_dir):
     write_optics_table(optics_data, output_star_fname)
 
     write_particle_table_headers(output_star_fname)
@@ -431,39 +437,57 @@ def write_star_file(optics_data, particle_data, cs_project_dir, output_dir, outp
                 write_particle_to_star(f, particle_info, particle_star_path)
     return 
 
-def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, output_star_fname, mrcs_output_dir):
-    import os
+def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrcs_output_dir):
+    # import os
     import mrcfile
 
-    for p in particle_data:
-        mic = particle_data[0]
-        print(" .. processing %s (%s) particles" % (mic, len(particle_data[mic])))
-        ## determine the input and output mrc files
-        cs_mrc_path = cs_project_dir + mic
-        output_mrcs_fname = os.path.splitext(os.path.basename(mic))[0].split('_', 1)[1] + '.mrcs'
-        output_mrcs_path = output_dir + mrcs_output_dir + output_mrcs_fname
+    for output_mrcs_fname in particle_data:
 
-        ## prepare an empty .mrcs file to hold all the frames we want to eventually write 
+        ## prepare an empty .mrcs file to hold all the frames we want to eventually write
+        output_mrcs_path = output_dir + mrcs_output_dir + output_mrcs_fname
         box_size = optics_data['_rlnImageSize']
-        make_empty_mrcs(len(particle_data[mic]), [box_size, box_size], 2, output_mrcs_path, optics_data['_rlnImagePixelSize'])
+        make_empty_mrcs(len(particle_data[output_mrcs_fname]), [box_size, box_size], 2, output_mrcs_path, optics_data['_rlnImagePixelSize'])
+        print(" .. processing %s (%s) particles" % (output_mrcs_fname, len(particle_data[output_mrcs_fname])))
         
-        ## open both mrcs files simultaneously for us to operate on 
-        input_mrcs = mrcfile.open(cs_mrc_path, mode='r')
+        ## open the empty .mrcs file we intend to populate 
         output_mrcs = mrcfile.open(output_mrcs_path, mode='r+')
 
-        for i in range(len(particle_data[mic])):
-            particle_info = particle_data[mic][i]
 
+        input_mrcs = None        
+        for i in range(len(particle_data[output_mrcs_fname])):
+            ## get the particle data 
+            particle_info = particle_data[output_mrcs_fname][i]
+            ## retrieve the path to the current particle's mrc file in the CS project and its index in the .mrc stack 
+            cs_mrc_path = cs_project_dir + particle_info[PARTICLE_DATA_STRUCTURE.index('cs_mrc_path')]
             cs_mrc_particle_index = particle_info[PARTICLE_DATA_STRUCTURE.index('cs_mrc_index')]
+
+            ## open the input_mrc file if none is yet open 
+            if input_mrcs == None:
+                input_mrcs = mrcfile.open(cs_mrc_path, mode='r')
+
+            ## otherwise, check if the open file is different than one we want 
+            elif input_mrcs._iostream.name != cs_mrc_path:
+                ## since the open mrc file is not the one we want, first we close it
+                input_mrcs.close()
+                ## then we open the new one we want  
+                input_mrcs = mrcfile.open(cs_mrc_path, mode='r')
+
+            ## otherwise, we already have the appropriate open input mrc file 
+            else:
+                print(" Input MRC file already open! ")
+                continue 
 
             write_particle_to_mrcs(input_mrcs, output_mrcs, cs_mrc_path, cs_mrc_particle_index, output_mrcs_path, i)
 
-        output_mrcs.voxel_size = input_mrcs.voxel_size
+            if input_mrcs != None: 
+                input_mrcs.close()
+
+        
+        ## update & close the now-filled .mrcs file we created 
+        output_mrcs.voxel_size = optics_data['_rlnImagePixelSize']
         output_mrcs.update_header_from_data()
         output_mrcs.update_header_stats()
-
         output_mrcs.close()
-        input_mrcs.close()
 
     return 
 
@@ -551,14 +575,14 @@ if __name__ == "__main__":
     ## cs data is stored as a numpy structured array (recarrays), it can be opened with numpy 
     cs_dataset = np.load(cs_file)
 
-    cs_project_dir = sanity_check_inputs(cs_dataset, cs_project_dir)
+    # cs_project_dir = sanity_check_inputs(cs_dataset, cs_project_dir)
 
     ## run through the CS dataset to prepare the necessary data for creating .MRCS and .STAR files
     optics_data, particle_data = parse_cs_dataset(cs_dataset)
 
     prep_working_dir(output_dir + mrcs_output_dir_name)
 
-    write_star_file(optics_data, particle_data, cs_project_dir, output_dir, output_star_fname, mrcs_output_dir_name)
+    write_star_file(optics_data, particle_data, output_dir, output_star_fname, mrcs_output_dir_name)
 
     if PARALLEL_PROCESSING:
         ## multithreading set up
@@ -570,7 +594,7 @@ if __name__ == "__main__":
         try:
             dataset = []
             for task in tasks:
-                dataset.append((optics_data, task, cs_project_dir, output_dir, output_star_fname, mrcs_output_dir_name))
+                dataset.append((optics_data, task, cs_project_dir, output_dir, mrcs_output_dir_name))
             ## prepare pool of workers
             pool = Pool(threads)
             ## assign workload to pool
@@ -586,7 +610,7 @@ if __name__ == "__main__":
 
 
     else:
-        write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, output_star_fname, mrcs_output_dir_name)
+        write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrcs_output_dir_name)
 
     print(" --------------------------------------------------------------------------------------------------")
     print(" ... COMPLETE")
