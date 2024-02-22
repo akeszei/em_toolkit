@@ -142,6 +142,7 @@ def sanity_check_inputs(cs_dataset, cs_project_dir):
     ## use the path to check file exists 
     if not os.path.isfile(mrc_path):
         print(" ERROR :: Unable to locate .MRC file described by input CS file: %s" % (mrc_path))
+        print("   Double-check you have provided the correct path from the working dir the CS project")
         usage()
     
     return cs_project_dir
@@ -173,16 +174,19 @@ def parse_cs_dataset(cs_particles):
         
         ## find the corresponding .MRC file for that particle 
         mrc_path = particle_cs_data[cs_headers['blob/path']].decode('utf-8').strip()
+        ## since multiple extract jobs can exist, use the base name of the .mrc file as the dictionary, removing the UID
+        # mrc_fname = os.path.splitext(os.path.basename(mrc_path))[0].split('_', 1)[1] + '.mrcs'
+        mrc_fname = os.path.basename(mrc_path).split('_', 1)[1]
 
         ## Use the first particle to set the optics table data 
         if i == 0:
             print(" ... preparing optics table info from first particle entry")
             optics_data = populate_relion_optics_table(particle_cs_data, cs_headers)
-            particle_data.setdefault(mrc_path,[]).append(get_particle_data(particle_cs_data, cs_headers, DEBUG = DEBUG))
+            particle_data.setdefault(mrc_fname,[]).append(get_particle_data(particle_cs_data, cs_headers, DEBUG = DEBUG))
         else:
             ## For every particle, retrieve the necessary data and cast it into a familiar format for downstream use 
-            particle_data.setdefault(mrc_path,[]).append(get_particle_data(particle_cs_data, cs_headers))
-
+            particle_data.setdefault(mrc_fname,[]).append(get_particle_data(particle_cs_data, cs_headers))
+    
     print(" ... read %s micrographs from file (%s particles)" % (len(particle_data), particle_count))
     
     ## make the particle lists in the dictionary immutable
@@ -552,7 +556,7 @@ if __name__ == "__main__":
     optics_data, particle_data = parse_cs_dataset(cs_dataset)
 
     prep_working_dir(output_dir + mrcs_output_dir_name)
-        
+
     write_star_file(optics_data, particle_data, cs_project_dir, output_dir, output_star_fname, mrcs_output_dir_name)
 
     if PARALLEL_PROCESSING:
