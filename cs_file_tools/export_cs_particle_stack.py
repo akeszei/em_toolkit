@@ -435,7 +435,8 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, out
     import os
     import mrcfile
 
-    for mic in particle_data:
+    for p in particle_data:
+        mic = particle_data[0]
         print(" .. processing %s (%s) particles" % (mic, len(particle_data[mic])))
         ## determine the input and output mrc files
         cs_mrc_path = cs_project_dir + mic
