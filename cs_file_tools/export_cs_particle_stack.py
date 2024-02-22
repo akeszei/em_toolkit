@@ -438,10 +438,12 @@ def write_star_file(optics_data, particle_data, output_dir, output_star_fname, m
     return 
 
 def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrcs_output_dir):
-    # import os
+    import os
     import mrcfile
 
     for output_mrcs_fname in particle_data:
+        ## crude solution, but hardcode the name change, later make this an input (i.e. fix the input dictionary during parsing?)
+        output_mrcs_fname = os.path.splitext(output_mrcs_fname)[0] + '.mrcs'
 
         ## prepare an empty .mrcs file to hold all the frames we want to eventually write
         output_mrcs_path = output_dir + mrcs_output_dir + output_mrcs_fname
@@ -474,7 +476,7 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
 
             ## otherwise, we already have the appropriate open input mrc file 
             else:
-                print(" Input MRC file already open! ")
+                # print(" Input MRC file already open! ")
                 continue 
 
             write_particle_to_mrcs(input_mrcs, output_mrcs, cs_mrc_path, cs_mrc_particle_index, output_mrcs_path, i)
