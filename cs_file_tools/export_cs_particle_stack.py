@@ -469,8 +469,12 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
         ## prepare an empty .mrcs file to hold all the frames we want to eventually write
         output_mrcs_path = output_dir + mrcs_output_dir + output_mrcs_fname
         box_size = optics_data['_rlnImageSize']
-        make_empty_mrcs(len(particle_data[output_mrcs_fname]), [box_size, box_size], 2, output_mrcs_path, optics_data['_rlnImagePixelSize'])
-        print(" .. processing %s (%s) particles" % (output_mrcs_fname, len(particle_data[output_mrcs_fname])))
+        try:
+            make_empty_mrcs(len(particle_data[output_mrcs_fname]), [box_size, box_size], 2, output_mrcs_path, optics_data['_rlnImagePixelSize'])
+            print(" .. processing %s (%s) particles" % (output_mrcs_fname, len(particle_data[output_mrcs_fname])))
+        except:
+            s = " ERROR! Could not make an empty mrcs for %s (%s) particles" % (output_mrcs_fname, len(particle_data[output_mrcs_fname]))
+            log_error(s)
         
         ## open the empty .mrcs file we intend to populate 
         output_mrcs = mrcfile.open(output_mrcs_path, mode='r+')
@@ -500,7 +504,13 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
                 # print(" Input MRC file already open! ")
                 continue 
 
-            write_particle_to_mrcs(input_mrcs, output_mrcs, cs_mrc_path, cs_mrc_particle_index, output_mrcs_path, i)
+            try:
+                write_particle_to_mrcs(input_mrcs, output_mrcs, cs_mrc_path, cs_mrc_particle_index, output_mrcs_path, i)
+            except:
+                s = " ERROR! Could not properly extract particles:\n %s (%s particles) --> %s" % (cs_mrc_path, len(particle_data[output_mrcs_fname]), output_mrcs_path)
+                log_error(s)
+                print(" ERROR :: Skipping particles from micrograph: %s" % output_mrcs_fname)
+                input_mrcs.close()
 
         if input_mrcs != None: 
             input_mrcs.close()
@@ -519,6 +529,19 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
         print("  < 10 particles = %s" % len(mics_w_less_than_ten))
 
     return 
+
+def log_error(err, out_fname = 'err.log', reset = False):
+    
+    if reset:
+        ## use overwrite option to generate a clean file initially 
+        with open('%s' % (out_fname), 'w' ) as f :
+            f.write("%s \n" % err)
+    else:
+        ## use append option to add to error log 
+        with open('%s' % (out_fname), 'a' ) as f :
+            f.write("%s \n" % err)
+
+    return
 
 def prep_working_dir(mrcs_output_dir_name):
     ## prepare the root directory for all .mrcs files and clean it up if anything already exists in it 
@@ -608,6 +631,9 @@ if __name__ == "__main__":
     cs_dataset = np.load(cs_file)
 
     # cs_project_dir = sanity_check_inputs(cs_dataset, cs_project_dir)
+
+    ## clear error logfile 
+    log_error("", reset = True)
 
     ## run through the CS dataset to prepare the necessary data for creating .MRCS and .STAR files
     optics_data, particle_data = parse_cs_dataset(cs_dataset)
