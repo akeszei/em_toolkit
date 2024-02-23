@@ -13,6 +13,7 @@
 # region :: FLAGS/GLOBALS
 #############################
 DEBUG = True
+DRY_RUN = False
 
 ## Pair each header list from one program to another such that their indexes correspond with the equivalent expected entry 
 RELION_OPTICS_HEADERS = [
@@ -115,10 +116,10 @@ def usage():
     print(" into RELION for processing there:")
     print(" Usage:")
     print("    $ export_cs_particles_stack.py  J##_###_particles.cs  /path/to/root/CS-directory/")
-    # print(" ")
-    # print(" -----------------------------------------------------------------------------------------------")
-    # print(" Options (default in brackets): ")
-    # print("         --flag (defaults) : Explanation")
+    print(" ")
+    print(" -----------------------------------------------------------------------------------------------")
+    print(" Options (default in brackets): ")
+    print("         --dry-run : Read the .cs file and give a report on what the script will do only")
     print("===================================================================================================")
     sys.exit()
 
@@ -199,21 +200,20 @@ def parse_cs_dataset(cs_particles):
         print(" Example particle data extracted:")
         print("----------------------------------")
         random_micrograph = choice(list(particle_data.keys())) 
-        print("  >> %s" % (random_micrograph))
+        print("  >> %s (%s particles)" % (random_micrograph, len(particle_data[random_micrograph])))
         random_particles = []
         if len(particle_data[random_micrograph]) < 3:
-            for _ in range(len(particle_data[random_micrograph] - 1)):
-                random_particle_number = _
-                random_particles.append(random_particle_number)
-                print("      ", particle_data[random_micrograph][random_particles[-1]])
+            for _ in range(len(particle_data[random_micrograph]) - 1):
+                random_particles.append(_)
+                print("    ... particle #%s data: " % _, particle_data[random_micrograph][random_particles[-1]])
         else:
             for _ in range(3):
-                random_particle_number = randint(0, len(particle_data[random_micrograph]))
+                random_particle_number = randint(0, len(particle_data[random_micrograph]) - 1)
                 while random_particle_number in random_particles:
-                    random_particle_number = randint(0, len(particle_data[random_micrograph]))
+                    random_particle_number = randint(0, len(particle_data[random_micrograph]) - 1)
                 random_particles.append(random_particle_number)
-                print("      ", particle_data[random_micrograph][random_particles[-1]])
-        print("        ...")
+                print("    ... particle #%s data: " % random_particle_number, particle_data[random_micrograph][random_particles[-1]])
+        print("    ...")
         print("==================================")
 
     return optics_data, particle_data
@@ -407,21 +407,20 @@ def write_particle_to_mrcs(input_mrcs, output_mrcs, input_mrcs_path, input_mrcs_
         if DEBUG:
             print("Data read from file = (min, max) -> (%s, %s), dtype = %s" % (np.min(particle_img), np.max(particle_img), particle_img.dtype))
 
-        # ## need to deal with single frame as a special case since array shape changes format
-        # if len(frames_to_copy) == 1:
-        #     output_mrcs.data[0:] = frame_data
-        # else:
-        #     ## pass the frame data into the next available frame of the output mrcs
-        #     output_mrcs.data[i] = frame_data
-        #     # if DEBUG:
-        #     #     print("Data written to file = (min, max) -> (%s, %s), dtype = %s" % (np.min(output_mrcs.data[i]), np.max(output_mrcs.data[i]), output_mrcs.data[i].dtype))
-        output_mrcs.data[output_mrcs_index] = particle_img
+        ## check if the output mrcs is a single frame, in which case we need to deal with appending the frame as a special case 
+        if output_mrcs.data.shape == 2:
+            output_mrcs.data[0:] = particle_img
+        else:
+            output_mrcs.data[output_mrcs_index] = particle_img
     else:
         print(" Input frame value requested (%s) not in expected range of .MRCS input file: (%s; [%s, %s])" % (input_mrcs_index, input_mrcs_path, 1, input_mrcs.data.shape[0]))
 
     return 
 
 def write_star_file(optics_data, particle_data, output_dir, output_star_fname, mrcs_output_dir):
+    if DRY_RUN:
+        return 
+    
     write_optics_table(optics_data, output_star_fname)
 
     write_particle_table_headers(output_star_fname)
@@ -442,8 +441,28 @@ def write_star_file(optics_data, particle_data, output_dir, output_star_fname, m
 def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrcs_output_dir):
     import os
     import mrcfile
+    
+    mics_w_one_particle = []
+    mics_w_less_than_five = []
+    mics_w_less_than_ten = []
 
     for output_mrcs_fname in particle_data:
+
+        if DRY_RUN:
+            output_mrcs_path = output_dir + mrcs_output_dir + output_mrcs_fname
+            box_size = optics_data['_rlnImageSize']
+            num_particles = len(particle_data[output_mrcs_fname])
+            # print(" ... empty .MRCS file will be created :: (%s, %s, %s) @ %s" % (box_size, box_size, num_particles, output_mrcs_path))
+            # print(" WIP write out first three particles, their metadata, their source mrc and output mrc!!")
+            
+            if num_particles < 10:
+                mics_w_less_than_ten.append(output_mrcs_fname)
+            if num_particles < 5:
+                mics_w_less_than_five.append(output_mrcs_fname)
+            if num_particles == 1:
+                mics_w_one_particle.append(output_mrcs_fname)
+            continue  
+
         # ## crude solution, but hardcode the name change, later make this an input (i.e. fix the input dictionary during parsing?)
         # output_mrcs_fname = os.path.splitext(output_mrcs_fname)[0] + '.mrcs'
 
@@ -483,8 +502,8 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
 
             write_particle_to_mrcs(input_mrcs, output_mrcs, cs_mrc_path, cs_mrc_particle_index, output_mrcs_path, i)
 
-            if input_mrcs != None: 
-                input_mrcs.close()
+        if input_mrcs != None: 
+            input_mrcs.close()
 
         
         ## update & close the now-filled .mrcs file we created 
@@ -492,6 +511,12 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
         output_mrcs.update_header_from_data()
         output_mrcs.update_header_stats()
         output_mrcs.close()
+
+    if DRY_RUN:
+        print(" # micrographs with:")
+        print("      1 particle = %s" % len(mics_w_one_particle))
+        print("   < 5 particles = %s" % len(mics_w_less_than_five))
+        print("  < 10 particles = %s" % len(mics_w_less_than_ten))
 
     return 
 
@@ -563,6 +588,9 @@ if __name__ == "__main__":
                 print(" Using %s threads" % threads)
             except:
                 print(" Could not parse # of threads, or none given, using default: %s" % threads)
+        if cmd_line[i] == '--dry-run':
+            DRY_RUN = True
+            print(" Running in dry-run mode... no files will be written")
 
 
     cs_file = sys.argv[1]
@@ -616,15 +644,19 @@ if __name__ == "__main__":
     else:
         write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrcs_output_dir_name)
 
-    print(" --------------------------------------------------------------------------------------------------")
-    print(" ... COMPLETE")
-    print("   Written: %s" % output_dir + output_star_fname)
-    print("   MRCS files written in: %s" % output_dir + mrcs_output_dir_name)
-    print(" --------------------------------------------------------------------------------------------------")
-    print(" NOTE: Will likely need to normalize the particles for processing in RELION (this is done on extraction job)")
-    print(" To do this, save a back up of the particle stack and run:")
-    print("     $ relion_preprocess --operate_on  backup/<cs_stack>.mrcs  --operate_out <new_stack>.mrcs --norm --float16 --bg_radius <0.37 * box>")
-    print("===================================================================================================")
+    if DRY_RUN:
+        print(" --------------------------------------------------------------------------------------------------")
+        print(" ... DRY-RUN COMPLETE")
+    else:
+        print(" --------------------------------------------------------------------------------------------------")
+        print(" ... COMPLETE")
+        print("   Written: %s" % output_dir + output_star_fname)
+        print("   MRCS files written in: %s" % output_dir + mrcs_output_dir_name)
+        print(" --------------------------------------------------------------------------------------------------")
+        print(" NOTE: Will likely need to normalize the particles for processing in RELION (this is done on extraction job)")
+        print(" To do this, save a back up of the particle stack and run:")
+        print("     $ relion_preprocess --operate_on  backup/<cs_stack>.mrcs  --operate_out <new_stack>.mrcs --norm --float16 --bg_radius <0.37 * box>")
+        print("===================================================================================================")
 
     end_time = time.time()
     total_time_taken = end_time - start_time
