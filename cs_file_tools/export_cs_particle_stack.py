@@ -405,10 +405,10 @@ def write_particle_to_mrcs(input_mrcs, output_mrcs, input_mrcs_path, input_mrcs_
     if input_mrcs_index in range(0, input_mrcs.data.shape[0]):
         particle_img = input_mrcs.data[input_mrcs_index]
         if DEBUG:
-            print("Data read from file = (min, max) -> (%s, %s), dtype = %s" % (np.min(particle_img), np.max(particle_img), particle_img.dtype))
+            print(" >> Data read from file = (min, max) -> (%s, %s), dtype = %s" % (np.min(particle_img), np.max(particle_img), particle_img.dtype))
 
         ## check if the output mrcs is a single frame, in which case we need to deal with appending the frame as a special case 
-        if output_mrcs.data.shape == 2:
+        if len(output_mrcs.data.shape) == 2:
             output_mrcs.data[0:] = particle_img
         else:
             output_mrcs.data[output_mrcs_index] = particle_img
@@ -626,11 +626,10 @@ if __name__ == "__main__":
     print("  Load cs file: %s" % cs_file)
     print("------------------------------------------------------------------")
 
-
     ## cs data is stored as a numpy structured array (recarrays), it can be opened with numpy 
     cs_dataset = np.load(cs_file)
 
-    # cs_project_dir = sanity_check_inputs(cs_dataset, cs_project_dir)
+    cs_project_dir = sanity_check_inputs(cs_dataset, cs_project_dir)
 
     ## clear error logfile 
     log_error("", reset = True)
