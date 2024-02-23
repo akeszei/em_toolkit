@@ -479,8 +479,8 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
         ## open the empty .mrcs file we intend to populate 
         output_mrcs = mrcfile.open(output_mrcs_path, mode='r+')
 
+        input_mrcs = None 
 
-        input_mrcs = None        
         for i in range(len(particle_data[output_mrcs_fname])):
             ## get the particle data 
             particle_info = particle_data[output_mrcs_fname][i]
@@ -502,7 +502,7 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
             ## otherwise, we already have the appropriate open input mrc file 
             else:
                 # print(" Input MRC file already open! ")
-                continue 
+                pass 
 
             try:
                 write_particle_to_mrcs(input_mrcs, output_mrcs, cs_mrc_path, cs_mrc_particle_index, output_mrcs_path, i)
