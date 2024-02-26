@@ -680,7 +680,9 @@ if __name__ == "__main__":
         print(" --------------------------------------------------------------------------------------------------")
         print(" NOTE: Will likely need to normalize the particles for processing in RELION (this is done on extraction job)")
         print(" To do this, save a back up of the particle stack and run:")
-        print("     $ relion_preprocess --operate_on  backup/<cs_stack>.mrcs  --operate_out <new_stack>.mrcs --norm --float16 --bg_radius <0.37 * box>")
+        print("     $ mv mrcs_stacks mrcs_backup; mkdir mrcs_stacks")
+        print("     $ for m in mrcs_backup/*.mrcs; do \\") 
+        print("     > relion_preprocess --operate_on $m --operate_out mrcs_stacks/${m#*/} --norm --float16 --bg_radius %s # e.g. <0.37 * box>" % (int(0.37 * optics_data['_rlnImagePixelSize'])))
         print("===================================================================================================")
 
     end_time = time.time()
@@ -691,12 +693,3 @@ if __name__ == "__main__":
 
 
 #endregion
-    
-# ## ASIDE ON NUMPY STRINGS: 
-# ## a python string can be converted to np.bytes_ type by simply calling it with the .bytes_ method: 
-# a = 'a'
-# a = np.bytes_(a)    
-# print(a, type(a))
-# ## We can decode a np.bytes_ array back to a string by using the ptyhon builtin decode method:
-# a = a.decode('UTF-8')
-# print(a, type(a))
