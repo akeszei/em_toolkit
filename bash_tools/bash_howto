@@ -294,6 +294,8 @@ Notes from tutorial: https://ez-lab.gitbook.io/cryodrgn/cryodrgn-empiar-10076-tu
     $ dir=<dir>; cryodrgn analyze ${dir}/00_vae${d} 49 --Apix <original angpix * original box / new box>
 
     # Can look into the analyze folder manually or use jyputer notebooks:
+    $ jupyter notebook ## then navigate to the correct notebook
+    ## Can remotely access jupyter notebook via:
     (server side) $ jupyter notebook --no-browser --port 8888
     (client side) $ ssh -N -f -L localhost:8888:localhost:8888 <user>@<server>
     (client side) use browser to nagivate to the address on reported on the server terminal, save images manually using shift + right click  
