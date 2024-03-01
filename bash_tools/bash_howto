@@ -261,5 +261,51 @@ E.g. here is how you would download a dataset from EMPIAR
   $ wget --show-process -mc ftp://ftp.ebi.ac.uk/empiar/world_availability/10076/data 
 ========================================"
 fi
+# cryoDRGN usage notes  
+if [ "$1" = "cryodrgn" -o "$1" = "cryoDRGN" ] 
+then
+   echo "========================================
+Notes from tutorial: https://ez-lab.gitbook.io/cryodrgn/cryodrgn-empiar-10076-tutorial#id-4-cryodrgn-training
+#############
+## 1. Preprocessing from cryoSPARC initial binned particles 
+    $ cd /path/to/CS-project
+
+    $ dir=<dir>; box=<box>; cryodrgn parse_pose_csparc J##/J##_###_particles.cs -D $box -o ${dir}/poses.pkl 
+
+    $ dir=<dir>; cryodrgn parse_ctf_csparc J##/J##_###_particles.cs -o ${dir}/ctf.pkl
+
+    $ dir=<dir>; d=<new_box>; if [ $((d % 8)) -eq 0 ]; then cryodrgn downsample J##/J##_###_particles.cs -D $d -o ${dir}/particle_stacks/particles.${d}.mrcs; else echo "Input target box size ($d px) is not divisible by 8, adjust to nearest number that is!"; fi    
+
+    - When preprocessing higher resolution particles, be sure not to omit any dropped particles as they will be expected from the ctf/poses.pkl files 
+    - For preprocessing higher resolution particles, you can break the stack down into smaller chunks, i.e.: 
+        $ d=<box>; cryodrgn downsample...   --max-threads 18  --chunk 50000
+
+#############
+## 2. First pass training 
+    $ dir=<dir>; d=<box>; cryodrgn train_vae ${dir}/particles.${d}.mrcs --ctf ${dir}/ctf.pkl --poses ${dir}/poses.pkl --zdim 8 -n 50 --enc-dim 256 --enc-layers 3 --dec-dim 256 --dec-layers 3 -o ${dir}/00_vae${d} 
+    
+    - If more than 1 GPU is available, can use the ... --multigpu flag to use all, see tutorial if you need to select specific ones instead 
+
+    # Continue from a given iteration by adding flag: 
+    $ ... --load ${dir}/00_vae${d}/weights.##.pkl 
+
+#############
+## 3. Analyze results 
+    $ dir=<dir>; cryodrgn analyze ${dir}/00_vae${d} 49 --Apix <original angpix * original box / new box>
+
+    # Can look into the analyze folder manually or use jyputer notebooks:
+    (server side) $ jupyter notebook --no-browser --port 8888
+    (client side) $ ssh -N -f -L localhost:8888:localhost:8888 <user>@<server>
+    (client side) use browser to nagivate to the address on reported on the server terminal, save images manually using shift + right click  
+
+    - Can select particles and drop them in jupyter notebook
+
+#############
+## 4. High resolution training 
+    - For training on higher resolution particle stacks, you may run into memory issues, hence can use lazy loading flag. As well, a higher resolution network is used in this step typically:
+
+    $ dir=<dir>; d=<box>; cryodrgn train_vae ${dir}/particles.${d}.(mrcs or txt) --ctf ${dir}/ctf.pkl --poses ${dir}/poses.pkl --zdim 8 -n 50 --enc-dim 1024 --enc-layers 3 --dec-dim 1024 --dec-layers 3 -o ${dir}/10_vae${d} --multigpu --max-theads 18 --lazy
+========================================"
+fi
 
 }
