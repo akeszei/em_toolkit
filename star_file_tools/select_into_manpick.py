@@ -176,12 +176,12 @@ def write_manpick_files(data_dict):
             f.write("_rlnClassNumber #3\n")
             f.write("_rlnAnglePsi #4\n")
             f.write("_rlnAutopickFigureOfMerit #5\n")
-
+            f.write("_rlnParticleSelectionType #6\n")
 
     for mic in data_dict:
         with open('%s' % (mic+'_manualpick.star'), 'a' ) as f :
             for (X_coord, Y_coord) in data_dict[mic] :
-                f.write("%s\t%s\t-999\t-999.0\t-999.0\n" % (X_coord, Y_coord))
+                f.write("%s\t%s\t-999\t-999.0\t-999.0\t2\n" % (X_coord, Y_coord))
 
 
 #############################
