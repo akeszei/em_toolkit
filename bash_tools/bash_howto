@@ -274,7 +274,7 @@ Notes from tutorial: https://ez-lab.gitbook.io/cryodrgn/cryodrgn-empiar-10076-tu
 
     $ dir=<dir>; cryodrgn parse_ctf_csparc J##/J##_###_particles.cs -o ${dir}/ctf.pkl
 
-    $ dir=<dir>; d=<new_box>; if [ $((d % 8)) -eq 0 ]; then cryodrgn downsample J##/J##_###_particles.cs -D $d -o ${dir}/particle_stacks/particles.${d}.mrcs; else echo "Input target box size ($d px) is not divisible by 8, adjust to nearest number that is!"; fi    
+    $ dir=<dir>; d=<new_box>; if [ $((d % 8)) -eq 0 ]; then cryodrgn downsample J##/J##_###_particles.cs -D $d -o ${dir}/particle_stacks/particles.${d}.mrcs; else echo \"Input target box size ($d px) is not divisible by 8, adjust to nearest number that is!\"; fi    
 
     - When preprocessing higher resolution particles, be sure not to omit any dropped particles as they will be expected from the ctf/poses.pkl files 
     - For preprocessing higher resolution particles, you can break the stack down into smaller chunks, i.e.: 
