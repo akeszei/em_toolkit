@@ -133,7 +133,7 @@ If done correctly, then a fresh terminal window should show a return for:
 Add/remove packages as desired. This is a list of the usual suspects I use:
 
 ```
-$ sudo apt install gedit git cmake fonts-inconsolata fonts-roboto ttf-mscorefonts-installer okular evince imagemagick gnuplot xorg openssh-server build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev python3-pip python3-setuptools libx11-dev tk8.6-dev python-tk csh tmux python3-tk python3-pil.imagetk yakuake tree gimp openconnect network-manager-openconnect
+$ sudo apt install gedit git cmake fonts-inconsolata fonts-roboto ttf-mscorefonts-installer okular evince imagemagick gnuplot xorg openssh-server build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev python3-pip python3-setuptools libx11-dev tk8.6-dev python-tk csh tmux python3-tk python3-pil.imagetk yakuake tree gimp openconnect network-manager-openconnect perl-tk
 ```
 
 ## Set up base python environment 
@@ -270,6 +270,19 @@ Notes to follow
 
 ### CrYOLO
 Notes to follow
+
+
+### Phenix
+Download or transfer a phenix installation zip and unpackage it in a temporary directory:
+```sh
+ tar xvf phenix-installer-<version>-<platform>.tar
+```
+Change to the installer directory:
+
+% cd phenix-installer-<version>
+To install:
+
+% ./install --prefix=<directory>  [will make <directory>/phenix-<version> and install there]
 
 ### Miniconda 
 Get the [Linux 64-bit installer](https://docs.conda.io/en/latest/miniconda.html). Run the installer:
