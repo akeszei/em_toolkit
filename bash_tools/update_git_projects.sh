@@ -1,4 +1,8 @@
-echo "Run this script as sudo for it to properly work!"
+## Sanity check the script is run with root priviledge
+if ! [ $(id -u) = 0 ]; then
+    echo " !! ERROR !! Script must be run with elevated priviledges (add sudo)"
+    exit 1
+fi
 
 ## Remove all projects
 if [ -d "em_dataset_curator" ]; then
