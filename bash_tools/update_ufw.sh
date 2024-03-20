@@ -48,12 +48,12 @@ do
     read -a ip_entry <<< "$line"
 
     ## sanity check the array length is 2, otherwise print a warning and skip the entry
-    if [ "${#ip_entry[@]}" -g 2 ]; then
+    if [ "${#ip_entry[@]}" -gt 2 ]; then
         echo " !! WARNING !! Entry found, but more than 2 columns were detected:"
         echo "       entry >>> $line"
-    elif [ "${#ip_entry[@]}" -l 1 ]; then
+    elif [ "${#ip_entry[@]}" -lt 1 ]; then
         ## skip empty lines
-        continue 
+        
     else
 
         ## for readability, rename the array entries based on their expected value types 
