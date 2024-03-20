@@ -24,11 +24,11 @@ set -eu
 read -ep "${magenta}Path to IP addresses file: ${default_color}" -i "~/ip_table.txt" FILE
 
 ## Sanity check the file exists 
-if [ -f $FILE ]; then
-        continue 
-    else 
-        echo " !! ERROR !! Input ip table file not found at path: $FILE"
-        exit 1
+if [ -f "$FILE" ]; then
+    echo " File found: $FILE" 
+else 
+    echo " !! ERROR !! Input ip table file not found at path: $FILE"
+    exit 1
 fi
 
 ## Sanity check the script is run with root priviledge
