@@ -53,7 +53,7 @@ do
         echo "       entry >>> $line"
     elif [ "${#ip_entry[@]}" -lt 1 ]; then
         ## skip empty lines
-        
+        :
     else
 
         ## for readability, rename the array entries based on their expected value types 
