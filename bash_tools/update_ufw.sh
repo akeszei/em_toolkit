@@ -21,7 +21,7 @@ trap "echo; echo '${red}Script terminated by user.${default_color}'; exit;" SIGI
 set -eu
 
 ## Determine path to txt file with IP addresses & comments 
-read -ep "${magenta}Path to IP addresses file: ${default_color}" -i "~/ip_table.txt" FILE
+read -ep "${magenta}Path to IP addresses file: ${default_color}" -i '~/ip_table.txt' FILE
 
 ## Sanity check the file exists 
 if [ -f $FILE ]; then
