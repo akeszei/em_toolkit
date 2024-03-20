@@ -5,8 +5,31 @@
 # y.y.y.y comment_2
 # ...
 
-FILE='ip_table.txt'
+## Simplify text output modifiers (e.g. echo "${red}color text here,${default} normal text color here");
+default_color=$(tput sgr0)
+red=$(tput setaf 1)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+blue=$(tput setaf 4)
+magenta=$(tput setaf 5)
+cyan=$(tput setaf 6)
+white=$(tput setaf 7)
 
+## Set a trap to terminate running loops (SIGINT) and processes (SIGTERM) with control+C
+trap "echo; echo '${red}Script terminated by user.${default_color}'; exit;" SIGINT SIGTERM
+## Automatically terminate script if any variables are undefined
+set -eu
+
+## Determine path to txt file with IP addresses & comments 
+read -ep "${magenta}Path to IP addresses file: ${default_color}" -i "~/ip_tables.txt" FILE
+
+## Sanity check the file exists 
+if [ -f "$FILE" ]; then
+        continue 
+    else 
+        echo " !! ERROR !! Input ip table file not found at path: $FILE"
+        exit 1
+fi
 
 ## Sanity check the script is run with root priviledge
 if ! [ $(id -u) = 0 ]; then
