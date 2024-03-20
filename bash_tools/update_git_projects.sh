@@ -54,6 +54,8 @@ chmod +x em_toolkit/bash_tools/link_data.sh
 chmod +x em_toolkit/bash_tools/get_random_subset_list_from_files.sh
 chmod +x em_toolkit/bash_tools/link_mics_from_file.sh
 chmod +x em_toolkit/bash_tools/compare_dirs.sh
+chmod +x em_toolkit/bash_tools/update_git_projects.sh
+chmod +x em_toolkit/bash_tools/update_ufw.sh
 
 ## Add link for each executable into a common binaries folder for loading onto $PATH
 if [ -d "bin" ]; then
