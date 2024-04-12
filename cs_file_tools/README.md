@@ -32,7 +32,7 @@ This script is meant to ease the process of transferring particle locations/coor
  # FoilHole_28212863_Data_28172543_3_20240229_032341_EER_manualpick.star
   
  # We can achieve this via the following string manipulation steps: 
- $ mic=009343540879033988068_FoilHole_28212863_Data_28172543_3_20240229_032341_EER_patch_aligned.mrc
+ $ mic=009343540879033988068_FoilHole_28212863_Data_28172543_3_20240229_032341_EER_patch_aligned.star
  $ mic2=${mic#*_}; mv $mic ${mic2/_patch_aligned.mrc/}_manualpick.star
  
  # We can hook this manipulation up into a for loop to change all our output files at once:
