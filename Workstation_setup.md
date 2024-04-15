@@ -375,7 +375,7 @@ $ mkdir /scratch/cryosparc_cache
 $ chmod 774 /scratch/cryosparc_cache/
 ```
 ### Download the tarballs:
-```
+```sh
   $ export LICENSE_ID="<license_id>"
   $ curl -L https://get.cryosparc.com/download/master-latest/$LICENSE_ID -o cryosparc_master.tar.gz
   $ curl -L https://get.cryosparc.com/download/worker-latest/$LICENSE_ID -o cryosparc_worker.tar.gz
@@ -387,19 +387,25 @@ $ tar -xf cryosparc_worker.tar.gz cryosparc_worker
 ```
 
 ### Install the master 
-```
+```sh
 $ cd cryosparc_master 
-$ ./install.sh --standalone --license $LICENSE_ID --worker_path /programs/cryosparc/cryosparc_worker --cudapath /usr/local/cuda --ssdpath /scratch/cryosparc_cache --initial_email user@domain.com --initial_username "user" --initial_firstname "user" --initial_lastname "user" --initial_password <pw>
+$ ./install.sh --standalone --license $LICENSE_ID --worker_path /programs/cryosparc/cryosparc_worker --ssdpath /scratch/cryosparc_cache --initial_email "user@domain.com" --initial_username "user" --initial_firstname "user" --initial_lastname "user" --initial_password "<pw>"
 ```
+If, for some reason, there is a problem making the new user on install, use the commandline to create the first user:
+
+```sh
+$ cryosparcm createuser --email "user@email" --username "user" --firstname "user" --lastname "user" --password "<password>"
+```
+
 
 ### Install the worker node
 ```sh
 $ cd cryosparc_worker
-$ ./install.sh --license $LICENSE_ID --cudapath /usr/local/cuda --yes
+$ ./install.sh --license $LICENSE_ID --yes
 ```
 
 ### Connect the worker node to the master 
-```
+```sh
 $ cd cryosparc_worker 
 $ ./bin/cryosparcw connect --worker localhost --master localhost --port 39000 --ssdpath /scratch/cryosparc_cache --lane default --newlane
 ```
