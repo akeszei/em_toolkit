@@ -40,3 +40,4 @@ create_dir $output_folder
 
 echo " COMPLETE"
 echo " ... rename the processed directory to match the particles.star file entries, then use in RELION" 
+exit 1
