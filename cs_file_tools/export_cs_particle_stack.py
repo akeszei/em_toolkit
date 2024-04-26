@@ -737,7 +737,7 @@ if __name__ == "__main__":
         print(" To do this, save a back up of the particle stack and run:")
         print("     $ mv mrcs_stacks mrcs_backup; mkdir mrcs_stacks")
         print("     $ for m in mrcs_backup/*.mrcs; do \\") 
-        print("     > relion_preprocess --operate_on $m --operate_out mrcs_stacks/${m#*/} --norm --float16 --bg_radius %s # e.g. <0.37 * box>" % (int(0.37 * optics_data['_rlnImagePixelSize'])))
+        print("     > relion_preprocess --operate_on $m --operate_out mrcs_stacks/${m#*/} --norm --float16 --bg_radius %s # e.g. <0.37 * box>" % (int(0.37 * optics_data['_rlnImageSize'])))
         print("===================================================================================================")
 
     end_time = time.time()
