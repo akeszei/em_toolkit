@@ -33,7 +33,7 @@ def usage():
     print("             --spacing (2) : spacing between images in the panel ")
     print("       --array_shape (5x3) : dimensions of the panel (columns x rows)")
     print("           --scalebar (-1) : length of scalebar in Angstroms. Note: uses 1.94 Ang/px by default")
-    print("           --angpix (1.94) : Angstroms per pixel, necessary for scalebar to be correct size")
+    print("             --angpix (-1) : override the header Angstroms per pixel value with a custom number here")
     print("          --sort_by (size) : sort classes by class distribution (size) or est. resolution (res)")
     print("              --indent (8) : pixels to inset the scalebar from the bottom left")
     print("               --scale (4) : thickness of the scalebar stroke ")
@@ -275,11 +275,31 @@ def get_mrcs_images(mrcs_file):
     ## open the mrcs file as an nparray of dimension (n, box_size, box_size), where n is the number of images in the stack
     with mrcfile.open(mrcs_file) as mrcs:
         counter = 0
+
+        ## grab the pixel size from the header 
+        pixel_size = np.around(mrcs.voxel_size.item(0)[0], decimals = 2)
+        # print(" Detected pixel size in .MRCS = %s" % pixel_size)
+
+
         ## interate over the mrcs stack by index n
         for n in range(mrcs.data.shape[0]):
             counter +=1
-            remapped = (255*(mrcs.data[n] - np.min(mrcs.data[n]))/np.ptp(mrcs.data[n])).astype(int) ## remap data from 0 -- 255
+            
+            ## avoid errors if the data range is 0 
+            data_range = np.ptp(mrcs.data[n])
+
+            if data_range != 0:
+                remapped = (255*(mrcs.data[n] - np.min(mrcs.data[n]))/np.ptp(mrcs.data[n])).astype(int) ## remap data from 0 -- 255
+            else:
+                remapped = (255*(mrcs.data[n] - np.min(mrcs.data[n]))/1).astype(int) ## remap data from 0 -- 255
             images_as_array.append(remapped)
+
+    ## import VAR_LIB container and update angpix if default value has not be changed
+    global VAR_LIB 
+    if VAR_LIB['angpix'] < 0:
+        VAR_LIB['angpix'] = pixel_size
+        print(" Updated angpix from file header: = %s" % VAR_LIB['angpix'])
+
 
     if DEBUG:
         print(" Extract images from %s " % mrcs_file)
@@ -438,7 +458,7 @@ if __name__ == "__main__":
     	'output_file_name' 				: '2d_classes.jpg',
         'array_dimensions'	 			: '5x3',
         'sort_by' 						: "class_distribution",
-        'angpix' 						: 1.94,
+        'angpix' 						: -1,
         'scalebar_angstroms' 			: -1, # angstroms
         'ADD_SCALEBAR' 					: False,
         'scalebar_stroke' 				: 4, # how thick the scalebar should be
@@ -509,7 +529,7 @@ if __name__ == "__main__":
             commands.append(sys.argv[n])
         ## check if --angpix was given
         if not '--angpix' in commands:
-            print(" !! WARNING: --scalebar was given without an explicit --angpix, using default value of 1.94 Ang/px !!")
+            print(" !! WARNING: --scalebar was given without an explicit --angpix, will try to parse from file instead !!")
     ##################################
 
     print("=============================================================")
