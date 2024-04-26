@@ -257,8 +257,13 @@ def get_particle_data(particle_cs, header_list, DEBUG = False):
     amplitude_contrast = particle_cs[header_list['ctf/amp_contrast']]
     phase_shift = particle_cs[header_list['ctf/phase_shift_rad']]
     ## cs origin shifts are given in fractional pixels, need to convert them to angstroms by multiplying by angpix
-    originX_trans = particle_cs[header_list['alignments3D/shift']][0] * particle_cs[header_list['alignments3D/psize_A']]
-    originY_trans = particle_cs[header_list['alignments3D/shift']][1] * particle_cs[header_list['alignments3D/psize_A']]
+    ## however, in case there is no 3D alignment data (i.e. cs file is from an export job, we need to provide a shift of 0)
+    try:
+        originX_trans = particle_cs[header_list['alignments3D/shift']][0] * particle_cs[header_list['alignments3D/psize_A']]
+        originY_trans = particle_cs[header_list['alignments3D/shift']][1] * particle_cs[header_list['alignments3D/psize_A']]
+    except:
+        originX_trans = 0
+        originY_trans = 0
 
     ## package the data into a tuple using the global enum
     particle_data = list(None for _ in range(len(PARTICLE_DATA_STRUCTURE))) # begin by making a mutable list
@@ -653,7 +658,7 @@ if __name__ == "__main__":
             print(" WARNING :: More than one entry detected as a path (ends with forward slash)! Using first entry as the CS project directory (%s)" % cs_project_dir)
 
     if cs_project_dir == None:
-        print(" ERROR :: No CS project directory was detected, e.g.: /path/to/CS-project/, be sure to add a forward slash at the end!")
+        print(" ERROR :: No CS project directory was detected, e.g.: /path/to/CS-project/, be sure to add a forward slash at the end (e.g. ../)")
         usage()
                                    
     
