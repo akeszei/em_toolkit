@@ -119,6 +119,7 @@ def usage():
     print(" ")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
+    print("           --j (4) : Allow multiprocessing using indicated number of cores")
     print("         --dry-run : Read the .cs file and give a report on what the script will do only")
     print("===================================================================================================")
     sys.exit()
@@ -138,7 +139,16 @@ def sanity_check_inputs(cs_dataset, cs_project_dir):
     cs_headers = get_cs_headers(cs_dataset) 
     for i in range(1):
         particle_cs_data = cs_dataset[i]
-        mrc_path = cs_project_dir + particle_cs_data[cs_headers['blob/path']].decode('utf-8').strip()
+        try:
+            particle_path = particle_cs_data[cs_headers['blob/path']].decode('utf-8').strip()
+            ## CS likes to add a chevron to indicate the start of the project in some files, remove it incase it is present!
+            if particle_path[0] == '>':
+                particle_path = particle_path[1:]
+            mrc_path = cs_project_dir + particle_path
+
+        except:
+            print(" ERROR :: Input .CS file lacks a 'blob/path' field pointing to the extracted particle stack! Try using an exported stack of particles via the output tab in cryoSPARC")
+            sys.exit()
         
     ## use the path to check file exists 
     if not os.path.isfile(mrc_path):
@@ -175,6 +185,10 @@ def parse_cs_dataset(cs_particles):
         
         ## find the corresponding .MRC file for that particle 
         mrc_path = particle_cs_data[cs_headers['blob/path']].decode('utf-8').strip()
+        ## CS likes to add a chevron to indicate the start of the project in some files, remove it incase it is present!
+        if mrc_path[0] == '>':
+            mrc_path = mrc_path[1:]
+
         ## since multiple extract jobs can exist, use the base name of the .mrc file as the dictionary, removing the UID
         # mrc_fname = os.path.splitext(os.path.basename(mrc_path))[0].split('_', 1)[1] + '.mrcs'
         mrc_fname = os.path.basename(mrc_path).split('_', 1)[1]
@@ -611,13 +625,40 @@ if __name__ == "__main__":
                 print(" Using %s threads" % threads)
             except:
                 print(" Could not parse # of threads, or none given, using default: %s" % threads)
-        if cmd_line[i] == '--dry-run':
+        if cmd_line[i] in ['--dry-run', '--dry_run']:
             DRY_RUN = True
             print(" Running in dry-run mode... no files will be written")
 
+    ## parse cmd line for the .CS file 
+    cs_file = None
+    for i in range(len(cmd_line)):
+        if cs_file == None:
+            if os.path.splitext(cmd_line[i])[1] in ['.cs', '.CS']:
+                cs_file = cmd_line[i]
+        elif os.path.splitext(cmd_line[i])[1] in ['.cs', '.CS']:
+            print(" WARNING :: More than one .cs file was detected as input, only the first entry (%s) will be parsed " % cs_file)
+            
+    if cs_file == None:
+        print(" ERROR :: No .cs file was detected as input!")
+        usage()
 
-    cs_file = sys.argv[1]
-    cs_project_dir = sys.argv[2]
+    ## parse the project directory 
+    cs_project_dir = None
+    for i in range(len(cmd_line)):
+        if cs_project_dir == None:
+            ## use the final character '/' as indicating the directory path 
+            if cmd_line[i][-1] in ['/', '\\']:
+                cs_project_dir = cmd_line[i]
+        elif cmd_line[i][-1] in ['/', '\\']: 
+            print(" WARNING :: More than one entry detected as a path (ends with forward slash)! Using first entry as the CS project directory (%s)" % cs_project_dir)
+
+    if cs_project_dir == None:
+        print(" ERROR :: No CS project directory was detected, e.g.: /path/to/CS-project/, be sure to add a forward slash at the end!")
+        usage()
+                                   
+    
+
+
     output_star_fname = 'particles.star'
     mrcs_output_dir_name = 'mrcs_stacks/'
     output_dir = ''
