@@ -5,7 +5,21 @@ N=12
 task(){
    input_mrcs=$1
    bg_radius=84
-   echo relion_preprocess --operate_on $input_mrcs --operate_out out/$input_mrcs --norm --float16 --bg_radius $bg_radius
+   out_folder='normalized/'
+   create_dir $out_folder
+   ## test run command using echo first, then re-run without echo command
+   echo relion_preprocess --operate_on $input_mrcs --operate_out ${out_folder}${input_mrcs} --norm --float16 --bg_radius $bg_radius
+}
+
+create_dir(){
+   if [ -d $1 ]; then
+      echo " Output directory ($1) already exists! Check & delete it before re-running"
+      exit 1
+   else 
+      echo " Creating output directory for processed files: $1"
+      mkdir $1 
+   fi
+
 }
 
 ## Prepare the list of working elements via globbing and pass them through a iterator with background execution in batches 
@@ -20,3 +34,6 @@ task(){
 
    done
 )
+
+echo " COMPLETE"
+echo " ... rename the processed directory to match the particles.star file entries, then use in RELION" 
