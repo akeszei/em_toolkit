@@ -550,7 +550,9 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
     return 
 
 def log_error(err, out_fname = 'err.log', reset = False):
-    
+    if err == '':
+        return 
+
     if reset:
         ## use overwrite option to generate a clean file initially 
         with open('%s' % (out_fname), 'w' ) as f :
