@@ -1,13 +1,22 @@
-N=4
+## Assign number of working threads
+N=12
 
+## Create the task for each individual unit of work 
 task(){
-   sleep $1; echo " >> $1";
+   input_mrcs=$1
+   bg_radius=84
+   echo relion_preprocess --operate_on $input_mrcs --operate_out out/$input_mrcs --norm --float16 --bg_radius $bg_radius
 }
 
-
+## Prepare the list of working elements via globbing and pass them through a iterator with background execution in batches 
 (
-for thing in 3 3 2 1 1 2 3 3 ; do 
-   ((i=i%N)); ((i++==0)) && wait
-   task "$thing" & 
-done
+   for job in *.mrcs ; do 
+      
+      ## create batches on-the-fly using a variable initialized at 0 and execute them in the background, adding the wait command on the first operation, thus restricting the run until all its children threads are done 
+      ((i=i%N)); ((i++==0)) && wait 
+
+      ## launch a job for the input file in the background 
+      task "$job" & 
+
+   done
 )
