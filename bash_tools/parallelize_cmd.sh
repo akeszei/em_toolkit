@@ -5,8 +5,7 @@ N=12
 task(){
    input_mrcs=$1
    bg_radius=84
-   out_folder='normalized/'
-   create_dir $out_folder
+   out_folder=$2
    ## test run command using echo first, then re-run without echo command
    echo relion_preprocess --operate_on $input_mrcs --operate_out ${out_folder}${input_mrcs} --norm --float16 --bg_radius $bg_radius
 }
@@ -22,6 +21,10 @@ create_dir(){
 
 }
 
+## Before starting the loop make a fresh output directory and warn the user if one already exists 
+output_folder='normalized/'
+create_dir $output_folder
+
 ## Prepare the list of working elements via globbing and pass them through a iterator with background execution in batches 
 (
    for job in *.mrcs ; do 
@@ -30,7 +33,7 @@ create_dir(){
       ((i=i%N)); ((i++==0)) && wait 
 
       ## launch a job for the input file in the background 
-      task "$job" & 
+      task "$job" "$output_folder"& 
 
    done
 )
