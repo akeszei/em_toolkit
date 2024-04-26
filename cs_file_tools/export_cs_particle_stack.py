@@ -504,7 +504,13 @@ def write_mrcs_files(optics_data, particle_data, cs_project_dir, output_dir, mrc
             ## get the particle data 
             particle_info = particle_data[output_mrcs_fname][i]
             ## retrieve the path to the current particle's mrc file in the CS project and its index in the .mrc stack 
-            cs_mrc_path = cs_project_dir + particle_info[PARTICLE_DATA_STRUCTURE.index('cs_mrc_path')]
+            ## some cs files include a chevron to indicate the root of the CS project, we need to remove it
+            cs_project_path_to_mrc = particle_info[PARTICLE_DATA_STRUCTURE.index('cs_mrc_path')]
+            if cs_project_path_to_mrc[0] == '>':
+                cs_project_path_to_mrc = cs_project_path_to_mrc[1:]
+            
+            cs_mrc_path = cs_project_dir + cs_project_path_to_mrc
+            
             cs_mrc_particle_index = particle_info[PARTICLE_DATA_STRUCTURE.index('cs_mrc_index')]
 
             ## open the input_mrc file if none is yet open 
