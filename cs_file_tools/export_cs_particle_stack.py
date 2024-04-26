@@ -685,7 +685,8 @@ if __name__ == "__main__":
     ## run through the CS dataset to prepare the necessary data for creating .MRCS and .STAR files
     optics_data, particle_data = parse_cs_dataset(cs_dataset)
 
-    prep_working_dir(output_dir + mrcs_output_dir_name)
+    if not DRY_RUN:
+        prep_working_dir(output_dir + mrcs_output_dir_name)
 
     write_star_file(optics_data, particle_data, output_dir, output_star_fname, mrcs_output_dir_name)
 
