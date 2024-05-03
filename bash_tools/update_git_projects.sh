@@ -48,6 +48,7 @@ chmod +x em_toolkit/star_file_tools/remove_mics_from_star.py
 chmod +x em_toolkit/star_file_tools/select_into_manpick.py
 chmod +x em_toolkit/star_file_tools/merge_star_coordinates.py
 chmod +x em_toolkit/star_file_tools/plot_fsc.py
+chmod +x em_toolkit/star_file_tools/get_mics_from_star.py
 chmod +x em_toolkit/EPU_tools/show_atlas_position.py
 chmod +x em_toolkit/EPU_tools/EPU_assign_tiltgroups.py
 chmod +x em_toolkit/EPU_tools/EPU_reorganize_krios_data.sh
@@ -87,6 +88,7 @@ ln -s ../em_toolkit/star_file_tools/remove_mics_from_star.py bin/
 ln -s ../em_toolkit/star_file_tools/select_into_manpick.py bin/
 ln -s ../em_toolkit/star_file_tools/merge_star_coordinates.py bin/
 ln -s ../em_toolkit/star_file_tools/plot_fsc.py bin/
+ln -s ../em_toolkit/star_file_tools/get_mics_from_star.py bin/
 ln -s ../em_toolkit/EPU_tools/show_atlas_position.py bin/
 ln -s ../em_toolkit/EPU_tools/EPU_assign_tiltgroups.py bin/
 ln -s ../em_toolkit/EPU_tools/EPU_reorganize_krios_data.sh bin/
