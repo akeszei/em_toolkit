@@ -169,7 +169,9 @@ def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size):
 
         ## start at a random initial point in the dataset and iterate forward until we find a match 
         n = random.randint(0, len(mic_data))
+        full_traversal = 0 ## keep track how many times we run through the full dataset, we may have to skip some bins if there are no suitable micrographs!
         while chosen_micrograph == None:
+            # print(" Start search for micrograph at #%s" % n)
             current_mic_data = mic_data[n]
             # print(" ... checking micrograph #%s (dZ = %s)" % (n, current_mic_data[1]))
             # print(" %s vs. threshold %s" %  (current_mic_data[1], threshold_upper))
@@ -184,14 +186,31 @@ def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size):
                         chosen_micrograph = current_mic_data
 
             ## we have not found a match, so iterate forward 
-            if n+1 > len(mic_data):
+            if n >= len(mic_data) - 1:
+                if DEBUG: print(" ... hit end of dataset (n = %s), return to beginning" % n)
+
                 n = 0
-                if DEBUG: print(" ... hit end of dataset, return to beginning")
+                full_traversal += 1
             else:
-                n = n+1 
-        
+                n = n+1
+
+            ## avoid infinite loop in case there are no suitable matches in the dataset for a given bin 
+            if full_traversal >= 2:
+                ## no match was found for this bin, try the next
+                threshold_upper = dZ_thresholds[(i+1)%len(dZ_thresholds)]
+                if i%len(dZ_thresholds) == 0:
+                    threshold_lower = 0
+                else:
+                    threshold_lower = dZ_thresholds[(i+1)%len(dZ_thresholds) - 1]
+                if DEBUG: print(" No match for this bin. Move to the next dZ range: %s -> %s" % (threshold_lower, threshold_upper))
+                full_traversal = 0 
+
+
         ## Add the discovered micrograph to the subset list 
-        subset.append(chosen_micrograph)
+        if chosen_micrograph != None:
+            subset.append(chosen_micrograph)
+        else:
+            continue
         
     print(" >> Randomly selected %s micrographs across the dZ range" % (len(subset)))
     for i in range(len(subset)):
