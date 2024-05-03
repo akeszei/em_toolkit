@@ -175,8 +175,13 @@ def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size):
             # print(" %s vs. threshold %s" %  (current_mic_data[1], threshold_upper))
             if float(current_mic_data[1]) < threshold_upper:
                 if float(current_mic_data[1]) > threshold_lower:
-                    if DEBUG: print(" ... found match (%s)" % current_mic_data[1])
-                    chosen_micrograph = current_mic_data
+                    if DEBUG: print(" ... found match (%s, mic #%s)" % (current_mic_data[1], n))
+                    ## check if the match already exists in the subset
+                    if current_mic_data in subset:
+                        print(" !! Match already exists in the subset, find another... ")
+                        n = random.randint(0, len(mic_data) - 1)
+                    else:
+                        chosen_micrograph = current_mic_data
 
             ## we have not found a match, so iterate forward 
             if n+1 > len(mic_data):

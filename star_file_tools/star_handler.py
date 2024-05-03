@@ -145,3 +145,25 @@ def remove_path(file_w_path):
     globals()['os'] = __import__('os')
     file_wo_path = os.path.basename(file_w_path)
     return file_wo_path
+
+# ## example script to read a star file for specific entries 
+#     with open(fname, 'r') as f :
+#         parsed = []
+#         line_num = 0
+#         for line in f :
+#             line_num += 1
+#             ## ignore empty lines
+#             if len(line.strip()) == 0 :
+#                 continue
+#             ## start working only after the header length
+#             if DATA_END >= line_num > DATA_START - 1:
+#                 print(" line == ", line_num, line)
+#                 # mic_name = get_star_data(line, COLUMN_MIC_NAME)
+#                 mic_name = os.path.splitext(remove_path(get_star_data(line, COLUMN_MIC_NAME)))[0]
+#                 dZ_U = float(get_star_data(line, COLUMN_dZ_U))
+#                 dZ_V = float(get_star_data(line, COLUMN_dZ_V))
+
+#                 dZ_avg = ((dZ_U + dZ_V) / 2)/10000
+
+#                 parsed.append((mic_name, dZ_avg))
+
