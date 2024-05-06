@@ -139,6 +139,8 @@ for sq_dir in $(ls -d Images-Disc1/*); do
     echo -en "\r\033[K      ... #${movie_counter} micrographs total "
     echo ""
 
+done
+
 echo "====================================="
 echo " COMPLETE"
 echo " Consider curating the jpgs folder, then reading the marked images by their full path to their movie, e.g.:"
@@ -147,5 +149,3 @@ echo '     $ for m in $(cat jpgs/marked_imgs.txt); do f=$(readlink -f movies/${m
 echo " If that finds the correct movies, then try removing them via:"
 echo '     $ for m in $(cat jpgs/marked_imgs.txt); do f=$(readlink -f movies/${m}.mrc); rm -v $f; rm -v movies/${m}.mrc; done'
 echo 
-
-done
