@@ -162,12 +162,14 @@ if __name__ == '__main__':
                 if DRY_RUN:
                     print(" copy :: %s -> %s" % (source_file, dest_path))
                 else:
+                    print(" copy :: %s -> %s" % (source_file, dest_path))
                     shutil.copy2(source_file, dest_path)
             elif not filecmp.cmp(source_file, dest_file, shallow=True):
                 dest_path = os.path.dirname(dest_file)
                 if DRY_RUN:
                     print(" file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
                 else:
+                    print(" file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
                     shutil.copy2(source_file, dest_path)
             else:
                 # print(" ... file exists already: %s" % dest_file)
