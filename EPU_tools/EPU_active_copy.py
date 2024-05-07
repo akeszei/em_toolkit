@@ -19,12 +19,14 @@ DEBUG = True
 def usage():
     print("===================================================================================================")
     print(" Usage:")
-    print("    $ EPU_active_copy.py  /source/EPU/dir  /target/dir")
-    print(" ")
+    print("    $ EPU_active_copy.py  /path/to/EPU  /target/dir")
+    print(" Will actively mirror the EPU directory in the target directory, e.g.: /target/dir/EPU, every")
+    print(" 10 seconds (unless changed). Kill the script with Ctrl + C")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
     # print("           --j (2) : Attempt multiprocessing over given cores (remember speed is limited by HDD!)")
     print("         --dry-run : Give an example of what the copy command will do without copying")
+    print("           --n (10): Delay time in seconds between copy loops")
     print("===================================================================================================")
     sys.exit()
 
@@ -93,6 +95,54 @@ def copytree(src, dst, symlinks = False, ignore = None, DRY_RUN = False):
             else:
                 shutil.copy2(s, d)
 
+def copy_project(source, dest, glob_string = '**'):
+    ## get the name of the root folder we want to copy 
+    root_dir_name = os.path.basename(os.path.normpath(source))
+
+    for source_file in glob.glob(os.path.join(source, glob_string), recursive = True):
+        initial_time = time.time()
+        
+        dest_file = os.path.join(dest, os.path.join(root_dir_name, source_file[len(source):]))
+
+        ## treat files and directories differently 
+        if os.path.isdir(source_file):
+            if not os.path.exists(dest_file):
+                if DRY_RUN:
+                    print(" create dir :: %s" % (dest_file))
+                else:
+                    print(" create dir :: %s" % (dest_file))
+                    os.makedirs(dest_file, exist_ok=True)
+            else:
+                continue 
+
+        if os.path.isfile(source_file):
+            ## reject symlinks 
+            if(os.path.islink(source_file)):
+                print(" Symlink skipped (%s)" % source_file)
+                continue 
+
+            if not os.path.exists(dest_file):
+                dest_path = os.path.dirname(dest_file)
+                if DRY_RUN:
+                    print(" copy :: %s -> %s" % (source_file, dest_path))
+                else:
+                    print(" copy :: %s -> %s" % (source_file, dest_path), end='\r')
+                    shutil.copy2(source_file, dest_path)
+                    total_time_taken = time.time() - initial_time
+                    print(" copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
+            elif not filecmp.cmp(source_file, dest_file, shallow=True):
+                dest_path = os.path.dirname(dest_file)
+                if DRY_RUN:
+                    print(" file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
+                else:
+                    print(" file exists but appears different, copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
+                    shutil.copy2(source_file, dest_path)
+            else:
+                # print(" ... file exists already: %s" % dest_file)
+                continue 
+
+    return 
+
 #endregion
 
 #############################
@@ -107,7 +157,7 @@ if __name__ == '__main__':
     import time
     import filecmp
 
-    start_time = time.time()
+    seconds_delay = 10
 
     cmd_line = sys.argv
     # PARALLEL_PROCESSING = False
@@ -134,49 +184,33 @@ if __name__ == '__main__':
         if cmd_line[i] in ['--dry-run', '--dry_run', '--dryrun']:
             DRY_RUN = True
             print(" Running in dry-run mode... no files will be written")
+        if cmd_line[i] in ['--n']:
+            try:
+                seconds_delay = int(cmd_line[i+1])
+            except:
+                print(" Could not parse # of seconds delay given (--n flag), using default: %s" % seconds_delay)
+
 
     source, dest = get_dirs(cmd_line)
 
-    for source_file in glob.glob(os.path.join(source,'**'), recursive = True):
-        dest_file = os.path.join(dest, source_file[len(source):])
+    ## tuck the command into a loop
+    while True:
+        try:
+            start_time = time.time()
+            copy_project(source, dest)
+            end_time = time.time()
+            total_time_taken = end_time - start_time
+            print(" ... copy runtime = %.2f sec" % total_time_taken)
 
-        ## treat files and directories differently 
-        if os.path.isdir(source_file):
-            if not os.path.exists(dest_file):
-                if DRY_RUN:
-                    print(" create dir :: %s" % (dest_file))
-                else:
-                    print(" create dir :: %s" % (dest_file))
-                    os.makedirs(dest_file, exist_ok=True)
-            else:
-                continue 
+            time.sleep(seconds_delay)
 
-        if os.path.isfile(source_file):
-            ## reject symlinks 
-            if(os.path.islink(source_file)):
-               print(" Symlink skipped (%s)" % source_file)
-               continue 
+        except KeyboardInterrupt:
+            print(" Terminating ...")
 
-            if not os.path.exists(dest_file):
-                dest_path = os.path.dirname(dest_file)
-                if DRY_RUN:
-                    print(" copy :: %s -> %s" % (source_file, dest_path))
-                else:
-                    print(" copy :: %s -> %s" % (source_file, dest_path))
-                    shutil.copy2(source_file, dest_path)
-            elif not filecmp.cmp(source_file, dest_file, shallow=True):
-                dest_path = os.path.dirname(dest_file)
-                if DRY_RUN:
-                    print(" file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
-                else:
-                    print(" file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
-                    shutil.copy2(source_file, dest_path)
-            else:
-                # print(" ... file exists already: %s" % dest_file)
-                continue 
+            sys.exit()
 
-    end_time = time.time()
-    total_time_taken = end_time - start_time
-    print("... runtime = %.2f sec" % total_time_taken)
+        
+    
+
 
 #endregion
