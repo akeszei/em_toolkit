@@ -111,6 +111,7 @@ single terminal session by multiple users.
   tmux attach -t <name>
 
 ... within a tmux session, use the Ctrl+b command to navigate or leave
+  Ctrl+b , PgUp/Down to navigate ... q to return to terminal cmd line
   Ctrl+b , d = detach from current session
 For more hotkeys see: tmuxcheatsheet.com
 ========================================"
