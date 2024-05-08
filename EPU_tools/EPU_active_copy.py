@@ -25,8 +25,10 @@ def usage():
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
     # print("           --j (2) : Attempt multiprocessing over given cores (remember speed is limited by HDD!)")
-    print("         --dry-run : Give an example of what the copy command will do without copying")
-    print("           --n (10): Delay time in seconds between copy loops")
+    print("  --movies (*Fractions.mrc) : Copy only movies (using the glob pattern) into a single dir,")
+    print("                              if possible, also copy .JPGs for manual curation later")
+    print("                  --dry-run : Give an example of what the copy command will do without copying")
+    print("                    --n (10): Delay time in seconds between copy loops")
     print("===================================================================================================")
     sys.exit()
 
@@ -143,6 +145,77 @@ def copy_project(source, dest, glob_string = '**'):
 
     return 
 
+def copy_movies(source, dest, glob_string):
+    ## get the name of the root folder we want to copy 
+    root_dir_name = os.path.basename(os.path.normpath(source))
+
+    ## add the leading **/ to the glob string to match expected behavior to bash globbing 
+    glob_string = os.path.join(os.path.join(os.path.normpath(source),'**/'), glob_string)
+
+    ## prepare the output directories if they dont exist
+    movies_dir = os.path.join(dest, 'movies')
+    if not os.path.exists(movies_dir):
+        print(" Prep movies directory: %s" % movies_dir)
+        os.makedirs(movies_dir, exist_ok=True)
+    
+
+    ## prepare the output directories if they dont exist
+    movies_dir = os.path.join(dest, 'movies')
+    if not os.path.exists(movies_dir):
+        print(" Prep movies directory: %s" % movies_dir)
+        os.makedirs(movies_dir, exist_ok=True)
+    jpgs_dir = os.path.join(dest, 'jpgs')
+    if not os.path.exists(jpgs_dir):
+        print(" Prep jpgs directory: %s" % jpgs_dir)
+        os.makedirs(jpgs_dir, exist_ok=True)
+
+    ## WIP 
+    exit()
+    for source_file in glob.glob(glob_string, recursive = True):
+        print(" source file found =", source_file)
+        initial_time = time.time()
+        
+        dest_file = os.path.join(dest, os.path.join(root_dir_name, source_file[len(source):]))
+
+        ## treat files and directories differently 
+        if os.path.isdir(source_file):
+            if not os.path.exists(dest_file):
+                if DRY_RUN:
+                    print(" create dir :: %s" % (dest_file))
+                else:
+                    print(" create dir :: %s" % (dest_file))
+                    os.makedirs(dest_file, exist_ok=True)
+            else:
+                continue 
+
+        if os.path.isfile(source_file):
+            ## reject symlinks 
+            if(os.path.islink(source_file)):
+                print(" Symlink skipped (%s)" % source_file)
+                continue 
+
+            if not os.path.exists(dest_file):
+                dest_path = os.path.dirname(dest_file)
+                if DRY_RUN:
+                    print(" copy :: %s -> %s" % (source_file, dest_path))
+                else:
+                    print(" copy :: %s -> %s" % (source_file, dest_path), end='\r')
+                    shutil.copy2(source_file, dest_path)
+                    total_time_taken = time.time() - initial_time
+                    print(" copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
+            elif not filecmp.cmp(source_file, dest_file, shallow=True):
+                dest_path = os.path.dirname(dest_file)
+                if DRY_RUN:
+                    print(" file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
+                else:
+                    print(" file exists but appears different, copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
+                    shutil.copy2(source_file, dest_path)
+            else:
+                # print(" ... file exists already: %s" % dest_file)
+                continue 
+
+    return 
+
 #endregion
 
 #############################
@@ -162,6 +235,7 @@ if __name__ == '__main__':
     cmd_line = sys.argv
     # PARALLEL_PROCESSING = False
     DRY_RUN = False
+    MOVIES_COPY = False
 
     ## read all entries and check if the help flag is called at any point
     for cmd in cmd_line:
@@ -189,7 +263,16 @@ if __name__ == '__main__':
                 seconds_delay = int(cmd_line[i+1])
             except:
                 print(" Could not parse # of seconds delay given (--n flag), using default: %s" % seconds_delay)
-
+        if cmd_line[i] in ['--movies']:
+            MOVIES_COPY = True
+            try:
+                glob_string = str(cmd_line[i+1])
+                if '*' not in glob_string:
+                    glob_string = '*Fractions.mrc'
+                    print(" Unexpected glob pattern given for --movie flag (%s), reverting to default: %s" % (cmd_line[i+1], glob_string))
+            except:
+                glob_string = '*Fractions.mrc'
+                print(" No explicit glob pattern given for --movie flag, using default: %s" % glob_string)
 
     source, dest = get_dirs(cmd_line)
 
@@ -197,7 +280,10 @@ if __name__ == '__main__':
     while True:
         try:
             start_time = time.time()
-            copy_project(source, dest)
+            if MOVIES_COPY:
+                copy_movies(source, dest, glob_string)
+            else:
+                copy_project(source, dest)
             end_time = time.time()
             total_time_taken = end_time - start_time
             print(" ... copy runtime = %.2f sec" % total_time_taken)
