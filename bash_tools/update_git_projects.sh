@@ -62,6 +62,7 @@ chmod +x em_toolkit/bash_tools/compare_dirs.sh
 chmod +x em_toolkit/bash_tools/update_git_projects.sh
 chmod +x em_toolkit/bash_tools/update_ufw.sh
 chmod +x em_toolkit/topaz_tools/topaz_viewer.py
+chmod +x em_toolkit/topaz_tools/coord2star.py
 
 ## Add link for each executable into a common binaries folder for loading onto $PATH
 if [ -d "bin" ]; then
@@ -96,3 +97,4 @@ ln -s ../em_toolkit/EPU_tools/EPU_reorganize_krios_data.sh bin/
 ln -s ../em_toolkit/EPU_tools/EPU_reorganize_talos_data.sh bin/
 ln -s ../em_toolkit/EPU_tools/EPU_array_atlas_jpgs.py bin/
 ln -s ../em_toolkit/topaz_tools/topaz_viewer.py bin/
+ln -s ../em_toolkit/topaz_tools/coord2star.py bin/

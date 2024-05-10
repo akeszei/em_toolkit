@@ -34,7 +34,6 @@ def load_topaz_csv(fname, DEBUG = True):
                 'img_name' : [ (x, y, score), (x2, y2, score), ... ]
             }
     """
-    import pandas as pd 
 
     ## initialize an empty dictionary 
     particle_data = {}
@@ -942,6 +941,7 @@ if __name__ == '__main__':
         print("   $ pip install opencv-python")
 
     import scipy.ndimage as ndimage
+    import pandas as pd 
 
     ## parse the commandline in case the user added specific file to open, it will open the last one if more than one is given 
     start_index =  0
