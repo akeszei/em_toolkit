@@ -6,6 +6,8 @@
 """
 
 ## 2024-05-06 A.Keszei: Start script 
+## To do
+## - Add details to output of both dry run and final run? 
 
 #############################
 #region :: FLAGS
@@ -28,7 +30,7 @@ def usage():
     print("  --movies (*Fractions.mrc) : Copy only movies (using the glob pattern) into a single dir,")
     print("                              if possible, also copy .JPGs for manual curation later")
     print("                  --dry-run : Give an example of what the copy command will do without copying")
-    print("                    --n (10): Delay time in seconds between copy loops")
+    print("                    --n (10): Delay time in seconds between copy loops; -1 or 0 == dont loop")
     print("===================================================================================================")
     sys.exit()
 
@@ -137,7 +139,7 @@ def copy_project(source, dest, glob_string = '**'):
                 if DRY_RUN:
                     print(" file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
                 else:
-                    print(" file exists but appears different, copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
+                    print(" file exists but appears different, copy :: %s -> %s " % (source_file, dest_path))
                     shutil.copy2(source_file, dest_path)
             else:
                 # print(" ... file exists already: %s" % dest_file)
@@ -276,8 +278,8 @@ if __name__ == '__main__':
 
     source, dest = get_dirs(cmd_line)
 
-    ## tuck the command into a loop
-    while True:
+    if seconds_delay <= 0:
+        ## no loop
         try:
             start_time = time.time()
             if MOVIES_COPY:
@@ -288,12 +290,29 @@ if __name__ == '__main__':
             total_time_taken = end_time - start_time
             print(" ... copy runtime = %.2f sec" % total_time_taken)
 
-            time.sleep(seconds_delay)
-
         except KeyboardInterrupt:
             print(" Terminating ...")
 
             sys.exit()
+    else:
+        ## tuck the command into a loop
+        while True:
+            try:
+                start_time = time.time()
+                if MOVIES_COPY:
+                    copy_movies(source, dest, glob_string)
+                else:
+                    copy_project(source, dest)
+                end_time = time.time()
+                total_time_taken = end_time - start_time
+                print(" ... copy runtime = %.2f sec" % total_time_taken)
+
+                time.sleep(seconds_delay)
+
+            except KeyboardInterrupt:
+                print(" Terminating ...")
+
+                sys.exit()
 
         
     

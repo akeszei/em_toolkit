@@ -54,6 +54,7 @@ chmod +x em_toolkit/EPU_tools/EPU_assign_tiltgroups.py
 chmod +x em_toolkit/EPU_tools/EPU_reorganize_krios_data.sh
 chmod +x em_toolkit/EPU_tools/EPU_reorganize_talos_data.sh
 chmod +x em_toolkit/EPU_tools/EPU_array_atlas_jpgs.py
+chmod +x em_toolkit/EPU_tools/EPU_active_copy.py
 chmod +x em_toolkit/bash_tools/add_dummy_picks_to_missing_mics.sh
 chmod +x em_toolkit/bash_tools/link_data.sh
 chmod +x em_toolkit/bash_tools/get_random_subset_list_from_files.sh
@@ -96,5 +97,6 @@ ln -s ../em_toolkit/EPU_tools/EPU_assign_tiltgroups.py bin/
 ln -s ../em_toolkit/EPU_tools/EPU_reorganize_krios_data.sh bin/
 ln -s ../em_toolkit/EPU_tools/EPU_reorganize_talos_data.sh bin/
 ln -s ../em_toolkit/EPU_tools/EPU_array_atlas_jpgs.py bin/
+ln -s ../em_toolkit/EPU_tools/EPU_active_copy.py bin/
 ln -s ../em_toolkit/topaz_tools/topaz_viewer.py bin/
 ln -s ../em_toolkit/topaz_tools/coord2star.py bin/
