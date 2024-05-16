@@ -8,9 +8,10 @@
 """
 To Do:
     - Somehow lock the left/right keys from firing while loading an image. Basic attempts to do this by adding a flag on the start/end of the load_img function fails since the keystrokes are queued and fire after the function completes 
+    - Load the csv file more generically, in case header locations are added or moved around
 """ 
 
-DEBUG = True
+DEBUG = False
 
 #region :: Utilities 
 
@@ -193,7 +194,7 @@ def get_mrc_raw_data(file):
 
     return image_data, pixel_size
 
-def mrc2grayscale(mrc_raw_data, pixel_size, lowpass_threshold):
+def mrc2grayscale(mrc_raw_data, pixel_size):
     """ Convert raw mrc data into a grayscale numpy array suitable for display
     """
     # print(" min, max = %s, %s" % (np.min(mrc_raw_data), np.max(mrc_raw_data)))
@@ -243,10 +244,9 @@ class MainUI:
                                    ## in this program, display_data[0] will contain the scaled .jpg-style image; while display_data[1] will contain the display-ready CTF for that image
         self.display_im_arrays = list() ## contains the nparray versions of the image/ctf currently in the display window (for saving jpgs) 
         self.mrc_dimensions = ('x', 'y')
-        self.pixel_size = 4.8 # float()
+        self.pixel_size = float()
         self.image_name = str()
         self.scale_factor = 0.5 ## scaling factor for displayed image
-        self.lowpass_threshold = 14
         self.sigma_contrast = 3
         self.SHOW_PICKS = tk.BooleanVar(instance, True)
         self.picks_diameter = 50 ## Angstroms, `picks' are clicked particles by the user
@@ -255,15 +255,10 @@ class MainUI:
         self.threshold_min = -1
         self.threshold_max = 1
         self.coordinates = particle_data # dict() ## list of picked points
-        self.SHOW_SCALEBAR = tk.BooleanVar(instance, False)
-        self.scalebar_length = 200 ## Angstroms
-        self.scalebar_stroke = 5 ## pixels
-        self.scalebar_color = 'white'
-        self.SHOW_CTF = tk.BooleanVar(instance, False)
         self.index = start_index ## 0 ## index of the list of known mrc files int he directory to view
         self.working_dir = "."
-        self.SPEED_OVER_ACCURACY = tk.BooleanVar(instance, True)
-        self.USE_MRC = tk.BooleanVar(instance, True)
+        self.USE_MRC = tk.BooleanVar(instance, True) # option to switch between .jpg and .mrc
+        self.particles_file_save_name = 'particles.txt'
         #endregion
 
         ## MENU BAR LAYOUT
@@ -339,6 +334,10 @@ class MainUI:
         viewport_frame.grid(row = 1, column = 0, rowspan = 100)
 
         scrollable_frame, viewport_canvas = self.initialize_scrollable_window(self.viewport_frame)
+        ## capture the close window command so we can force it to launch the quit function ahead of closure 
+        self.instance.protocol("WM_DELETE_WINDOW", self.quit)
+
+        self.load_settings()
 
         ## LOAD AN INITIAL MRC FILE
         self.next_img('none')
@@ -351,8 +350,7 @@ class MainUI:
 
         #region :: KEYBINDINGS
         self.instance.bind("<F1>", lambda event: self.debugging())
-        # self.instance.bind("<F2>", lambda event: self.redraw_canvases())
-        # self.instance.bind('<Control-KeyRelease-s>', lambda event: self.save_selected_mrcs())
+        self.instance.bind('<Control-KeyRelease-s>', lambda event: self.write_particles_file())
 
         self.instance.bind('<Left>', lambda event: self.next_img('left'))
         self.instance.bind('<Right>', lambda event: self.next_img('right'))
@@ -382,6 +380,8 @@ class MainUI:
 
         ## PANEL INSTANCES
         # self.optionPanel_instance = None
+
+        self.usage()
         return
     
     def usage(self):
@@ -405,6 +405,10 @@ class MainUI:
 
         ## determine the absolute range for the current min/max
         current_range = current_max - current_min 
+
+        ## in case we have too few particles we need to avoid setting the threshold 
+        if current_range <= 0:
+            return 
 
         ## find the relative location of the current threshold set value  
         current_set_threshold_absolute = current_set_threshold - current_min
@@ -500,7 +504,73 @@ class MainUI:
         """
         mouse_position = x, y
         if DEBUG: print("Clicked on pixel coordinate: x, y =", mouse_position[0], mouse_position[1])
+
+        ## when clicking, check the mouse position against loaded coordinates to figure out if the user is removing a point or adding a point
+        if self.is_clashing(mouse_position): # this function will also remove the point if True
+            pass
+        else:
+            if DEBUG: print("Add coordinate: x, y with a max score value of 1 =", mouse_position[0], mouse_position[1])
+            x_coord = mouse_position[0]
+            y_coord = mouse_position[1]
+            score = 1
+            self.add_coordinate(x_coord, y_coord, score)
+            # self.coordinates[(x_coord, y_coord)] = 'new_point'
+
+        self.draw_image_coordinates()
+
         return
+
+    def add_coordinate(self, x, y, score):
+        ## rescale the x,y coordinates based on the scale of the displayed image 
+        rescaled_x = int(x / self.scale_factor)
+        rescaled_y = int(y / self.scale_factor)
+
+        ## get the root image name from the instance 
+        image_name = os.path.splitext(self.image_name)[0]
+        ## check if the image_name is in self.coordinates dictionary 
+        if not image_name in self.coordinates:
+            ## if there is no entry, create it 
+            self.coordinates[image_name] = [(rescaled_x, rescaled_y, score)]
+        else:
+            ## append the new entry to the existing dataset 
+            self.coordinates[image_name].append((rescaled_x, rescaled_y, score))
+        return 
+
+    def is_clashing(self, mouse_position):
+        """
+        PARAMETERS
+            mouse_position = tuple(x, y); pixel position of the mouse when the function is called
+        """
+        image_name = os.path.splitext(self.image_name)[0]
+        ## check if the image_name is in self.coordinates dictionary 
+        if not image_name in self.coordinates:
+            ## there can be no clash if there is no entry for the micrograph!
+            return False
+        else:
+            image_coordinates = self.coordinates[image_name]
+
+        ## Calculate the boundaries to use for the clash check
+        display_angpix = self.pixel_size / self.scale_factor
+        box_width = self.picks_diameter / display_angpix
+        box_halfwidth = int(box_width / 2)
+        print(" box width in pixels = %s" % box_width)
+
+        i = 0
+        for (x_coord, y_coord, score) in image_coordinates:
+            ## rescale the search coordinates to the viewing scale 
+            rescaled_x = int(x_coord * self.scale_factor)
+            rescaled_y = int(y_coord * self.scale_factor)
+            if DEBUG:
+                print(" CLASH TEST :: mouse_position = ", mouse_position, " ; existing coord = " , rescaled_x, rescaled_y)
+            ## check x-position is in range for potential clash
+            if rescaled_x - box_halfwidth <= mouse_position[0] <= rescaled_x + box_halfwidth:
+                ## check y-position is in range for potential clash
+                if rescaled_y - box_halfwidth <= mouse_position[1] <= rescaled_y + box_halfwidth:
+                    ## if both x and y-positions are in range, we have a clash
+                    del self.coordinates[image_name][i] # remove the coordinate that clashed based on its index position 
+                    return True # for speed, do not check further coordinates (may have to click multiple times for severe overlaps)
+            i += 1
+        return False
 
     def load_file(self):
         """ Permits the system browser to be launched to select an image
@@ -526,10 +596,18 @@ class MainUI:
             return
 
     def load_particle_picks(self):
-        print(" Load particle picks: ")
+        ## arrange the filetypes to match the expected one
+        expected_extension = os.path.splitext(self.particles_file_save_name)[1]
+        if expected_extension.lower() == ".coord":
+            filetypes = [("Coordinate","*.coord"),("Text","*.txt"),("All Files","*.*")]
+        elif expected_extension.lower() == ".txt":
+            filetypes = [("Text","*.txt"),("Coordinate","*.coord"),("All Files","*.*")]
+        else: 
+            filetypes = [("Text","*.txt"),("Coordinate","*.coord"),("All Files","*.*")]
+
 
         ## load selected file into variable fname
-        fname = askopenfilename(parent=self.instance, initialdir="./", title='Select file', filetypes=( ("Picks", "*.txt"),("All files", "*.*") ))
+        fname = askopenfilename(parent=self.instance, initialdir="./", title='Select file', filetypes=filetypes)
         if fname:
             try:
                 ## extract file information from selection
@@ -675,7 +753,7 @@ class MainUI:
             ## it is much faster if we scale down the image prior to doing filtering
             mrc_im_array, self.pixel_size = get_mrc_raw_data(fname)
             img_scaled = resize_image(mrc_im_array, self.scale_factor)
-            img_array = mrc2grayscale(img_scaled, self.pixel_size / self.scale_factor, self.lowpass_threshold)
+            img_array = mrc2grayscale(img_scaled, self.pixel_size / self.scale_factor)
             img_contrasted = sigma_contrast(img_array, self.sigma_contrast)  
             im_obj = get_PhotoImage_obj(img_contrasted)
 
@@ -717,11 +795,20 @@ class MainUI:
         return
 
     def debugging(self):
+        image_name = os.path.splitext(self.image_name)[0]
+        ## check if the image_name is in self.coordinates dictionary 
+
         print("===================================")
         print(" Debugging log: ")
-        # print(" %s coordinates in dictionary" % len(self.coordinates))
-        # self.rescale_picked_coordinates(0.25, 0.2)
-        # coord2freq(450, 450, self.display_data[0].width(), self.display_data[0].height(), self.pixel_size / self.scale_factor)
+        print("    Loaded img = %s" % image_name)
+        print("    Display threshold score = %s" % self.picks_threshold)
+        if not image_name in self.coordinates:
+            print("   # coordinates this img = 0")
+        else:
+            print("    # coordinates this img = %s" % len(self.coordinates[image_name]))
+            print("      e.g.: ")
+            print("          ", self.coordinates[image_name])
+
         print("===================================")
         return
 
@@ -787,7 +874,7 @@ class MainUI:
         menubar.add_cascade(label="File", menu = dropdown_file)
         dropdown_file.add_command(label="Open .mrc", command=self.load_file)
         dropdown_file.add_command(label="Open particle file", command=self.load_particle_picks)
-        # dropdown_file.add_command(label="Save .jpg", command=self.save_jpg)
+        dropdown_file.add_command(label="Save particles", command=self.write_particles_file)
         dropdown_file.add_command(label="Exit", command=self.quit)
         # ## dropdown menu --> Options
         # dropdown_options = tk.Menu(menubar)
@@ -891,6 +978,7 @@ class MainUI:
         return
 
     def quit(self):
+        self.save_settings()
         if DEBUG:
             print(" CLOSING PROGRAM")
         sys.exit()
@@ -911,17 +999,112 @@ class MainUI:
         canvas.config(width=x - 1, height=y - 1)
         return
 
+    def write_particles_file(self):
+        ## arrange the filetypes to match the expected one
+        expected_extension = os.path.splitext(self.particles_file_save_name)[1]
+        if expected_extension.lower() == ".coord":
+            filetypes = [("Coordinate","*.coord"),("Text","*.txt"),("All Files","*.*")]
+        elif expected_extension.lower() == ".txt":
+            filetypes = [("Text","*.txt"),("Coordinate","*.coord"),("All Files","*.*")]
+        else: 
+            filetypes = [("Text","*.txt"),("Coordinate","*.coord"),("All Files","*.*")]
+
+        save_path = asksaveasfilename(parent = self.instance, initialfile = "%s" % self.particles_file_save_name, 
+                                        defaultextension="%s" % expected_extension,
+                                        filetypes=filetypes)
+
+        if len(save_path) <= 0:
+            return 
+        
+        ## update the instance to take in the new save name into its meta data
+        save_dir, save_name = os.path.split(str(save_path))
+        self.particles_file_save_name = save_name
+
+        ## add a prompt window if file already exists
+        # if os.path.isfile(save_path):
+        #     answer = askyesno('Warning', 'Overwrite existing particle coordinates file?')
+        #     if answer == False:
+        #         return 
+
+        ## initialize the file with the header before appending particles 
+        with open(save_path, 'w') as f : # NOTE: 'w' == overwrite existing file; 'a' appends to file
+            f.write("%s\t%s\t%s\t%s\n" % ('image_name', 'x_coord', 'y_coord', 'score'))
+
+        counter = 0
+        with open(save_path, 'a') as f : 
+            for img in self.coordinates:
+                for Xcoord, Ycoord, score in self.coordinates[img]:
+                    f.write("%s\t%s\t%s\t%s\n" % (img, Xcoord, Ycoord, score))
+                    counter += 1
+        print(" Wrote %s particles to: %s" % (counter, save_path))
+        return 
+
+    def save_settings(self):
+        """ Write out a settings file for ease of use on re-launching the program in the same directory
+        """
+        save_fname = '.topaz_viewer.config'
+        save_path = os.path.join(self.working_dir, save_fname)
+
+        ## sanity check a file is loaded into buffer, otherwise no reason to save settings
+        if len(self.image_name) <= 0:
+            print("Abort save settings :: No image is loaded")
+            return
+
+        with open(save_path, 'w') as f :
+            f.write("## Last used settings for topaz_viewer.py\n")
+            f.write("img_loaded %s\n" % self.image_name)
+            f.write("picks_diameter %s\n" % self.picks_diameter)
+            f.write("scale_factor %s\n" % self.scale_factor)
+            f.write("sigma_contrast %s\n" % self.sigma_contrast)
+            f.write("picks_threshold %s\n" % self.picks_threshold)
+            f.write("particles_file_save_name %s\n" % self.particles_file_save_name)
+        print(" >> Saved current settings to '%s'" % save_path)
+
+        return 
+    
+    def load_settings(self):
+        """ On loadup, search the directory for input files and load them into memory automatically
+        """
+        settingsfile = '.topaz_viewer.config'
+
+        if os.path.exists(settingsfile):
+            ## update marked file list with file in directory
+            with open(settingsfile, 'r') as f :
+                for line in f:
+                    line2list = line.split()
+                    if not '#' in line2list[0]: ## ignore comment lines
+                        if line2list[0] == 'img_loaded':
+                            image_to_load = line2list[1]
+                        if line2list[0] == 'picks_diameter':
+                            self.picks_diameter = int(line2list[1])
+                        if line2list[0] == 'scale_factor':
+                            self.scale_factor = float(line2list[1])
+                        if line2list[0] == 'sigma_contrast':
+                            self.sigma_contrast = float(line2list[1])
+                        if line2list[0] == 'picks_threshold':
+                            self.picks_threshold = float(line2list[1])
+                        if line2list[0] == 'particles_file_save_name':
+                            self.particles_file_save_name = line2list[1]
+
+        ## update the index to match the image we wanted to load, with a fallback to the first image on a failure
+        try:
+            image_list = images_in_dir(self.working_dir, self.USE_MRC.get(), DEBUG = DEBUG) 
+            self.index = image_list.index(image_to_load)
+        except:
+            print(" ERROR: Settings file points to image that does not exist in working directory! Resetting index to 0")
+
+        return
+
 
 ##########################
-### RUN BLOCK
+#region :: RUN BLOCK
 ##########################
 if __name__ == '__main__':
     from operator import itemgetter
     import sys
     import tkinter as tk
-    from tkinter.filedialog import askopenfilename
-    from tkinter.filedialog import asksaveasfilename
-    from tkinter.messagebox import showerror
+    from tkinter.filedialog import askopenfilename, asksaveasfilename
+    from tkinter.messagebox import showerror, askyesno
     from tkinter import ttk
     import numpy as np
     import os, sys
@@ -945,13 +1128,6 @@ if __name__ == '__main__':
 
     ## parse the commandline in case the user added specific file to open, it will open the last one if more than one is given 
     start_index =  0
-    # for arg in sys.argv:
-    #     ## find the files in the working directory
-    #     image_list = get_mrc_files_in_dir(".")
-    #     # print("ARG = ", arg, arg[-4:])
-    #     if arg[-4:] == ".mrc":
-    #         start_index = find_file_index(arg, image_list)
-    #         # print(" ... match file (name, index) ->  (%s, %s)" % (arg, start_index) )
 
     try:
         particle_data = load_topaz_csv(sys.argv[1], DEBUG = DEBUG )
@@ -961,3 +1137,5 @@ if __name__ == '__main__':
     root = tk.Tk()
     app = MainUI(root, start_index, particle_data)
     root.mainloop()
+
+#endregion 

@@ -2,7 +2,7 @@
 
 
 """
-    Read in a coordinates file and output a .STAR file suitable for use directly in a ManPick job  
+    Read in a coordinates file and output a .STAR file suitable for use directly in a ManPick job with optional unbinning  
 """
 
 #############################
@@ -19,19 +19,26 @@ DEBUG = False
 def usage():
     """ This script requires several input arguments to work correctly. Check they exist, otherwise print usage and exit.
     """
-    if not len(sys.argv) == 2:
-        print("=========================================================================================")
+    if not len(sys.argv) >= 2:
+        print("===============================================================================================")
         print(" A script to take a csv output .COORD file with coordinates and return a .STAR ")
         print(" file suitable for direct use in a RELION ManualPick job: ")
         print("    $ coord2star.py  <file>.coord/txt")
         print(" Use in a bash loop to change many files in a directory with one command, e.g.:")
         print("    $ for c in *.coord; do coord2star.py $c; done")
-        print("=========================================================================================")
+        print(" -----------------------------------------------------------------------------------------------")
+        print(" Options (default in brackets): ")
+        print("        --unbin (n) : Rescale picked coordinates by n ")
+        print("===============================================================================================")
         sys.exit()
     else:
         return
 
 def get_coord_file(fname, DEBUT = True):
+    if fname == None:
+        print(" !! ERROR :: No .COORD/TXT file was parsed from the command line!")
+        exit()
+        
     ## check file exists 
     if not os.path.isfile(fname):
         print(" !! ERROR :: Input file not found (%s)" % fname)
@@ -120,9 +127,12 @@ def load_topaz_csv(fname, DEBUG = True):
         print("=======================================")
     return particle_data
 
-def write_manpick_files(data_dict):
+def write_manpick_files(data_dict, unbinning_factor):
     """
-    Write out _manualpick.star files for each micrograph containing coordinates 
+        Write out _manualpick.star files for each micrograph containing coordinates
+    PARAMETERS 
+        data_dict = dict(); of the form { 'img_name' : [ (x, y, score), (x2, y2, score), ... ] , ... }
+        unbinning_factor = float(); how much to scale the pixel coordinates by in the output file  
     """
     
     for mic in data_dict:
@@ -145,7 +155,9 @@ def write_manpick_files(data_dict):
     for mic in data_dict:
         with open('%s' % (out_fname), 'a' ) as f :
             for (X_coord, Y_coord, score) in data_dict[mic] :
-                f.write("%s\t%s\t2\t-999.0\t%s\n" % (X_coord, Y_coord, score))
+                rescaled_X = int(X_coord * unbinning_factor)
+                rescaled_Y = int(Y_coord * unbinning_factor)
+                f.write("%s\t%s\t2\t-999.0\t%s\n" % (rescaled_X, rescaled_Y, score))
     return out_fname
 #endregion
 
@@ -159,6 +171,25 @@ if __name__ == "__main__":
     import pandas as pd 
 
     usage()
+    cmd_line = sys.argv
+    coord_file = None
+
+    unbinning_factor = 1 ## no unbinning 
+    ## parse any flags
+    for i in range(len(cmd_line)):
+        ## check for expected input file 
+        if ".coord" in i.lower() or ".txt" in i.lower():
+            if coord_file != None:
+                print(" Warning: Two .COORD files were found when parsing commandline!")
+                print("   ... using: %s" % coord_file)
+            coord_file = sys.argv[i]
+
+        if cmd_line[i] in ['--unbin']:
+            try:
+                unbinning_factor = int(cmd_line[i+1])
+            except:
+                print(" !! ERROR :: Could not parse unbinning factor given (--unbin flag), add a value")
+                usage()
 
     ## read bash argument $1 as variable and sanity-check it
     coord_file = get_coord_file(sys.argv[1])
@@ -171,7 +202,7 @@ if __name__ == "__main__":
         print(" !! ERROR :: Data for more than 1 micrograph was parsed from file (%s)! Skipping file!" % coord_file)
         
     ## write out manpick file 
-    out_fname = write_manpick_files(coordinates)
+    out_fname = write_manpick_files(coordinates, unbinning_factor)
 
     print(" ... written: %s" % out_fname)
 
