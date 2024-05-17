@@ -27,10 +27,10 @@ def usage():
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
     # print("           --j (2) : Attempt multiprocessing over given cores (remember speed is limited by HDD!)")
-    print("  --movies (*Fractions.mrc) : Copy only movies (using the glob pattern) into a single dir,")
-    print("                              if possible, also copy .JPGs for manual curation later")
+    # print("  --movies (*Fractions.mrc) : Copy only movies (using the glob pattern) into a single dir,")
+    # print("                              if possible, also copy .JPGs for manual curation later")
     print("                  --dry-run : Give an example of what the copy command will do without copying")
-    print("                    --n (10): Delay time in seconds between copy loops; -1 or 0 == dont loop")
+    print("                    --n (300): Delay time in seconds between copy loops; -1 or 0 == dont loop")
     print("===================================================================================================")
     sys.exit()
 
@@ -58,13 +58,13 @@ def get_dirs(cmdline):
         dest = dest + '/'
     
     if DEBUG:
-        print(" Parsed source and dest directories:")
+        print(" Copy directories:")
         print("   source = ", source)
         print("     dest =", dest)
     return source, dest
 
 def copytree(src, dst, symlinks = False, ignore = None, DRY_RUN = False):
-    """
+    """ Not used. 
         A reference function from: https://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth
     """
     # print(" copy tree :: %s -> %s" % (src,dst))
@@ -102,11 +102,15 @@ def copytree(src, dst, symlinks = False, ignore = None, DRY_RUN = False):
 def copy_project(source, dest, glob_string = '**'):
     ## get the name of the root folder we want to copy 
     root_dir_name = os.path.basename(os.path.normpath(source))
+    total_files = 0
+    skipped_files = 0
+    total_movies = 0 
+    movie_string = "Fractions.mrc"
 
     for source_file in glob.glob(os.path.join(source, glob_string), recursive = True):
         initial_time = time.time()
-        
-        dest_file = os.path.join(dest, os.path.join(root_dir_name, source_file[len(source):]))
+        source_file_basename = source_file[len(source):]
+        dest_file = os.path.join(dest, os.path.join(root_dir_name, source_file_basename))
 
         ## treat files and directories differently 
         if os.path.isdir(source_file):
@@ -125,6 +129,11 @@ def copy_project(source, dest, glob_string = '**'):
                 print(" Symlink skipped (%s)" % source_file)
                 continue 
 
+            total_files += 1
+            if len(source_file_basename) > len(movie_string):
+                if source_file_basename[:-len(movie_string)] == movie_string:
+                    total_movies += 1
+
             if not os.path.exists(dest_file):
                 dest_path = os.path.dirname(dest_file)
                 if DRY_RUN:
@@ -139,11 +148,27 @@ def copy_project(source, dest, glob_string = '**'):
                 if DRY_RUN:
                     print(" file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
                 else:
-                    print(" file exists but appears different, copy :: %s -> %s " % (source_file, dest_path))
+                    print(" file exists but appears different, copy :: %s -> %s " % (source_file, dest_path), end='\r')
                     shutil.copy2(source_file, dest_path)
+                    total_time_taken = time.time() - initial_time
+                    print(" file exists but appears different, copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
             else:
+                skipped_files += 1
                 # print(" ... file exists already: %s" % dest_file)
                 continue 
+
+    print_stats(total_files, movie_string, total_movies, skipped_files, DRY_RUN)
+    return 
+
+def print_stats(num_files, movie_string, num_movies, num_skipped, DRY_RUN = False):
+    print(" ==============================================")
+    print("       COPY LOOP COMPLETE:")
+    if DRY_RUN: print("            (DRY RUN)")
+    print(" ----------------------------------------------")
+    print("  ...  %s files found" % num_files)
+    print("  ...  %s movies found (...%s)" % (num_movies, movie_string))
+    print("  ...  %s files skipped this loop (already present at dest)" % num_skipped)
+    print(" ==============================================")
 
     return 
 
@@ -232,7 +257,7 @@ if __name__ == '__main__':
     import time
     import filecmp
 
-    seconds_delay = 10
+    seconds_delay = 300
 
     cmd_line = sys.argv
     # PARALLEL_PROCESSING = False
