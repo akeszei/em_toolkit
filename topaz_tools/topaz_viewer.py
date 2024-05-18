@@ -231,6 +231,7 @@ def sigma_contrast(im_array, sigma):
 
 #endregion 
 
+#region :: GUI
 class MainUI:
     def __init__(self, instance, start_index, particle_data = dict()):
         self.instance = instance
@@ -350,7 +351,10 @@ class MainUI:
 
         #region :: KEYBINDINGS
         self.instance.bind("<F1>", lambda event: self.debugging())
-        self.instance.bind('<Control-KeyRelease-s>', lambda event: self.write_particles_file())
+        self.instance.bind('<Control-s>', lambda event: self.write_particles_file()) # Ctrl + S
+        self.instance.bind('<Control-S>', lambda event: self.write_particles_file(QUERY = False)) # Ctrl + Shift + S
+        self.instance.bind('<F5>', lambda event: self.write_particles_file(QUERY = False)) 
+        self.instance.bind('<Control-c>', lambda event: self.local_contrast_and_blur())
 
         self.instance.bind('<Left>', lambda event: self.next_img('left'))
         self.instance.bind('<Right>', lambda event: self.next_img('right'))
@@ -746,35 +750,41 @@ class MainUI:
             print(" Input requires float values [10,0]")
         return
 
-    def load_img(self, fname):
-        """ Load the image with the given file name
+    def load_img(self, fname, input_im_array = None):
+        """ Load the image with the given file name, or if an image object is given load that instead 
         """
-        if self.USE_MRC:
-            ## it is much faster if we scale down the image prior to doing filtering
-            mrc_im_array, self.pixel_size = get_mrc_raw_data(fname)
-            img_scaled = resize_image(mrc_im_array, self.scale_factor)
-            img_array = mrc2grayscale(img_scaled, self.pixel_size / self.scale_factor)
-            img_contrasted = sigma_contrast(img_array, self.sigma_contrast)  
+        ## check if there was an input im array 
+        if isinstance(input_im_array, np.ndarray):
+            ## use the input img array to form the image instead of looking for it by name and assign it to the saved img datums
+            img_contrasted = input_im_array
             im_obj = get_PhotoImage_obj(img_contrasted)
-
-            self.mrc_dimensions = (mrc_im_array.shape[1], mrc_im_array.shape[0])
-
- 
         else:
-            with PIL_Image.open(fname) as im:
-                
-                new_dimensions = get_resized_dimensions(100 * self.scale_factor, im.size)
-                im = im.resize(new_dimensions)
-                print(" Resize image to", new_dimensions)
+            if self.USE_MRC:
+                ## it is much faster if we scale down the image prior to doing filtering
+                mrc_im_array, self.pixel_size = get_mrc_raw_data(fname)
+                img_scaled = resize_image(mrc_im_array, self.scale_factor)
+                img_array = mrc2grayscale(img_scaled, self.pixel_size / self.scale_factor)
+                img_contrasted = sigma_contrast(img_array, self.sigma_contrast)  
+                im_obj = get_PhotoImage_obj(img_contrasted)
 
-                im = im.convert('L') ## make grayscale
+                self.mrc_dimensions = (mrc_im_array.shape[1], mrc_im_array.shape[0])
 
-                # im = im.convert('RGB') ## make RGB ;; note that local contrast function does not work on RGB images atm   
-                im_obj = ImageTk.PhotoImage(im)
+            else:
+                with PIL_Image.open(fname) as im:
+                    
+                    new_dimensions = get_resized_dimensions(100 * self.scale_factor, im.size)
+                    im = im.resize(new_dimensions)
+                    im = im.convert('L') ## make grayscale
+                    # im = im.convert('RGB') ## make RGB ;; note that local contrast function does not work on RGB images atm   
+                    img_array = np.asarray(im)
+                    img_contrasted = sigma_contrast(img_array, self.sigma_contrast)
+                    im_obj = get_PhotoImage_obj(img_contrasted)
+
+                    # im_obj = ImageTk.PhotoImage(im)
 
         ## update the display data on the class
         self.display_data = [ im_obj ]
-        # self.display_im_arrays = [ img_contrasted ]
+        self.display_im_arrays = [ img_contrasted ]
         self.image_name = os.path.basename(fname)
 
         # a, b = get_fixed_array_index(1, 1)
@@ -874,11 +884,20 @@ class MainUI:
         menubar.add_cascade(label="File", menu = dropdown_file)
         dropdown_file.add_command(label="Open .mrc", command=self.load_file)
         dropdown_file.add_command(label="Open particle file", command=self.load_particle_picks)
-        dropdown_file.add_command(label="Save particles", command=self.write_particles_file)
+        dropdown_file.add_command(label="Save particles (Ctrl + S)", command=self.write_particles_file)
+        dropdown_file.add_command(label="Quick save particles (Ctrl + Shift + S, or F5)", command=self.write_particles_file)
         dropdown_file.add_command(label="Exit", command=self.quit)
-        # ## dropdown menu --> Options
-        # dropdown_options = tk.Menu(menubar)
-        # menubar.add_cascade(label="Options", menu = dropdown_options)
+
+        ## dropdown menu --> Image processing functions 
+        dropdown_functions = tk.Menu(menubar)
+        menubar.add_cascade(label="Functions", menu=dropdown_functions)
+        dropdown_functions.add_command(label="Local contrast", command=self.local_contrast)
+        dropdown_functions.add_command(label="Blur", command=self.gaussian_blur)
+        dropdown_functions.add_command(label="Local contrast & Blur (Ctrl + C)", command=self.local_contrast_and_blur)
+        dropdown_functions.add_command(label="Auto-contrast", command=self.auto_contrast)
+        # dropdown_functions.add_command(label="Contrast from selection", command=self.contrast_by_selected_particles)
+        dropdown_functions.add_command(label="Reset img", command=lambda: self.load_img(self.image_name))
+
         return
 
     def resize(self, event):
@@ -999,19 +1018,24 @@ class MainUI:
         canvas.config(width=x - 1, height=y - 1)
         return
 
-    def write_particles_file(self):
-        ## arrange the filetypes to match the expected one
-        expected_extension = os.path.splitext(self.particles_file_save_name)[1]
-        if expected_extension.lower() == ".coord":
-            filetypes = [("Coordinate","*.coord"),("Text","*.txt"),("All Files","*.*")]
-        elif expected_extension.lower() == ".txt":
-            filetypes = [("Text","*.txt"),("Coordinate","*.coord"),("All Files","*.*")]
-        else: 
-            filetypes = [("Text","*.txt"),("Coordinate","*.coord"),("All Files","*.*")]
+    def write_particles_file(self, QUERY = True):
+        if QUERY:
+            ## arrange the filetypes to match the expected one
+            expected_extension = os.path.splitext(self.particles_file_save_name)[1]
+            if expected_extension.lower() == ".coord":
+                filetypes = [("Coordinate","*.coord"),("Text","*.txt"),("All Files","*.*")]
+            elif expected_extension.lower() == ".txt":
+                filetypes = [("Text","*.txt"),("Coordinate","*.coord"),("All Files","*.*")]
+            else: 
+                filetypes = [("Text","*.txt"),("Coordinate","*.coord"),("All Files","*.*")]
 
-        save_path = asksaveasfilename(parent = self.instance, initialfile = "%s" % self.particles_file_save_name, 
-                                        defaultextension="%s" % expected_extension,
-                                        filetypes=filetypes)
+            save_path = asksaveasfilename(parent = self.instance, initialfile = "%s" % self.particles_file_save_name, 
+                                            defaultextension="%s" % expected_extension,
+                                            filetypes=filetypes)
+        else:
+            ## save the file with current loaded defaults
+            save_path = os.path.join(self.working_dir, self.particles_file_save_name)
+            print(" Quick saving file: %s" % save_path)
 
         if len(save_path) <= 0:
             return 
@@ -1095,6 +1119,44 @@ class MainUI:
 
         return
 
+    #region :: IMAGE PROCESSING FUNCTIONS 
+    def local_contrast_and_blur(self):
+        self.local_contrast()
+        self.gaussian_blur()
+        return 
+
+    def local_contrast(self):
+        ## get the image array from buffer 
+        display_im_array = self.display_im_arrays[0]
+        ## send the array to the image_handler function 
+        im = image_handler.local_contrast(display_im_array, self.picks_diameter, DEBUG = DEBUG)
+        ## get the updated array and pass it to the load_img function 
+        self.load_img(self.image_name, input_im_array=im)
+        return
+
+    def gaussian_blur(self):
+        ## get the image array from buffer 
+        display_im_array = self.display_im_arrays[0]
+        ## send the array to the image_handler function 
+        im = image_handler.gaussian_blur(display_im_array, 1.5)
+        ## get the updated array and pass it to the load_img function 
+        self.load_img(self.image_name, input_im_array=im)
+        return
+
+    def auto_contrast(self):
+        """ Use the auto_contrast function on the loaded image
+        """
+        ## get the image array from buffer 
+        display_im_array = self.display_im_arrays[0]
+        ## send the array to the image_handler function 
+        im = image_handler.auto_contrast(display_im_array)
+        ## get the updated array and pass it to the load_img function 
+        self.load_img(self.image_name, input_im_array=im)
+        return
+
+    #endregion 
+
+#endregion
 
 ##########################
 #region :: RUN BLOCK
@@ -1125,6 +1187,16 @@ if __name__ == '__main__':
 
     import scipy.ndimage as ndimage
     import pandas as pd 
+
+    ## Get the execution path of this script so we can find local modules
+    script_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+
+    try:
+        sys.path.append(script_path)
+        import image_handler #as image_handler
+    except :
+        print(" ERROR :: Check if image_handler.py script is in same folder as this script and runs without error (i.e. can be compiled)!")
+
 
     ## parse the commandline in case the user added specific file to open, it will open the last one if more than one is given 
     start_index =  0
