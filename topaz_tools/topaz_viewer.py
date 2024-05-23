@@ -9,11 +9,36 @@
 To Do:
     - Somehow lock the left/right keys from firing while loading an image. Basic attempts to do this by adding a flag on the start/end of the load_img function fails since the keystrokes are queued and fire after the function completes 
     - Load the csv file more generically, in case header locations are added or moved around
+    - Add a template picker UI so the user can set the threshold limit and see the current template 
+    - Add an eraser function
+    - Speed up clash test 
+    - Save out the template? 
 """ 
 
-DEBUG = False
+DEBUG = True
 
 #region :: Utilities 
+
+def check_if_two_ranges_intersect(x0, x1, y0, y1, DEBUG = False):
+    """ For two well-ordered ranges (x0 < x1; y0 < y1), check if there is any intersection between them.
+        See: https://stackoverflow.com/questions/3269434/whats-the-most-efficient-way-to-test-two-integer-ranges-for-overlap/25369187
+        An efficient way to quickly calculate if the erase brush hits a marked coordinate in the image.
+    """
+    ## sanity check input
+    if (x0 > x1):
+        print("ERROR: Incorrect range provided, x0 -> x1 == %s -> %s" % (x0, x1))
+
+    if y0 > y1:
+        print("ERROR: Incorrect range provided, y0 -> y1 == %s -> %s" % (y0, y1))
+
+    if x0 <= y1 and y0 <= x1:
+        if DEBUG:  
+            print(" compare intersection of ranges: [a, b] & [c, d] == [%s, %s] & [%s, %s] :: TRUE" % (x0, x1, y0, y1))
+        return True
+    else:
+        if DEBUG:  
+            print(" compare intersection of ranges: [a, b] & [c, d] == [%s, %s] & [%s, %s] :: FALSE" % (x0, x1, y0, y1))
+        return False
 
 def suggest_target_angpix(particle_diameter, CNN_architecture = 'resnet8'):
     """
@@ -149,11 +174,16 @@ def resize_image(img_nparray, scaling_factor):
     """ Uses OpenCV to resize an input grayscale image (0-255, 2d array) based on a given scaling factor
             scaling_factor = float()
     """
+    ## check if the input np.array is type float32 which is necessary for cv2.resize function 
+    if not img_nparray.dtype == 'float32':
+        print(" ERROR :: Input np.array is not dtype np.float32, recast it before running this function")
+        return 
+
     original_width = img_nparray.shape[1]
     original_height = img_nparray.shape[0]
     scaled_width = int(img_nparray.shape[1] * scaling_factor)
     scaled_height = int(img_nparray.shape[0] * scaling_factor)
-    if DEBUG: print("resize_img function, original img_dimensions = ", img_nparray.shape, ", new dims = ", scaled_width, scaled_height)
+    if DEBUG: print("resize_img function, original img_dimensions = ", img_nparray.shape, img_nparray.dtype,", new dims = ", scaled_width, scaled_height)
     resized_im = cv2.resize(img_nparray, (scaled_width, scaled_height), interpolation=cv2.INTER_AREA) 
     # resized_im = cv2.resize(img_nparray, (scaled_width, scaled_height)) ## note: default interpolation is INTER_LINEAR, and does not work well for noisy EM micrographs 
     return resized_im
@@ -231,7 +261,7 @@ def sigma_contrast(im_array, sigma):
 
 #endregion 
 
-#region :: GUI
+#region :: GUIs
 class MainUI:
     def __init__(self, instance, start_index, particle_data = dict()):
         self.instance = instance
@@ -240,6 +270,8 @@ class MainUI:
         # instance.resizable(False, False)
 
         #region :: CLASS VARIABLES
+        self.RIGHT_MOUSE_PRESSED = False 
+        self.brush_size = 50
         self.displayed_widgets = list() ## container for all widgets packed into the main display UI, use this list to update each
         self.display_data = list() ## container for the image objects for each displayed widgets (they must be in the scope to be drawn)
                                    ## in this program, display_data[0] will contain the scaled .jpg-style image; while display_data[1] will contain the display-ready CTF for that image
@@ -355,6 +387,16 @@ class MainUI:
         self.instance.bind('<Control-S>', lambda event: self.write_particles_file(QUERY = False)) # Ctrl + Shift + S
         self.instance.bind('<F5>', lambda event: self.write_particles_file(QUERY = False)) 
         self.instance.bind('<Control-c>', lambda event: self.local_contrast_and_blur())
+        self.instance.bind('<Control-x>', lambda event: self.open_panel("AutopickPanel"))
+        canvas = self.displayed_widgets[0]
+        canvas.bind("<MouseWheel>", self.MouseWheelHandler) # Windows, Mac: Binding to <MouseWheel> is being used
+        canvas.bind("<Button-4>", self.MouseWheelHandler) # Linux: Binding to <Button-4> and <Button-5> is being used
+        canvas.bind("<Button-5>", self.MouseWheelHandler)
+        canvas.bind("<ButtonPress-2>", self.on_middle_mouse_press)
+        canvas.bind("<ButtonRelease-2>", self.on_middle_mouse_release)
+        canvas.bind("<ButtonPress-3>", self.on_right_mouse_press)
+        canvas.bind("<ButtonRelease-3>", self.on_right_mouse_release)
+        canvas.bind("<Motion>", self.refresh_brush_cursor)
 
         self.instance.bind('<Left>', lambda event: self.next_img('left'))
         self.instance.bind('<Right>', lambda event: self.next_img('right'))
@@ -380,14 +422,270 @@ class MainUI:
         # self.scalebar_length_ENTRY.bind('<Control-KeyRelease-a>', lambda event: self.select_all(self.scalebar_length_ENTRY))
         # self.scalebar_length_ENTRY.bind('<Return>', lambda event: self.scalebar_updated())
         # self.scalebar_length_ENTRY.bind('<KP_Enter>', lambda event: self.scalebar_updated())
+        self.instance.bind('<F2>', lambda event: self.make_template())
         #endregion
 
-        ## PANEL INSTANCES
-        # self.optionPanel_instance = None
+        ####################################
+        #region :: Panel Instances
+        ####################################
+        self.autopickPanel_instance = None
+        #endregion
+        ####################################
 
         self.usage()
         return
+
+    def open_panel(self, panelType = 'None'):
+
+        ## use a switch-case statement logic to open the correct panel
+        if panelType == "None":
+            return
+        elif panelType == "AutopickPanel":
+            if self.autopickPanel_instance is None:
+                self.autopickPanel = AutopickPanel(self)
+            else:
+                print(" AutopickPanel is already open: ", self.autopickPanel_instance)
+        else:
+            return
+        return
+
+    def make_template_from_picks(self):
+        """
+            Experimental function to see if I can generate a crude template to help speed up manual picking 
+        """
+        ## get all the picks so far and add them together before re-normalizing
+        current_display_img = self.display_im_arrays[0]
+
+        ## box_size is a value given in Angstroms, we need to convert it to pixels
+        display_angpix = self.pixel_size / self.scale_factor
+        rescaled_box_size = int(self.picks_diameter * 1.4  / display_angpix) # add some padding around the particle 
+        ## img coordinates are given in raw file pixel positions
+        image_name = os.path.splitext(self.image_name)[0]
+        if image_name == None or image_name == '':
+            return 
+        image_coordinates = self.coordinates[image_name] 
+        
+        
+        rescaled_coordinates = []
+        for Xcoord, Ycoord, score in image_coordinates:
+            rescaled_coordinates.append((int(Xcoord * self.scale_factor), int(Ycoord * self.scale_factor)))
+        particle_imgs = image_handler.extract_boxes(current_display_img, rescaled_box_size, rescaled_coordinates, DEBUG = DEBUG)
+
+        merged = np.sum(particle_imgs, axis =0)
+
+        # Normalised [0,255] as integer: don't forget the parenthesis before astype(int)
+        normalized_template = (255*(merged - np.min(merged))/np.ptp(merged)).astype(int)
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.imshow(normalized_template, cmap='gray', vmin=0, vmax=255) 
+        # plt.show()
+        # print(" norm_template shape = ", normalized_template.shape)  
+        return normalized_template
     
+    def template_picker(self, template):
+        """
+            Use an input template to pick on the displayed image 
+            PARAMETERS
+                template = np.array (uint8, 0 - 255)
+        """
+        ## get all the picks so far and add them together before re-normalizing
+        current_display_img = self.display_im_arrays[0]
+
+        res, loc = image_handler.template_match(current_display_img, template) 
+        print(" residual img dimensions :: (x, y) color_range [a, b] -> (%s, %s)  [%s, %s]" % (res.shape[0], res.shape[1], np.min(res), np.max(res)))
+
+        # fig,ax=plt.subplots()
+        # im=ax.imshow(current_display_img, aspect='equal',interpolation=None)
+        # for pt in loc:
+        #     ax.add_patch(plt.Circle([pt[0],pt[1]], radius=0.5, edgecolor='r',lw=3, fill=False))
+        # cbar=plt.colorbar(im)
+        # plt.show()
+
+        ## add the picks to the current coordinate list, avoiding any that are clashing with current picks 
+        for Xcoord, Ycoord, score in loc:
+            if self.is_clashing((Xcoord, Ycoord), REMOVE = False): 
+                pass
+            else:
+                self.add_coordinate(Xcoord, Ycoord, score)
+                # self.coordinates[(x_coord, y_coord)] = 'new_point'
+
+        ## determine the minimum threshold score and set the slider there so we see all points added after running this command 
+        lowest_score = min(loc, key=lambda p:p[2])[2]
+        self.picks_threshold = lowest_score
+        self.threshold_LABEL['text'] = "Threshold: %0.2f" % lowest_score
+
+        self.draw_image_coordinates()
+        return
+
+    def MouseWheelHandler(self, event):
+        """ See: https://stackoverflow.com/questions/17355902/python-tkinter-binding-mousewheel-to-scrollbar
+            Tie the mousewheel to the brush size, draw a green square to show the user the final setting
+        """
+
+        canvas = self.displayed_widgets[0]
+
+        def delta(event):
+            if event.num == 5 or event.delta < 0:
+                return -2
+            return 2
+
+        self.brush_size += delta(event)
+
+        ## avoid negative brush_size values
+        if self.brush_size <= 0:
+            self.brush_size = 0
+
+        ## draw new brush size
+        x, y = event.x, event.y
+        x_max = int(x + self.brush_size/2)
+        x_min = int(x - self.brush_size/2)
+        y_max = int(y + self.brush_size/2)
+        y_min = int(y - self.brush_size/2)
+
+        ## delete any pre-existing brushes if already drawn
+        canvas.delete('brush')
+
+        brush = canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", width=2, tags='brush')
+        return 
+
+    def on_right_mouse_press(self, event):
+        image_name = os.path.splitext(self.image_name)[0]
+        if image_name == None or image_name == '':
+            return 
+
+        canvas = self.displayed_widgets[0]
+        self.RIGHT_MOUSE_PRESSED = True
+    
+        x, y = event.x, event.y
+        box_halfwidth = int(self.brush_size / 2)
+        x_max = int(x + box_halfwidth)
+        x_min = int(x - box_halfwidth)
+        y_max = int(y + box_halfwidth)
+        y_min = int(y - box_halfwidth)
+        brush = canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
+
+        # print("mouse position = ", x, y)
+        # print("(x min, x max ; y min, y max) = ", x_min, x_max, y_min, y_max)
+
+        ## particle diameter is a value given in Angstroms, we need to convert it to pixels
+        display_angpix = self.pixel_size / self.scale_factor
+        particle_width = self.picks_diameter / display_angpix
+        particle_halfwidth = int(particle_width / 2)
+
+        ## get the loaded coordinates for the image 
+        try:
+            image_coordinates = self.coordinates[image_name]
+        except:
+            print(" Could not load coordinates for img (%s), perhaps no particle file was loaded yet" % image_name)
+            return 
+
+        ## in case the user does not move the mouse after right-clicking, we want to find all clashes in range on this event as well
+        erase_coordinates = [] # avoid changing dictionary until after iteration complete
+        ## find all coordinates that clash with the brush
+        if len(image_coordinates) > 0:
+            for coord in image_coordinates:
+                ## rescale the stored coordinates to match the viewing scale 
+                rescaled_x = int(coord[0] * self.scale_factor)
+                rescaled_y = int(coord[1] * self.scale_factor)
+
+                if check_if_two_ranges_intersect(rescaled_x - particle_halfwidth, rescaled_x + particle_halfwidth, x_min, x_max, DEBUG = False): # x0, x1, y0, y1
+                    if check_if_two_ranges_intersect(rescaled_y - particle_halfwidth, rescaled_y + particle_halfwidth, y_min, y_max, DEBUG = False): # x0, x1, y0, y1
+                        print(" Erase coordinate:")
+                        print("   brush center (%s, %s), brush limits x = (%s -> %s) & y = (%s -> %s)" % (x, y, x_min, x_max, y_min, y_max))
+                        print("   coordinate center (%s, %s)" % (rescaled_x, rescaled_y))
+                        erase_coordinates.append(coord)
+
+        ## erase all coordinates caught by the brush
+        for coord in erase_coordinates:
+            i = image_coordinates.index(coord)
+            del self.coordinates[image_name][i] # remove the coordinate that clashed
+
+        self.draw_image_coordinates()
+        return
+
+    def on_right_mouse_release(self, event):
+        """ Delete the green brush after the user stops erasing and reset the global flag
+        """
+        print("Right mouse released")
+        canvas = self.displayed_widgets[0]
+        self.RIGHT_MOUSE_PRESSED = False
+        canvas.delete('brush') # remove any lingering brush marker
+        return
+
+    def refresh_brush_cursor(self, event):
+        """ This function is tied to the <Motion> event.
+            It constantly checks if the condition RIGHT_MOUSE_PRESSED is True, in which case it runs the erase-coordinates algorithm
+        """
+        image_name = os.path.splitext(self.image_name)[0]
+        if image_name == None or image_name == '':
+            return 
+
+        canvas = self.displayed_widgets[0]
+
+        ## get the loaded coordinates for the image 
+        try:
+            image_coordinates = self.coordinates[image_name]
+        except:
+            print(" Could not load coordinates for img (%s), perhaps no particle file was loaded yet" % image_name)
+            return 
+        
+        if self.RIGHT_MOUSE_PRESSED:
+            x, y = event.x, event.y
+
+            canvas.delete('brush')
+
+            ## box_size is a value given in Angstroms, we need to convert it to pixels
+            box_halfwidth = int(self.brush_size / 2)
+
+            x_max = int(x + box_halfwidth)
+            x_min = int(x - box_halfwidth)
+            y_max = int(y + box_halfwidth)
+            y_min = int(y - box_halfwidth)
+
+            brush = canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
+
+            ## particle diameter is a value given in Angstroms, we need to convert it to pixels
+            display_angpix = self.pixel_size / self.scale_factor
+            particle_width = self.picks_diameter / display_angpix
+            particle_halfwidth = int(particle_width / 2)
+
+            erase_coordinates = [] # avoid changing dictionary until after iteration complete
+            ## find all coordinates that clash with the brush
+            if len(image_coordinates) > 0:
+                for coord in image_coordinates:
+                    ## rescale the coordinates back to the viewing scale 
+                    rescaled_x = int(coord[0] * self.scale_factor)
+                    rescaled_y = int(coord[1] * self.scale_factor)
+
+                    if check_if_two_ranges_intersect(rescaled_x - particle_halfwidth, rescaled_x + particle_halfwidth, x_min, x_max): # x0, x1, y0, y1
+                        if check_if_two_ranges_intersect(rescaled_y - particle_halfwidth, rescaled_y + particle_halfwidth, y_min, y_max): # x0, x1, y0, y1
+                            erase_coordinates.append(coord)
+            ## erase all coordinates caught by the brush
+            for coord in erase_coordinates:
+                i = image_coordinates.index(coord)
+                del self.coordinates[image_name][i] # remove the coordinate that clashed
+
+            self.draw_image_coordinates()
+        else:
+            return
+
+    def on_middle_mouse_press(self, event):
+        """ When the user clicks the middle mouse, hide all coordinates
+        """
+        print(" Middle mouse pressed")
+        canvas = self.displayed_widgets[0]
+        canvas.delete('brush')
+        # canvas.delete('marker')
+        canvas.delete('particle_positions')
+        return
+
+    def on_middle_mouse_release(self, event):
+        """ When the middle mouse is released, redraw all coordinates
+        """
+        print(" Middle mouse released")
+        self.draw_image_coordinates()
+        return
+
     def usage(self):
         print("===================================================================================================")
         print(" Load this viewer in a directory with test micrographs to help pick initial binning, or to ")
@@ -540,10 +838,11 @@ class MainUI:
             self.coordinates[image_name].append((rescaled_x, rescaled_y, score))
         return 
 
-    def is_clashing(self, mouse_position):
+    def is_clashing(self, mouse_position, REMOVE = True):
         """
         PARAMETERS
             mouse_position = tuple(x, y); pixel position of the mouse when the function is called
+            REMOVE = bool(); optional flag to determine if the clashing point should be removed from the parent list as well
         """
         image_name = os.path.splitext(self.image_name)[0]
         ## check if the image_name is in self.coordinates dictionary 
@@ -571,7 +870,8 @@ class MainUI:
                 ## check y-position is in range for potential clash
                 if rescaled_y - box_halfwidth <= mouse_position[1] <= rescaled_y + box_halfwidth:
                     ## if both x and y-positions are in range, we have a clash
-                    del self.coordinates[image_name][i] # remove the coordinate that clashed based on its index position 
+                    if REMOVE:
+                        del self.coordinates[image_name][i] # remove the coordinate that clashed based on its index position 
                     return True # for speed, do not check further coordinates (may have to click multiple times for severe overlaps)
             i += 1
         return False
@@ -891,6 +1191,7 @@ class MainUI:
         ## dropdown menu --> Image processing functions 
         dropdown_functions = tk.Menu(menubar)
         menubar.add_cascade(label="Functions", menu=dropdown_functions)
+        dropdown_functions.add_command(label="Autopicking (Ctrl + X)", command = lambda: self.open_panel("AutopickPanel"))
         dropdown_functions.add_command(label="Local contrast", command=self.local_contrast)
         dropdown_functions.add_command(label="Blur", command=self.gaussian_blur)
         dropdown_functions.add_command(label="Local contrast & Blur (Ctrl + C)", command=self.local_contrast_and_blur)
@@ -1155,6 +1456,163 @@ class MainUI:
         return
 
     #endregion 
+
+class AutopickPanel(MainUI):
+    """ Panel GUI for user options for autopicking
+    """
+    def __init__(self, mainUI): # Pass in the main window as a parameter so we can access its methods & attributes
+        self.mainUI = mainUI # Make the main window an attribute of this Class object
+        self.panel = tk.Toplevel() # Make this object an accessible attribute
+        self.panel.title('Autopicking')
+        # self.panel.geometry('500x310')
+        # self.viewport_frame = viewport_frame =  ttk.Frame(self.panel)
+        
+        ## Parameters 
+        self.loaded_template_im_array = None
+        self.loaded_template_displayObj = None
+        self.canvas_size = 150 # px
+
+
+        ## Define widgets
+
+        ## 1. buttons
+        self.generate_template_from_picks_button = tk.Button(self.panel, text="Template from picks", font = ('Helvetica', '9'), command = lambda: self.generate_template_from_picks(), width=18)
+        self.load_template_button = tk.Button(self.panel, text="Load template", font = ('Helvetica', '10'), command = lambda: self.load_template(), width=10)
+        self.save_template_button = tk.Button(self.panel, text="Save template", font = ('Helvetica', '10'), command = lambda: self.save_template(), width=10)
+        self.autopick_button = tk.Button(self.panel, text="Autopick", font = ('Helvetica', '12'), command = lambda: self.submit_autopicker_job(), width=10)
+        
+        ## 2. threshold slider
+        self.threshold_label = tk.Label(self.panel, text = 'Picking threshold', anchor = tk.S, font = ('Helvetica', '9'))
+        self.threshold_slider = tk.Scale(self.panel, from_=0, to=100, orient= tk.HORIZONTAL, length = 250, sliderlength = 20)
+        self.threshold_slider.set(30)
+        
+        ## 3. canvas for template
+        self.canvas_label = tk.Label(self.panel, text = 'Template loaded:', anchor = tk.S, font = ('Helvetica', '10'))
+        self.canvas = tk.Canvas(self.panel, width = self.canvas_size, height = self.canvas_size, background="gray")
+
+        ## 4. separator widgets for aesthetics 
+        self.separator1 = ttk.Separator(self.panel, orient='horizontal')
+        self.separator2 = ttk.Separator(self.panel, orient='horizontal')
+        self.separator3 = ttk.Separator(self.panel, orient='horizontal')
+
+
+        ## Pack widgets
+        self.generate_template_from_picks_button.grid(column = 0, row = 0, pady = 7, padx=5)
+        self.load_template_button.grid(column = 1, row = 0, pady = 7, padx=5)
+        self.save_template_button.grid(column = 2, row = 0, pady = 7, padx=5)
+        self.separator1.grid(column = 0, row = 1, columnspan = 3, sticky=tk.EW)
+        self.threshold_label.grid(column = 0, row = 2)
+        self.threshold_slider.grid(column=1, row=2, columnspan = 2)
+        self.separator2.grid(column = 0, row = 3, columnspan = 3, sticky=tk.EW)
+        self.canvas_label.grid(column = 0, row = 4, columnspan = 3, sticky=tk.W, pady=5, padx=10)
+        self.canvas.grid(column = 0, row = 5, columnspan = 3, pady=5)
+        self.separator1.grid(column = 0, row = 6, columnspan = 3, sticky=tk.EW)
+        self.autopick_button.grid(column=1, row=7, pady=10)
+
+
+        ## Add some hotkeys for ease of use
+        # self.panel.bind('<Left>', lambda event: self.cutoff_slider.set(self.cutoff_slider.get() - 1))
+        # self.panel.bind('<Right>', lambda event: self.cutoff_slider.set(self.cutoff_slider.get() + 1))
+        self.panel.bind('<Return>', lambda event: self.submit_autopicker_job())
+        self.panel.bind('<KP_Enter>', lambda event: self.submit_autopicker_job()) # numpad 'Return' key
+
+        ## Set focus to the panel
+        self.panel.focus()
+
+        ## add an exit function to the closing of this top level window
+        self.panel.protocol("WM_DELETE_WINDOW", self.close)
+
+        return
+
+    def close(self):
+        ## unset the panel instance before destroying this instance
+        self.mainUI.autopickPanel_instance = None
+        ## destroy this instance
+        self.panel.destroy()
+        return
+
+    def display_template(self):
+        """ Load the template from memory onto the canvas 
+        """
+        ## get the proper references 
+        im_array = self.loaded_template_im_array
+        canvas = self.canvas
+        canvas_size = self.canvas_size
+
+        ## determine the scaling factor for the template so it nicely fits the canvas dimensions 
+        im_size = im_array.shape[0] ## expect a square dimension so only look at x 
+        canvas_size = 150 # px 
+        scaling_factor = canvas_size / im_size
+
+        if DEBUG:
+            print(" Display template in widget:")
+            print("    template size = %s" % im_size)
+            print("    canvas size = %s" % canvas_size)
+            print("    scaling factor to fit image onto canvas = %s" % scaling_factor)
+
+        ## scale the image appropriately 
+        scaled_im_array = resize_image(im_array.astype(np.float32), scaling_factor)
+
+        ## load the image into a PhotoImage object for display and update the reference to it  
+        im_obj = get_PhotoImage_obj(scaled_im_array)
+        self.loaded_template_displayObj = im_obj
+
+        ## clean up the canvas and display the new object 
+        self.canvas.delete('all')
+        
+        self.canvas.create_image(int(canvas_size/2) + 1, int(canvas_size/2) + 1, image = self.loaded_template_displayObj)
+        ## resize canvas to match new image
+        self.canvas.config(width=canvas_size - 1, height=canvas_size - 1)
+        return
+
+    def submit_autopicker_job(self):
+        """ Pass the input parameters back to the mainUI to run the autopicker algorithm
+        """
+        if not isinstance(self.loaded_template_im_array, np.ndarray):
+            print(" No template loaded for autopicking!")
+            return
+        # template = self.mainUI.make_template_from_picks()
+        else:
+            self.mainUI.template_picker(self.loaded_template_im_array)
+        return
+    
+    def generate_template_from_picks(self):
+        template = self.mainUI.make_template_from_picks()
+        self.loaded_template_im_array = template 
+        self.display_template()
+        return 
+
+    def save_template(self, outfname = 'template.png'):
+        """ Write out the loaded template as a .PNG 
+        """
+        ## later add a gui to save the file explicitly 
+        # print(" TEST :: ", self.loaded_template_im_array.shape, type(self.loaded_template_im_array))
+
+        if not isinstance(self.loaded_template_im_array, np.ndarray):
+            print(" No template loaded to save out!")
+            return
+
+        cv2.imwrite(outfname, self.loaded_template_im_array)
+        print(" Written currently loaded template out: ")
+        print("   >> %s" % os.path.abspath(outfname))
+        return 
+    
+    def load_template(self):
+        ## later add a gui to select the file explicitly 
+        filename = 'template.png'
+
+        ## use cv2 to load the image data then cast it as an integer np.ndarray
+        cv_im = cv2.imread(filename)
+        im_array = np.array(cv_im).astype(np.uint8)
+
+        ## assign the array to the template container
+        self.loaded_template_im_array = im_array 
+        self.display_template()
+
+        print(" Loading template image: ")
+        print("   >> %s" % os.path.abspath(filename))
+
+        return 
 
 #endregion
 

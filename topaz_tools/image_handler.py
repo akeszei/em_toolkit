@@ -14,7 +14,6 @@ def _memoryview_safe(x):
         x.setflags(write=True)
     return x
 
-
 def local_contrast(im_array, box_size, DEBUG = False):
     """ REF: https://scikit-image.org/docs/dev/auto_examples/color_exposure/plot_local_equalize.html
     """
@@ -111,6 +110,15 @@ def extract_boxes(im_array, box_size, coords, DEBUG = True):
     RETURNS
         extracted_imgs = list( np arrays of dimension box_size , ... )
     """
+    if DEBUG:
+        print("==============================")
+        print(" Extract boxes:")
+        print("------------------------------")
+        print("   im_array dim = ", im_array.shape)
+        print("   box_size = %s px" % box_size)
+        print("   input_coords = %s particles" % len(coords))
+
+
     extracted_imgs = []
     ## sanity check that not too many coordinates are being asked to be extracted
     if len(coords) > 500:
@@ -124,12 +132,17 @@ def extract_boxes(im_array, box_size, coords, DEBUG = True):
         y0 = coordinate[1] - box_size_halfwidth
         x1 = coordinate[0] + box_size_halfwidth
         y1 = coordinate[1] + box_size_halfwidth
+        # print(" input coord (x, y) -> (%s, %s)" % (coordinate[0], coordinate[1]))
+        # print(" box_size_halfwidth = %s" % box_size_halfwidth)
+        # print(" x0, x1 // y0, y1 :: %s, %s // %s %s" % (x0, x1, y0, y1))
 
         extracted_img = im_array[y0:y1,x0:x1]
         extracted_imgs.append(extracted_img)
 
     if DEBUG:
+        print("------------------------------")
         print(" Extracted %s boxes from image" % len(extracted_imgs))
+        print("==============================")
 
     return extracted_imgs
 
@@ -197,15 +210,16 @@ def display_img(im_array, coords = None, box_size = 1):
     """
     from PIL import Image as PIL_Image
     from PIL import ImageTk
+    import tkinter as tk
 
     box_size_halfwidth = int( box_size / 2 )
 
-    root = Tk()
-    canvas = Canvas(root, width = im_array.shape[0], height = im_array.shape[1])
+    root = tk.Tk()
+    canvas = tk.Canvas(root, width = im_array.shape[0], height = im_array.shape[1])
     canvas.pack()
     img = PIL_Image.fromarray(im_array).convert('L')
     img = ImageTk.PhotoImage(img)
-    canvas.create_image(0, 0, anchor=NW, image=img)
+    canvas.create_image(0, 0, anchor=tk.NW, image=img)
 
     if coords is None:
         pass
@@ -282,6 +296,7 @@ def bool_img(im_array, threshold, DEBUG = False):
 
 def find_local_peaks(im_array, min_area, max_area, INVERT = False, DEBUG = False):
     """
+
     """
     try:
         from skimage.measure import label, regionprops
@@ -322,7 +337,70 @@ def find_local_peaks(im_array, min_area, max_area, INVERT = False, DEBUG = False
         print("  >> %s coordinates found!" % len(coordinates))
         print("=======================================")
 
-    return coordinates
+    return coordinates, labeled_img
+
+def template_match(im_array, template_array):
+    """
+        REF: https://docs.opencv.org/4.x/d4/dc6/tutorial_py_template_matching.html
+    """
+    try:
+        globals()['cv2'] = __import__('cv2')
+    except:
+        print("Could not import cv2, try installing OpenCV via:")
+        print("   $ pip install opencv-python")
+        sys.exit()
+
+    try:
+        globals()['np'] = __import__('numpy') ## similar to: import numpy as np
+    except:
+        print(" ERROR :: Failed to import 'numpy'. Try: pip install numpy")
+        sys.exit()
+
+    img_w, img_h = im_array.shape[::-1]
+    template_w, template_h = template_array.shape[::-1]
+    print(" im array shape = ", im_array.shape)
+    print(" template array shape = ", template_array.shape)
+
+    print("===========================")
+    print("   Image_handler :: template_match")
+    print("---------------------------")
+    print("  input_img :: (x, y) [grayscale range] -> (%s, %s) [%s, %s]" % (img_w, img_h, np.min(im_array), np.max(im_array)))
+    print("  input_template :: (x, y) [grayscale range] -> (%s, %s) [%s, %s]" % (template_w, template_h, np.min(template_array), np.max(template_array)))
+    print("===========================")
+
+    res = cv2.matchTemplate(np.uint8(im_array), np.uint8(template_array), cv2.TM_CCOEFF_NORMED)
+    threshold = 0.3
+
+    """ REF: https://stackoverflow.com/questions/50579050/template-matching-with-multiple-objects-in-opencv-python/58514954#58514954
+    """
+    # fake out max_val for first run through loop
+    max_val = 1
+    loc = []
+    prev_min_val, prev_max_val, prev_min_loc, prev_max_loc = None, None, None, None
+    while max_val > threshold:
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+        
+        # Prevent infinite loop. If those 4 values are the same as previous ones, break the loop.
+        if prev_min_val == min_val and prev_max_val == max_val and prev_min_loc == min_loc and prev_max_loc == max_loc:
+            break
+        else:
+            prev_min_val, prev_max_val, prev_min_loc, prev_max_loc = min_val, max_val, min_loc, max_loc
+        
+        if max_val > threshold:
+            # Prevent start_row, end_row, start_col, end_col be out of range of image
+            start_row = max(0, max_loc[1] - template_h // 2)
+            start_col = max(0, max_loc[0] - template_w // 2)
+            end_row = min(res.shape[0], max_loc[1] + template_h // 2 + 1)
+            end_col = min(res.shape[1], max_loc[0] + template_w // 2 + 1)
+
+            res[start_row: end_row, start_col: end_col] = 0
+            match = (int(max_loc[0] + template_w/2), int(max_loc[1] + template_h/2), max_val)
+            print(" point found @ (%s, %s) score = %s" % (match[0], match[1], max_val))
+            loc.append(match)
+
+    print(" %s template matches found " % len(loc))
+
+    return res, loc
 
 
 
