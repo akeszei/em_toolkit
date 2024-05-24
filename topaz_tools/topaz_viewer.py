@@ -486,15 +486,17 @@ class MainUI:
             rescaled_coordinates.append((int(Xcoord * self.scale_factor), int(Ycoord * self.scale_factor)))
         particle_imgs = image_handler.extract_boxes(current_display_img, rescaled_box_size, rescaled_coordinates, DEBUG = DEBUG)
 
-        merged = np.sum(particle_imgs, axis =0)
+        # print(" input to np sum == ", particle_imgs)
+        # merged = np.sum(particle_imgs)
+        merged = np.sum(np.stack(particle_imgs), axis =0)
 
         # Normalised [0,255] as integer: don't forget the parenthesis before astype(int)
         normalized_template = (255*(merged - np.min(merged))/np.ptp(merged)).astype(int)
-        # import matplotlib.pyplot as plt
-        # plt.figure()
-        # plt.imshow(normalized_template, cmap='gray', vmin=0, vmax=255) 
-        # plt.show()
-        # print(" norm_template shape = ", normalized_template.shape)  
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.imshow(normalized_template, cmap='gray', vmin=0, vmax=255) 
+        plt.show()
+        print(" norm_template shape = ", normalized_template.shape)  
         return normalized_template
     
     def template_picker(self, template, picking_threshold = 0.3):

@@ -120,6 +120,7 @@ def extract_boxes(im_array, box_size, coords, DEBUG = True):
 
 
     extracted_imgs = []
+    too_close_to_edge = 0
     ## sanity check that not too many coordinates are being asked to be extracted
     if len(coords) > 500:
         print(" ERROR :: extracted_boxes is capped at 500 coordinates to avoid memory issues, remove some and re-run")
@@ -136,12 +137,21 @@ def extract_boxes(im_array, box_size, coords, DEBUG = True):
         # print(" box_size_halfwidth = %s" % box_size_halfwidth)
         # print(" x0, x1 // y0, y1 :: %s, %s // %s %s" % (x0, x1, y0, y1))
 
-        extracted_img = im_array[y0:y1,x0:x1]
-        extracted_imgs.append(extracted_img)
+        ## sanity check we are still in the image after adding/subtracting from the point 
+        if x0 < 0 or y0 < 0:
+            too_close_to_edge += 1
+            continue 
+        elif x1 > im_array.shape[1] or y1 > im_array.shape[0]:
+            too_close_to_edge += 1
+            continue 
+        else:
+            extracted_img = im_array[y0:y1,x0:x1]
+            extracted_imgs.append(extracted_img)
 
     if DEBUG:
         print("------------------------------")
         print(" Extracted %s boxes from image" % len(extracted_imgs))
+        print("  %s particles were too close to edge "  % too_close_to_edge)
         print("==============================")
 
     return extracted_imgs
