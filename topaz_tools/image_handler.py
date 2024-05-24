@@ -339,7 +339,7 @@ def find_local_peaks(im_array, min_area, max_area, INVERT = False, DEBUG = False
 
     return coordinates, labeled_img
 
-def template_match(im_array, template_array):
+def template_match(im_array, template_array, input_threshold):
     """
         REF: https://docs.opencv.org/4.x/d4/dc6/tutorial_py_template_matching.html
     """
@@ -366,10 +366,11 @@ def template_match(im_array, template_array):
     print("---------------------------")
     print("  input_img :: (x, y) [grayscale range] -> (%s, %s) [%s, %s]" % (img_w, img_h, np.min(im_array), np.max(im_array)))
     print("  input_template :: (x, y) [grayscale range] -> (%s, %s) [%s, %s]" % (template_w, template_h, np.min(template_array), np.max(template_array)))
+    print("  picking threshold :: %s" % input_threshold)
     print("===========================")
 
     res = cv2.matchTemplate(np.uint8(im_array), np.uint8(template_array), cv2.TM_CCOEFF_NORMED)
-    threshold = 0.3
+    threshold = input_threshold
 
     """ REF: https://stackoverflow.com/questions/50579050/template-matching-with-multiple-objects-in-opencv-python/58514954#58514954
     """

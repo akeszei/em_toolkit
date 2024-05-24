@@ -269,7 +269,7 @@ class MainUI:
         # instance.geometry("520x500")
         # instance.resizable(False, False)
 
-        #region :: CLASS VARIABLES
+        #region :: CLASS PARAMETERS
         self.RIGHT_MOUSE_PRESSED = False 
         self.brush_size = 50
         self.displayed_widgets = list() ## container for all widgets packed into the main display UI, use this list to update each
@@ -435,6 +435,19 @@ class MainUI:
         self.usage()
         return
 
+    def clear_coordinates(self):
+        if len(self.coordinates) > 0:
+            image_name = os.path.splitext(self.image_name)[0]
+            if image_name == None or image_name == '':
+                ## we cannot have coordinates if we have no name!
+                return 
+            else:
+                ## reset the list for the particle data under this image name
+                self.coordinates[image_name] = [] 
+                self.draw_image_coordinates()
+   
+        return 
+
     def open_panel(self, panelType = 'None'):
 
         ## use a switch-case statement logic to open the correct panel
@@ -462,9 +475,11 @@ class MainUI:
         ## img coordinates are given in raw file pixel positions
         image_name = os.path.splitext(self.image_name)[0]
         if image_name == None or image_name == '':
-            return 
+            return None
         image_coordinates = self.coordinates[image_name] 
-        
+        ## return None if no coordinates on image 
+        if len(image_coordinates) == 0:
+            return None
         
         rescaled_coordinates = []
         for Xcoord, Ycoord, score in image_coordinates:
@@ -482,16 +497,21 @@ class MainUI:
         # print(" norm_template shape = ", normalized_template.shape)  
         return normalized_template
     
-    def template_picker(self, template):
+    def template_picker(self, template, picking_threshold = 0.3):
         """
             Use an input template to pick on the displayed image 
             PARAMETERS
                 template = np.array (uint8, 0 - 255)
         """
+        image_name = os.path.splitext(self.image_name)[0]
+        if image_name == None or image_name == '':
+            print(" Abandoned template_picker function as no image is loaded!")
+            return 
+        
         ## get all the picks so far and add them together before re-normalizing
         current_display_img = self.display_im_arrays[0]
 
-        res, loc = image_handler.template_match(current_display_img, template) 
+        res, loc = image_handler.template_match(current_display_img, template, picking_threshold) 
         print(" residual img dimensions :: (x, y) color_range [a, b] -> (%s, %s)  [%s, %s]" % (res.shape[0], res.shape[1], np.min(res), np.max(res)))
 
         # fig,ax=plt.subplots()
@@ -501,13 +521,40 @@ class MainUI:
         # cbar=plt.colorbar(im)
         # plt.show()
 
-        ## add the picks to the current coordinate list, avoiding any that are clashing with current picks 
-        for Xcoord, Ycoord, score in loc:
-            if self.is_clashing((Xcoord, Ycoord), REMOVE = False): 
-                pass
-            else:
-                self.add_coordinate(Xcoord, Ycoord, score)
-                # self.coordinates[(x_coord, y_coord)] = 'new_point'
+
+        # ## add the picks to the current coordinate list, avoiding any that are clashing with current picks 
+        # for Xcoord, Ycoord, score in loc:
+        #     if self.is_clashing((Xcoord, Ycoord), REMOVE = False): 
+        #         pass
+        #     else:
+        #         self.add_coordinate(Xcoord, Ycoord, score)
+        
+        ## For performance probably want to run the check with fewer calculations per cycle, so pre-calculate the halfbox size, then for each point run a range intersection check for X, if it passes then Y, then if it does not intersect with both add the coordinate?? WIP 
+        display_angpix = self.pixel_size / self.scale_factor
+        particle_width = self.picks_diameter / display_angpix
+        particle_halfwidth = int(particle_width / 2)
+        picks_to_keep = []
+        for i in range(len(loc)):
+            ADD_POINT = True
+            x, y, score = loc[i]
+            for px, py, pscore in self.coordinates[image_name]:
+                ## coordinates need to be rescaled to the viewing image scale 
+                rescaled_x = int(px * self.scale_factor)
+                rescaled_y = int(py * self.scale_factor)
+
+                ## run the fast interection algorithm for X, then Y
+                if check_if_two_ranges_intersect(x - particle_halfwidth, x + particle_halfwidth, rescaled_x - particle_halfwidth, rescaled_x + particle_halfwidth):
+                    if check_if_two_ranges_intersect(y - particle_halfwidth, y + particle_halfwidth, rescaled_y - particle_halfwidth, rescaled_y + particle_halfwidth):
+                        ## if we pass both checks, we have a clash situation - abandon adding this point to the final roster without further checks 
+                        ADD_POINT = False
+            ## use the flag to decide whether we add the point 
+            if ADD_POINT:
+                picks_to_keep.append(i)
+
+        ## add each point we wanted to keep to the final set of coordinates after fishing the looping functions 
+        for p in picks_to_keep:
+            x, y, score = loc[p]
+            self.add_coordinate(x, y, score)
 
         ## determine the minimum threshold score and set the slider there so we see all points added after running this command 
         lowest_score = min(loc, key=lambda p:p[2])[2]
@@ -1192,6 +1239,7 @@ class MainUI:
         dropdown_functions = tk.Menu(menubar)
         menubar.add_cascade(label="Functions", menu=dropdown_functions)
         dropdown_functions.add_command(label="Autopicking (Ctrl + X)", command = lambda: self.open_panel("AutopickPanel"))
+        dropdown_functions.add_command(label="Clear picks on image", command = lambda: self.clear_coordinates())
         dropdown_functions.add_command(label="Local contrast", command=self.local_contrast)
         dropdown_functions.add_command(label="Blur", command=self.gaussian_blur)
         dropdown_functions.add_command(label="Local contrast & Blur (Ctrl + C)", command=self.local_contrast_and_blur)
@@ -1471,6 +1519,7 @@ class AutopickPanel(MainUI):
         self.loaded_template_im_array = None
         self.loaded_template_displayObj = None
         self.canvas_size = 150 # px
+        self.picking_threshold = 0.3
 
 
         ## Define widgets
@@ -1480,11 +1529,13 @@ class AutopickPanel(MainUI):
         self.load_template_button = tk.Button(self.panel, text="Load template", font = ('Helvetica', '10'), command = lambda: self.load_template(), width=10)
         self.save_template_button = tk.Button(self.panel, text="Save template", font = ('Helvetica', '10'), command = lambda: self.save_template(), width=10)
         self.autopick_button = tk.Button(self.panel, text="Autopick", font = ('Helvetica', '12'), command = lambda: self.submit_autopicker_job(), width=10)
-        
+        self.clear_coordinates_button = tk.Button(self.panel, text="Clear picks", font = ('Helvetica', '9'), command = lambda: self.clear_picked_coordinates(), width=10)
+
         ## 2. threshold slider
-        self.threshold_label = tk.Label(self.panel, text = 'Picking threshold', anchor = tk.S, font = ('Helvetica', '9'))
-        self.threshold_slider = tk.Scale(self.panel, from_=0, to=100, orient= tk.HORIZONTAL, length = 250, sliderlength = 20)
-        self.threshold_slider.set(30)
+        self.threshold_label = tk.Label(self.panel, text = 'Picking threshold:', anchor = tk.S, font = ('Helvetica', '9'))
+        self.threshold_slider = tk.Scale(self.panel, from_=0, to=1, resolution=0.01, orient= tk.HORIZONTAL, length = 250, sliderlength = 20, command=self.on_threshold_change)
+        self.threshold_slider.set(self.picking_threshold)
+
         
         ## 3. canvas for template
         self.canvas_label = tk.Label(self.panel, text = 'Template loaded:', anchor = tk.S, font = ('Helvetica', '10'))
@@ -1501,13 +1552,14 @@ class AutopickPanel(MainUI):
         self.load_template_button.grid(column = 1, row = 0, pady = 7, padx=5)
         self.save_template_button.grid(column = 2, row = 0, pady = 7, padx=5)
         self.separator1.grid(column = 0, row = 1, columnspan = 3, sticky=tk.EW)
-        self.threshold_label.grid(column = 0, row = 2)
-        self.threshold_slider.grid(column=1, row=2, columnspan = 2)
+        self.threshold_label.grid(column = 0, row = 2, columnspan = 1, sticky=tk.SE)
+        self.threshold_slider.grid(column=1, row=2, columnspan = 2, padx=5, sticky=tk.W)
         self.separator2.grid(column = 0, row = 3, columnspan = 3, sticky=tk.EW)
         self.canvas_label.grid(column = 0, row = 4, columnspan = 3, sticky=tk.W, pady=5, padx=10)
         self.canvas.grid(column = 0, row = 5, columnspan = 3, pady=5)
         self.separator1.grid(column = 0, row = 6, columnspan = 3, sticky=tk.EW)
-        self.autopick_button.grid(column=1, row=7, pady=10)
+        self.autopick_button.grid(column=1, row= 7, pady=10)
+        self.clear_coordinates_button.grid(column=2, row=7, padx = 10, sticky=tk.W)
 
 
         ## Add some hotkeys for ease of use
@@ -1573,11 +1625,14 @@ class AutopickPanel(MainUI):
             return
         # template = self.mainUI.make_template_from_picks()
         else:
-            self.mainUI.template_picker(self.loaded_template_im_array)
+            print(" Submitting autopick job with template: ", self.loaded_template_im_array.shape)
+            self.mainUI.template_picker(self.loaded_template_im_array, float(self.threshold_slider.get()))
         return
     
     def generate_template_from_picks(self):
         template = self.mainUI.make_template_from_picks()
+        if isinstance(template, bool):
+            return 
         self.loaded_template_im_array = template 
         self.display_template()
         return 
@@ -1602,7 +1657,7 @@ class AutopickPanel(MainUI):
         filename = 'template.png'
 
         ## use cv2 to load the image data then cast it as an integer np.ndarray
-        cv_im = cv2.imread(filename)
+        cv_im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
         im_array = np.array(cv_im).astype(np.uint8)
 
         ## assign the array to the template container
@@ -1613,6 +1668,19 @@ class AutopickPanel(MainUI):
         print("   >> %s" % os.path.abspath(filename))
 
         return 
+
+    def on_threshold_change(self, slider_value):
+
+        ## set the threshold value to the instance 
+        self.picks_threshold = slider_value
+        print(" Template picking threshold = %s" % slider_value )
+
+        return 
+
+    def clear_picked_coordinates(self):
+        self.mainUI.clear_coordinates()
+        return 
+
 
 #endregion
 
