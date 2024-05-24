@@ -529,7 +529,7 @@ class MainUI:
         #     else:
         #         self.add_coordinate(Xcoord, Ycoord, score)
         
-        ## For performance probably want to run the check with fewer calculations per cycle, so pre-calculate the halfbox size, then for each point run a range intersection check for X, if it passes then Y, then if it does not intersect with both add the coordinate?? WIP 
+        ## For performance probably want to run the check with fewer calculations per cycle, so pre-calculate the halfbox size, then for each point run a range intersection check for X, if it passes then Y, then if it does not intersect with both add the coordinate a a separate list we later call to add points (to avoid growth of the search set during loop, input coordinates are expected NOT to intersect!)
         display_angpix = self.pixel_size / self.scale_factor
         particle_width = self.picks_diameter / display_angpix
         particle_halfwidth = int(particle_width / 2)
@@ -537,16 +537,23 @@ class MainUI:
         for i in range(len(loc)):
             ADD_POINT = True
             x, y, score = loc[i]
-            for px, py, pscore in self.coordinates[image_name]:
-                ## coordinates need to be rescaled to the viewing image scale 
-                rescaled_x = int(px * self.scale_factor)
-                rescaled_y = int(py * self.scale_factor)
+            ## check first if we have points to even compare against (i.e. is this an empty micrograph?)
+            ## check if the image_name is in self.coordinates dictionary, make an empty entry if not  
+            if not image_name in self.coordinates:
+                ## if there is no entry, create it 
+                self.coordinates[image_name] = []
 
-                ## run the fast interection algorithm for X, then Y
-                if check_if_two_ranges_intersect(x - particle_halfwidth, x + particle_halfwidth, rescaled_x - particle_halfwidth, rescaled_x + particle_halfwidth):
-                    if check_if_two_ranges_intersect(y - particle_halfwidth, y + particle_halfwidth, rescaled_y - particle_halfwidth, rescaled_y + particle_halfwidth):
-                        ## if we pass both checks, we have a clash situation - abandon adding this point to the final roster without further checks 
-                        ADD_POINT = False
+            if not len(self.coordinates[image_name]) == 0:                
+                for px, py, pscore in self.coordinates[image_name]:
+                    ## coordinates need to be rescaled to the viewing image scale 
+                    rescaled_x = int(px * self.scale_factor)
+                    rescaled_y = int(py * self.scale_factor)
+
+                    ## run the fast interection algorithm for X, then Y
+                    if check_if_two_ranges_intersect(x - particle_halfwidth, x + particle_halfwidth, rescaled_x - particle_halfwidth, rescaled_x + particle_halfwidth):
+                        if check_if_two_ranges_intersect(y - particle_halfwidth, y + particle_halfwidth, rescaled_y - particle_halfwidth, rescaled_y + particle_halfwidth):
+                            ## if we pass both checks, we have a clash situation - abandon adding this point to the final roster without further checks 
+                            ADD_POINT = False
             ## use the flag to decide whether we add the point 
             if ADD_POINT:
                 picks_to_keep.append(i)
@@ -662,21 +669,21 @@ class MainUI:
     def refresh_brush_cursor(self, event):
         """ This function is tied to the <Motion> event.
             It constantly checks if the condition RIGHT_MOUSE_PRESSED is True, in which case it runs the erase-coordinates algorithm
-        """
-        image_name = os.path.splitext(self.image_name)[0]
-        if image_name == None or image_name == '':
-            return 
-
-        canvas = self.displayed_widgets[0]
-
-        ## get the loaded coordinates for the image 
-        try:
-            image_coordinates = self.coordinates[image_name]
-        except:
-            print(" Could not load coordinates for img (%s), perhaps no particle file was loaded yet" % image_name)
-            return 
-        
+        """        
         if self.RIGHT_MOUSE_PRESSED:
+            image_name = os.path.splitext(self.image_name)[0]
+            if image_name == None or image_name == '':
+                return 
+
+            canvas = self.displayed_widgets[0]
+
+            ## get the loaded coordinates for the image 
+            try:
+                image_coordinates = self.coordinates[image_name]
+            except:
+                print(" Could not load coordinates for img (%s), perhaps no particle file was loaded yet" % image_name)
+                return 
+
             x, y = event.x, event.y
 
             canvas.delete('brush')
