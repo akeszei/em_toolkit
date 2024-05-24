@@ -396,7 +396,7 @@ def template_match(im_array, template_array, input_threshold):
 
             res[start_row: end_row, start_col: end_col] = 0
             match = (int(max_loc[0] + template_w/2), int(max_loc[1] + template_h/2), max_val)
-            print(" point found @ (%s, %s) score = %s" % (match[0], match[1], max_val))
+            # print(" point found @ (%s, %s) score = %s" % (match[0], match[1], max_val))
             loc.append(match)
 
     print(" %s template matches found " % len(loc))
