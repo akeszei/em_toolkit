@@ -28,7 +28,7 @@ def usage():
         print("    $ for c in *.coord; do coord2star.py $c; done")
         print(" -----------------------------------------------------------------------------------------------")
         print(" Options (default in brackets): ")
-        print("        --unbin (n) : Rescale picked coordinates by n ")
+        print("        --unbin (n) : Rescale picked coordinates by n (e.g. binned_angpix / raw_angpix)")
         print("===============================================================================================")
         sys.exit()
     else:
@@ -186,7 +186,7 @@ if __name__ == "__main__":
 
         if cmd_line[i] in ['--unbin']:
             try:
-                unbinning_factor = int(cmd_line[i+1])
+                unbinning_factor = float(cmd_line[i+1])
             except:
                 print(" !! ERROR :: Could not parse unbinning factor given (--unbin flag), add a value")
                 usage()
