@@ -40,6 +40,9 @@ def parse_cmdline(cmdline):
     ## initialize the PARAMETERS object to hold the values we parse 
     PARAMS = PARAMETERS()
 
+    if len(cmdline) < 2:
+        usage()
+
     ## first check for the help flag before proceeding 
     for i in range(len(cmdline)):
         if cmdline[i] in ['-h', '--h', '-H', '--H']:
@@ -275,16 +278,6 @@ def save_mrc_image(im_data, output_name, pixel_size):
     print(" ... written file: %s (angpix %s, mean %s, stdev %s)" % (output_name, pixel_size, np.mean(im_data), np.std(im_data)))
 
     return
-
-
-
-
-
-
-def chunks(l, n):
-    """Yield successive n-sized chunks from l."""
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
 
 def check_dependencies():
     ## load built-in packages, if they fail to load then python install is completely wrong!
