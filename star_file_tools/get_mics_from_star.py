@@ -42,6 +42,7 @@ def parse_flags(cmdline):
     star_file = None 
     subset_size = None 
     out_fname = 'subset_mics.txt'
+    omit_list = []
 
     ## check if help flag was called or we have a minimum number of arguments to evaluate
     cmdline = sys.argv
@@ -79,7 +80,6 @@ def parse_flags(cmdline):
         if param == '--omit':
             try: 
                 omit_fname = cmdline[i + 1]
-                omit_list = []
                 ## try loading the data into memory 
                 try:
                     with open(omit_fname, 'r') as f:
