@@ -14,15 +14,16 @@ def get_table_position(file, table_title, DEBUG = True):
 		---------------------------------------------------------------
 		PARAMETERS
 		---------------------------------------------------------------
-			file = str(); name of .STAR file with tables (e.g. "run_it025_model.star")
-			table_title = str(); name of the .STAR table we are interested in (e.g. "data_model_classes")
-			DEBUG = bool(); optional parameter to display or not return values
+			file = str(); name of .STAR file with tables (e.g. "run_it025_model.star") \n
+			table_title = str(); name of the .STAR table we are interested in (e.g. "data_model_classes") \n
+			DEBUG = bool(); optional parameter to display or not return values \n
 		---------------------------------------------------------------
 		RETURNS
 		---------------------------------------------------------------
-			HEADER_START = int(); line number for the first entry after `loop_' in the table
-			DATA_START = int(); line number for the first data entry after header
-			DATA_END = int(); line number for the last data entry in the table
+			TABLE_START = int(); line number from which the table begins \n
+            HEADER_START = int(); line number for the first entry after `loop_' in the table \n
+			DATA_START = int(); line number for the first data entry after header \n
+			DATA_END = int(); line number for the last data entry in the table \n
     """
     TABLE_START = -1
     HEADER_START = -1 ## line number for the first _COLUMN_NAME #value entry in the header
@@ -69,7 +70,7 @@ def get_table_position(file, table_title, DEBUG = True):
         print("   >> Table starts at line:  %s" % TABLE_START)
         print("   >> Data range (start, end) = (%s, %s)" % (DATA_START, DATA_END))
         print("-------------------------------------------------------------")
-    return HEADER_START, DATA_START, DATA_END
+    return TABLE_START, HEADER_START, DATA_START, DATA_END
 
 def find_star_column(file, column_name, header_start, header_end, DEBUG = True) :
     """ For an input .STAR file and line number range corresponding to the header, find the assigned column of a desired column by name (e.g. 'rlnMicrographName')
@@ -95,12 +96,12 @@ def find_star_column(file, column_name, header_start, header_end, DEBUG = True) 
             if line_num < header_start or line_num > header_end:
                 continue
             ## extract column number for micrograph name
-            if column_name in line :
+            if column_name == line.split()[0] :
                 column_num = int(line.split()[1].replace("#",""))
                 ## handle error case where input .STAR file is missing a necessary rlnColumn type
                 if column_num is None :
                     print(" ERROR: Input .STAR file: %s, is missing a column for: %s" % (file, column_name) )
-                    sys.exit()
+                    exit()
                 else:
                     if DEBUG:
                         print("  ... %s column value: #%s" % (column_name, column_num))

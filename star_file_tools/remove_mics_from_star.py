@@ -47,7 +47,7 @@ def remove_mics_from_star(PARAMS):
     mics_to_remove = parse_mic_list_file(mic_list_file)
 
     ## use star_handler module to parse the input file correctly
-    HEADER_START, DATA_START, DATA_END = star_handler.get_table_position(input_star, table_title, DEBUG)
+    TABLE_START, HEADER_START, DATA_START, DATA_END = star_handler.get_table_position(input_star, table_title, DEBUG)
     column_name = '_rlnMicrographName'
     column_num = star_handler.find_star_column(input_star, column_name, HEADER_START, (DATA_START - 1), DEBUG)
     data_range = (DATA_START, DATA_END)

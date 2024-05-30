@@ -33,7 +33,7 @@ def find_all_star_files(ignore_file = "merged_coordinates.star"):
 def get_coords(input_star, VERBOSE = False):
     ## use star_handler module to parse the input file correctly
     table_title = "data_"
-    HEADER_START, DATA_START, DATA_END = star_handler.get_table_position(input_star, table_title, DEBUG = False)
+    TABLE_START, HEADER_START, DATA_START, DATA_END = star_handler.get_table_position(input_star, table_title, DEBUG = False)
     X_column_name = '_rlnCoordinateX'
     Y_column_name = '_rlnCoordinateY'
     X_column_num = star_handler.find_star_column(input_star, X_column_name, HEADER_START, (DATA_START - 1), DEBUG = False)

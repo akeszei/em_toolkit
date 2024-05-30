@@ -120,11 +120,11 @@ def map_tilt_groups(dataset, grouping):
 
     return mapped 
 
-def write_tilt_groups(mapped_dataset, save_fname = 'tiltgroups.txt'):
+def write_tilt_groups(mapped_dataset, save_fname = 'shiftgroups.txt'):
     with open(save_fname, 'w') as f :
         ## unpack the dataset and write it to the file 
         for mic, group_id in mapped_dataset:
-            f.write("%s  shift_%s\n" % (mic, group_id))
+            f.write("%s  shift_%s\n" % (mic, str(group_id).zfill(3)))
     return 
 
 #endregion
