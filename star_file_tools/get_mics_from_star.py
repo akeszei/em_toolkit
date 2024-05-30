@@ -22,7 +22,8 @@ def usage():
     print(" ")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
-    print("       --subset (15) : Get a list of micrographs across the dZ range of the given size")
+    print("                --subset (15) : Get a list of micrographs across the dZ range of the given size")
+    print("      --out (subset_mics.txt) : Use a desired output name for the subset file ")
     print("===================================================================================================")
     sys.exit()
     return
@@ -39,6 +40,7 @@ def parse_flags(cmdline):
 
     star_file = None 
     subset_size = None 
+    out_fname = 'subset_mics.txt'
 
     ## check if help flag was called or we have a minimum number of arguments to evaluate
     cmdline = sys.argv
@@ -68,6 +70,11 @@ def parse_flags(cmdline):
                 ## use defaults
                 subset_size = 15
                 print(" .. no explicit subset size given, using defaults: %s " % subset_size)
+        if param == '--out':
+            try:
+                out_fname = str(cmdline[i + 1])
+            except:
+                print(" ... could not parse input to '--o' flag, using default: %s" % out_fname)
 
     ## check for existence of input file 
     if star_file == None:
@@ -367,7 +374,7 @@ if __name__ == '__main__':
     import random 
 
 
-    star_fname, subset_size = parse_flags(sys.argv)
+    star_fname, subset_size, out_fname = parse_flags(sys.argv)
 
     star_data = load_data_from_star_file(star_fname)
 
@@ -375,7 +382,7 @@ if __name__ == '__main__':
         dZ_thresholds = analyse_dZ_range(star_data)
         ## overwrite the micrograph list data to grab only the subset we want
         mics = get_subset_by_dZ(star_data, dZ_thresholds, subset_size)
-        write_all_mics_to_file(mics, out_fname = 'subset_mics.txt')
+        write_all_mics_to_file(mics, out_fname)
     else:
         write_all_mics_to_file(star_data)
 
