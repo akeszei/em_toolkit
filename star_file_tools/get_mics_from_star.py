@@ -84,7 +84,7 @@ def parse_flags(cmdline):
         print(" Input file (%s) not found! Is path correct?" % star_file)
         sys.exit()
 
-    return star_file, subset_size 
+    return star_file, subset_size, out_fname
 
 def load_data_from_star_file(fname):
     print(" Loading star file: %s" % fname)
