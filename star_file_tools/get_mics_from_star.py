@@ -24,6 +24,7 @@ def usage():
     print(" Options (default in brackets): ")
     print("                --subset (15) : Get a list of micrographs across the dZ range of the given size")
     print("      --out (subset_mics.txt) : Use a desired output name for the subset file ")
+    print("                    --omit () : Read in a subset list to avoid picking mics present in that list ")
     print("===================================================================================================")
     sys.exit()
     return
