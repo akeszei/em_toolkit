@@ -174,10 +174,12 @@ def write_all_mics_to_file(mic_data, out_fname = "mics.txt"):
 
 def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size, omit_list = []):
     subset = []
-    print(" Omit list provided (%s mics): " % len(omit_list))
-    for n in range(3):
-        print("   %s" % omit_list[n])
+    if len(omit_list) > 0:
+        print(" Omit list provided (%s mics): " % len(omit_list))
+        for n in range(3):
+            print("   %s" % omit_list[n])
         print("   ...")
+
     for i in range(subset_size):
         chosen_micrograph = None 
 
