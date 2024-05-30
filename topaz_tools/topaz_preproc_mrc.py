@@ -9,7 +9,7 @@
 #############################
 #region     FLAGS
 #############################
-DEBUG = True
+DEBUG = False
 
 #endregion 
 
@@ -26,12 +26,14 @@ def usage():
     print("    $ topaz_preproc_mrc.py  ../dir/input.mrc  <options>           # writes output to cwd")
     print(" Batch mode with parallelization:")
     print("    $ topaz_preproc_mrc.py  ../dir/@.mrc  <options>  --j <n>")
+    print(" Example:")
+    print("    $ topaz_preproc_mrc.py  raw/@.mrc --out-dir proc/  --norm  --rescale_angpix <a>  --j <n>")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
-    print("     --rescale_angpix (3.0) : rescale the pixel size of the image to this value")
-    print("                     --norm : Normalize the image to avg of 0 and stdev of 1")
-    # print("          --target-dir (./) : Specify where to place the output files rather in the cwd")
-    print("                    --j (4) : Allow multiprocessing using indicated number of cores")
+    print("   --rescale_angpix (3.0) : rescale the pixel size of the image to this value")
+    print("                   --norm : Normalize the image to avg of 0 and stdev of 1")
+    print("           --out_dir (./) : If using batch mode, can specify where to place the output files rather in the cwd")
+    print("                  --j (4) : Allow multiprocessing using indicated number of cores")
     print("===================================================================================================")
     sys.exit()
     return
@@ -60,7 +62,7 @@ def parse_cmdline(cmdline):
                     if cmdline[i - 1] in ['--o']:
                         SKIP = True 
                 if not SKIP:                    
-                    print(" Detected input file = %s" % cmdline[i])
+                    # print(" Detected input file = %s" % cmdline[i])
                     input_path, input_fname = os.path.split(cmdline[i])
                     basename = os.path.splitext(input_fname)[0]
 
@@ -95,6 +97,10 @@ def parse_cmdline(cmdline):
             if len(cmdline) > i+1:
                 PARAMS.set_output_file(cmdline[i+1])
             
+        if cmdline[i] in ['--out_dir']:
+            if len(cmdline) > i+1:
+                PARAMS.set_output_dir(cmdline[i+1])
+
 
     # ## sanity check we have an output file name if we are not running in batch mode 
     # if len(PARAMS.input_file) > 0:
@@ -136,7 +142,7 @@ def get_mrc_data(file):
 
     return image_data, pixel_size
 
-def write_image(input_file, output_file, rescale_angpix, normalize):
+def write_image(input_file, output_file, output_dir, rescale_angpix, normalize):
     check_dependencies()
 
     ## load the image from the .MRC file
@@ -166,7 +172,7 @@ def write_image(input_file, output_file, rescale_angpix, normalize):
         print(" output_file = %s" % output_file) 
 
     ## save out the edited im_array as a new mrc file 
-    save_mrc_image(im_array, output_file, rescale_angpix)
+    save_mrc_image(im_array, output_file, output_dir, rescale_angpix)
 
     # ## reset the output file variable 
     # params.reset_output_file()
@@ -263,19 +269,21 @@ def normalize_image(im_array):
 
     return im_array 
 
-def save_mrc_image(im_data, output_name, pixel_size):
+def save_mrc_image(im_data, output_name, output_dir, pixel_size):
     """
         im_data = np.array, dtype = float32
         output_name = str(); name (& optionally, path) of the output file to be saved
+        output_dir = str(); relative or absolute path to save the images
         pixel_size = voxel size of the new image 
     """
-    with mrcfile.new(output_name, overwrite = True) as mrc:
+    output_path = os.path.join(output_dir, output_name)
+    with mrcfile.new(output_path, overwrite = True) as mrc:
         mrc.set_data(im_data)
         mrc.voxel_size = pixel_size
         mrc.update_header_from_data()
         mrc.update_header_stats()
 
-    print(" ... written file: %s (angpix %s, mean %s, stdev %s)" % (output_name, pixel_size, np.mean(im_data), np.std(im_data)))
+    print(" ... written file: %s (angpix %s, mean %s, stdev %s)" % (output_path, pixel_size, np.mean(im_data), np.std(im_data)))
 
     return
 
@@ -315,11 +323,12 @@ def check_dependencies():
 #endregion 
 
 class PARAMETERS():
-    def __init__(self, rescale_angpix = None, normalize = False, input_file = '', output_file = ''):
+    def __init__(self, rescale_angpix = None, normalize = False, input_file = '', output_file = '', output_dir = '.'):
         self.rescale_angpix = rescale_angpix
         self.batch_mode = False
         self.input_file = input_file
         self.output_file = output_file
+        self.output_dir = output_dir
         self.normalize = normalize 
         self.parallelize = False 
         self.threads = 4
@@ -372,8 +381,8 @@ class PARAMETERS():
         return 
 
     def set_input_file(self, input_str):
-        if len(self.input_file) > 0:
-            print(" !! ERROR :: More than one input file is trying to be specified, did you miss the '--o' flag to define the output file?")
+        if len(self.input_file) > 0 and not self.batch_mode:
+            print(" !! ERROR :: More than one input file is trying to be specified (%s, %s), did you miss the '--o' flag to define the output file?" % (input_str, self.input_file))
             exit()
         if len(input_str) > 0:
             self.input_file = input_str
@@ -388,19 +397,42 @@ class PARAMETERS():
             print(" ERROR !! No output file name given!")
         return
 
+    def set_output_dir(self, input_str):
+        if len(input_str) > 0:
+            self.output_dir = input_str
+            ## check directory exists 
+            if not os.path.isdir(self.output_dir):
+                print(" !! ERROR :: Output directory (%s) given does not exist!" % self.output_dir)
+        else:
+            print(" ERROR !! No output file name given!")
+        return 
+
     def reset_output_file(self):
         self.output_file = ''
         return 
 
-    def print_values(self):
-        print(" Input file = %s" % self.input_file)
-        print(" Output file = %s" % self.output_file)
-        print(" Rescale angpix = %s" % self.rescale_angpix)
-        print(" Batch mode = %s" % self.batch_mode)
-        print(" Normalization = %s" % self.normalize)
-        print(" Parallelize = %s " % self.parallelize)
-        print(" Threads = %s" % self.threads)
-        return 
+    def __str__(self):
+        print("=============================")
+        print("  PARAMETERS")
+        print("-----------------------------")
+
+        if self.batch_mode:
+            print("  Batch mode = %s" % self.batch_mode)
+            print("     ... fetching all from: %s" % self.input_file)
+            print("     ... saving into: %s" % self.output_dir)
+
+        else:
+            print("  Input file = %s" % self.input_file)
+            print("  Output file = %s" % self.output_file)
+        print("  Rescale angpix = %s" % self.rescale_angpix)
+    
+        print("  Normalization = %s" % self.normalize)
+        if self.parallelize:
+            print("  Parallelize = %s " % self.parallelize)
+            print("  Threads = %s" % self.threads)
+        print("=============================")
+
+        return ''
 
 
 #############################
@@ -436,7 +468,8 @@ if __name__ == "__main__":
     ## Parse commandline 
     cmdline = sys.argv
     PARAMS = parse_cmdline(cmdline)
-    PARAMS.print_values()
+    if DEBUG:
+        print(PARAMS)
 
     # ## check if batch mode was enabled while also providing an explicit input file
     # if PARAMS.batch_mode and len(PARAMS.input_file) > 0:
@@ -452,7 +485,7 @@ if __name__ == "__main__":
             print(" NOTE: --j flag was set for parallel processing, but without batch mode. Only 1 core can be used for processing a single image.")
             ## single image conversion mode
 
-        write_image(PARAMS.input_file, PARAMS.output_file, PARAMS.rescale_angpix, PARAMS.normalize)
+        write_image(PARAMS.input_file, PARAMS.output_file, PARAMS.output_dir, PARAMS.rescale_angpix, PARAMS.normalize)
 
     else:
         if PARAMS.parallelize:
@@ -467,7 +500,7 @@ if __name__ == "__main__":
             ## get all files and prepare an independent PARAMS object to use for parallization 
             for file in glob.glob(os.path.join(input_path, "*.mrc")):
                 # current_params = (PARAMETERS(rescale_angpix = PARAMS.rescale_angpix, normalize = PARAMS.normalize, input_file = file, output_file = '')) ## NOTE: Sadly cannot pass in custom objects into the pool starmap function; refactor the write_image function to take in simple python types
-                tasks.append( (file, '', PARAMS.rescale_angpix, PARAMS.normalize) )
+                tasks.append( (file, '', PARAMS.output_dir, PARAMS.rescale_angpix, PARAMS.normalize) )
 
             try:
                 ## prepare pool of workers
@@ -486,11 +519,11 @@ if __name__ == "__main__":
         else:
             ## extract the path of the input files based on the input 
             input_path, input_fname = os.path.split(PARAMS.input_file)
-            print(" %s, %s, %s" % (PARAMS.input_file, input_path, input_fname))
+            # print(" %s, %s, %s" % (PARAMS.input_file, input_path, input_fname))
             ## get all files with extension
             for file in glob.glob(os.path.join(input_path, "*.mrc")):
                 PARAMS.set_input_file(file)
-                write_image(PARAMS.input_file, PARAMS.output_file, PARAMS.rescale_angpix, PARAMS.normalize)
+                write_image(PARAMS.input_file, PARAMS.output_file, PARAMS.output_dir, PARAMS.rescale_angpix, PARAMS.normalize)
 
     end_time = time.time()
     total_time_taken = end_time - start_time
