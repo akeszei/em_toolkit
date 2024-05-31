@@ -197,9 +197,9 @@ if __name__ == "__main__":
     ## pass the file to the topaz csv parser 
     coordinates = load_topaz_csv(coord_file) ## output structure = { 'img_name' : [ (x, y, score), (x2, y2, score), ... ] , ... }
 
-    ## check only 1 micrograph exists?
-    if len(coordinates) != 1:
-        print(" !! ERROR :: Data for more than 1 micrograph was parsed from file (%s)! Skipping file!" % coord_file)
+    # ## check only 1 micrograph exists?
+    # if len(coordinates) != 1:
+    #     print(" !! ERROR :: Data for more than 1 micrograph was parsed from file (%s)! Skipping file!" % coord_file)
         
     ## write out manpick file 
     out_fname = write_manpick_files(coordinates, unbinning_factor)
