@@ -198,7 +198,6 @@ def update_particles(file, out_file, optics_list, mic_to_optics_dict):
                 if PARTICLE_DATA_START <= line_num <= PARTICLE_DATA_END:
                     # print(" ..> ", line)
                     particle_data = line.split()
-                    print()
                     particle_micrograph_basename = os.path.splitext(os.path.basename(particle_data[COLUMN_rlnMicrographName - 1]))[0]
                     ## check if micrograph is found in the input remapping dictionary 
                     if particle_micrograph_basename in mic_to_optics_dict:

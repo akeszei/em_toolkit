@@ -178,7 +178,7 @@ if __name__ == "__main__":
     ## parse any flags
     for i in range(len(cmd_line)):
         ## check for expected input file 
-        if ".coord" in i.lower() or ".txt" in i.lower():
+        if ".coord" in cmd_line[i].lower() or ".txt" in cmd_line[i].lower():
             if coord_file != None:
                 print(" Warning: Two .COORD files were found when parsing commandline!")
                 print("   ... using: %s" % coord_file)

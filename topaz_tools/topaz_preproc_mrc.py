@@ -27,7 +27,7 @@ def usage():
     print(" Batch mode with parallelization:")
     print("    $ topaz_preproc_mrc.py  ../dir/@.mrc  <options>  --j <n>")
     print(" Example:")
-    print("    $ topaz_preproc_mrc.py  raw/@.mrc --out-dir proc/  --norm  --rescale_angpix <a>  --j <n>")
+    print("    $ topaz_preproc_mrc.py  raw/@.mrc --out_dir proc/  --norm  --rescale_angpix <a>  --j <n>")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
     print("   --rescale_angpix (3.0) : rescale the pixel size of the image to this value")
@@ -97,7 +97,7 @@ def parse_cmdline(cmdline):
             if len(cmdline) > i+1:
                 PARAMS.set_output_file(cmdline[i+1])
             
-        if cmdline[i] in ['--out_dir']:
+        if cmdline[i] in ['--out_dir', '--out-dir']:
             if len(cmdline) > i+1:
                 PARAMS.set_output_dir(cmdline[i+1])
 
@@ -403,6 +403,7 @@ class PARAMETERS():
             ## check directory exists 
             if not os.path.isdir(self.output_dir):
                 print(" !! ERROR :: Output directory (%s) given does not exist!" % self.output_dir)
+                exit()
         else:
             print(" ERROR !! No output file name given!")
         return 
