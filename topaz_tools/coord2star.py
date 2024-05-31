@@ -136,7 +136,6 @@ def write_manpick_files(data_dict, unbinning_factor):
     """
     
     for mic in data_dict:
-        
         mic_basename = os.path.splitext(mic)[0]
         out_fname = mic_basename + '_manualpick.star'
         ## initialize the file with its header 
@@ -153,6 +152,8 @@ def write_manpick_files(data_dict, unbinning_factor):
 
     ## write into the file with the particle data
     for mic in data_dict:
+        mic_basename = os.path.splitext(mic)[0]
+        out_fname = mic_basename + '_manualpick.star'
         with open('%s' % (out_fname), 'a' ) as f :
             for (X_coord, Y_coord, score) in data_dict[mic] :
                 rescaled_X = int(X_coord * unbinning_factor)
