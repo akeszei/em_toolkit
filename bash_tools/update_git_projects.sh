@@ -51,6 +51,7 @@ chmod +x em_toolkit/star_file_tools/plot_fsc.py
 chmod +x em_toolkit/star_file_tools/get_mics_from_star.py
 chmod +x em_toolkit/EPU_tools/show_atlas_position.py
 chmod +x em_toolkit/EPU_tools/EPU_assign_tiltgroups.py
+chmod +x em_toolkit/EPU_tools/EPU_sort_by_beamshift.py
 chmod +x em_toolkit/EPU_tools/EPU_reorganize_krios_data.sh
 chmod +x em_toolkit/EPU_tools/EPU_reorganize_talos_data.sh
 chmod +x em_toolkit/EPU_tools/EPU_array_atlas_jpgs.py
@@ -95,6 +96,7 @@ ln -s ../em_toolkit/star_file_tools/plot_fsc.py bin/
 ln -s ../em_toolkit/star_file_tools/get_mics_from_star.py bin/
 ln -s ../em_toolkit/EPU_tools/show_atlas_position.py bin/
 ln -s ../em_toolkit/EPU_tools/EPU_assign_tiltgroups.py bin/
+ln -s ../em_toolkit/EPU_tools/EPU_sort_by_beamshift.py bin/
 ln -s ../em_toolkit/EPU_tools/EPU_reorganize_krios_data.sh bin/
 ln -s ../em_toolkit/EPU_tools/EPU_reorganize_talos_data.sh bin/
 ln -s ../em_toolkit/EPU_tools/EPU_array_atlas_jpgs.py bin/

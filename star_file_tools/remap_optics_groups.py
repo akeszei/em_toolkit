@@ -199,25 +199,40 @@ def update_particles(file, out_file, optics_list, mic_to_optics_dict):
                     # print(" ..> ", line)
                     particle_data = line.split()
                     particle_micrograph_basename = os.path.splitext(os.path.basename(particle_data[COLUMN_rlnMicrographName - 1]))[0]
-                    ## check if micrograph is found in the input remapping dictionary 
-                    if particle_micrograph_basename in mic_to_optics_dict:
-                        ## get the new optics group assignment for the discovered micrograph based on the input file 
-                        updated_optics_group = mic_to_optics_dict[particle_micrograph_basename]
-                        ## update the optics gruop entry in the data line 
-                        particle_data[COLUMN_rlnOpticsGroup - 1] = str(updated_optics_group)
-                        ## prepare the output string 
-                        formatted_string = ''
-                        for n in particle_data:
-                            n += " " ## add a leading space in case the string is longer than the arbiray format delimiter 
-                            formatted_string += '{:11}'.format(n)
-                        ## write the new particle line in the output file 
-                        s.write(formatted_string + "\n")
-                        updated_particles_count += 1
 
-                    else:
+                    ## check if micrograph is found in the input remapping dictionary
+                    MATCH_FOUND = False
+                    for mic in list(mic_to_optics_dict): ## allow for fuzzy matching by using the keys are a list of strings we can compare against item-by-item 
+                        ## in case there is something like _Fractions on one string and not the other, check only a string of similar length 
+                        if len(particle_micrograph_basename) > len(mic):
+                            particle_micrograph_basename = particle_micrograph_basename[:len(mic)]
+                        if particle_micrograph_basename in mic: 
+                            ## get the new optics group assignment for the discovered micrograph based on the input file 
+                            updated_optics_group = mic_to_optics_dict[mic]
+                            ## find the corresponding index for that optics group 
+                            optics_index = optics_list.index(updated_optics_group) + 1 
+                            ## update the optics group entry in the data line 
+                            particle_data[COLUMN_rlnOpticsGroup - 1] = str(optics_index)
+                            ## prepare the output string 
+                            formatted_string = ''
+                            for n in particle_data:
+                                n += " " ## add a leading space in case the string is longer than the arbiray format delimiter 
+                                formatted_string += '{:11}'.format(n)
+                            ## write the new particle line in the output file 
+                            s.write(formatted_string + "\n")
+                            updated_particles_count += 1
+                            print(f"\r Processing particle #%s" % updated_particles_count, end="")
+
+                            MATCH_FOUND = True
+                            break
+
+                    if not MATCH_FOUND:
                         print(" !! WARNING :: Particle entry contains micrograph not present in remapping file (%s) -> %s, skipping ..." % (file, particle_micrograph_basename))
+                        print(" Example comparison: ")
+                        print("           Particle mic basename = ", particle_micrograph_basename)
+                        print("    Example mic from optics file = ", list(mic_to_optics_dict)[0])
                         skipped_particles_count += 1
-
+    print("")
     print("=====================================")
     print(" COMPLETE ")
     print("-------------------------------------")
