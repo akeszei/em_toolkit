@@ -191,7 +191,7 @@ def update_particles(file, out_file, optics_list, mic_to_optics_dict):
                 line_num += 1
 
                 ## copy the particle header faithfully into the new file 
-                if PARTICLE_DATA_START > line_num >= PARTICLE_HEADER_START : 
+                if PARTICLE_DATA_START > line_num >= PARTICLE_TABLE_START : 
                     s.write(line)
                     # print(" ..> ", line_num, line)
                 
