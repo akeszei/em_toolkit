@@ -180,8 +180,8 @@ if __name__ == "__main__":
     linkage_matrix = ward(dist_matrix)
     cluster_matrix = fcluster(linkage_matrix, t = 0.04, criterion='distance') ## still need to figure out best threshold value, based on initial check most tilts are separated by ~ 0.05 or more units 
 
-    # plot_points(shifts, cluster_matrix)
-
+    plot_points(shifts, cluster_matrix)
+    exit()
     mapped_dataset = map_tilt_groups(shifts, cluster_matrix) # returns [ ('img_name', tilt_group_#), ... ]
 
     write_tilt_groups(mapped_dataset)
