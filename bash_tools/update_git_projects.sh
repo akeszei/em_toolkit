@@ -58,6 +58,8 @@ chmod +x em_toolkit/EPU_tools/EPU_array_atlas_jpgs.py
 chmod +x em_toolkit/EPU_tools/EPU_active_copy.py
 chmod +x em_toolkit/bash_tools/add_dummy_picks_to_missing_mics.sh
 chmod +x em_toolkit/bash_tools/link_data.sh
+chmod +x em_toolkit/bash_tools/bash_howto
+chmod +x em_toolkit/bash_tools/eminfo
 chmod +x em_toolkit/bash_tools/get_random_subset_list_from_files.sh
 chmod +x em_toolkit/bash_tools/link_mics_from_file.sh
 chmod +x em_toolkit/bash_tools/compare_dirs.sh
