@@ -480,6 +480,11 @@ cd cpptraj
 export CUDA_HOME=/usr/local/cuda
 ./configure -cuda -openmp gnu --buildlibs
 ```
+On some systems you may need to install NetCDF to get a successful compilation via:
+```sh
+sudo apt install libnetcdf-dev
+```
+
 If it runs successfully, source the envrionment script and continue with the installation:
 
 ```sh
