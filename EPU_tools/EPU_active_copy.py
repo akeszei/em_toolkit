@@ -23,7 +23,7 @@ def usage():
     print(" Usage:")
     print("    $ EPU_active_copy.py  /path/to/EPU  /target/dir")
     print(" Will actively mirror the EPU directory in the target directory, e.g.: /target/dir/EPU, every")
-    print(" 10 seconds (unless changed). Kill the script with Ctrl + C")
+    print(" 5 minutes (unless changed). Kill the script with Ctrl + C")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
     # print("           --j (2) : Attempt multiprocessing over given cores (remember speed is limited by HDD!)")
@@ -332,7 +332,11 @@ if __name__ == '__main__':
                 total_time_taken = end_time - start_time
                 print(" ... copy runtime = %.2f sec" % total_time_taken)
 
-                time.sleep(seconds_delay)
+                for i in range(seconds_delay,0,-1):
+                    print(f" ... next copy in: {i} seconds", end="\r", flush=True)
+                    time.sleep(1)
+
+                # time.sleep(seconds_delay)
 
             except KeyboardInterrupt:
                 print(" Terminating ...")
