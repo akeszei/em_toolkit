@@ -64,7 +64,7 @@ def get_dirs(cmdline):
     return source, dest
 
 def copytree(src, dst, symlinks = False, ignore = None, DRY_RUN = False):
-    """ Not used. 
+    """ Not used, but kept for reference. 
         A reference function from: https://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth
     """
     # print(" copy tree :: %s -> %s" % (src,dst))
@@ -205,6 +205,14 @@ def print_stats(num_files, movie_string, num_movies, num_skipped, num_movies_ski
     return 
 
 def copy_movies(source, dest, glob_string):
+    """
+        A function to copy an EPU project into a simpler structure while preserving important metadata relationships.
+            Destination_EPU_project_dir/
+            ├── Atlas  :: any files relating the grid atlas (i.e.'Atlas*mrc')  
+            ├── Movies :: all files matching movie_string (i.e. *Fractions.mrc)
+            ├── Xml    :: .xml files for every acquisition containing all relevant microscope metadata for that image 
+            └── Jpg    :: .jpg files for every acquisition in case the user wants to quickly check the datset by eye         
+    """
     ## get the name of the root folder we want to copy 
     root_dir_name = os.path.basename(os.path.normpath(source))
 
@@ -292,7 +300,7 @@ if __name__ == '__main__':
     seconds_delay = 300
 
     cmd_line = sys.argv
-    # PARALLEL_PROCESSING = False
+    # PARALLEL_PROCESSING = False ## not useful since disk I/O is typically limited!
     DRY_RUN = False
     MOVIES_COPY = False
 
