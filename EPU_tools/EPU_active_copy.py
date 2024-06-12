@@ -99,15 +99,18 @@ def copytree(src, dst, symlinks = False, ignore = None, DRY_RUN = False):
             else:
                 shutil.copy2(s, d)
 
-def copy_project(source, dest, glob_string = '**'):
+def copy_project(source, dest, glob_string = '**', DEBUG = False):
     ## get the name of the root folder we want to copy 
     root_dir_name = os.path.basename(os.path.normpath(source))
     total_files = 0
     skipped_files = 0
+    movies_skipped = 0
     total_movies = 0 
     movie_string = "Fractions.mrc"
 
     for source_file in glob.glob(os.path.join(source, glob_string), recursive = True):
+        if DEBUG: print(" 1. Discovered file at source :: ", source_file)
+        IS_MOVIE = False
         initial_time = time.time()
         source_file_basename = source_file[len(source):]
         dest_file = os.path.join(dest, os.path.join(root_dir_name, source_file_basename))
@@ -130,8 +133,11 @@ def copy_project(source, dest, glob_string = '**'):
                 continue 
 
             total_files += 1
+
+            ## treat movies separately from regular files to avoid sluggish filecmp.cmp check for large file 
             if len(source_file_basename) > len(movie_string):
                 if source_file_basename[-len(movie_string):] == movie_string:
+                    IS_MOVIE = True
                     total_movies += 1
 
             if not os.path.exists(dest_file):
@@ -143,31 +149,57 @@ def copy_project(source, dest, glob_string = '**'):
                     shutil.copy2(source_file, dest_path)
                     total_time_taken = time.time() - initial_time
                     print(" copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
-            elif not filecmp.cmp(source_file, dest_file, shallow=True):
-                dest_path = os.path.dirname(dest_file)
-                if DRY_RUN:
-                    print(" file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
-                else:
-                    print(" file exists but appears different, copy :: %s -> %s " % (source_file, dest_path), end='\r')
-                    shutil.copy2(source_file, dest_path)
-                    total_time_taken = time.time() - initial_time
-                    print(" file exists but appears different, copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
+            
             else:
-                skipped_files += 1
-                # print(" ... file exists already: %s" % dest_file)
-                continue 
+                ## treat movies separately from regular files to avoid sluggish filecmp.cmp check for large file 
+                if IS_MOVIE:
+                    ## only compare file size for movies, not time/changes 
+                    source_size = os.stat(source_file).st_size
+                    dest_size = os.stat(dest_file).st_size
+                    if not source_size == dest_size:
+                        dest_path = os.path.dirname(dest_file)
+                        if DRY_RUN:
+                            print(" .. file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
+                        else:
+                            print(" .. file exists but appears different, copy :: %s -> %s " % (source_file, dest_path), end='\r')
+                            shutil.copy2(source_file, dest_path)
+                            total_time_taken = time.time() - initial_time
+                            print(" .. file exists but appears different, copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
+                    ## if movie exists and is the same size, skip it 
+                    else:
+                        skipped_files += 1
+                        movies_skipped += 1
+                        if DEBUG: print(" ... file exists already: %s" % dest_file)
+                        continue 
 
-    print_stats(total_files, movie_string, total_movies, skipped_files, DRY_RUN)
+
+                ## for all non-movies, do a regular (slower) shallow check 
+                elif not filecmp.cmp(source_file, dest_file, shallow=True):
+                    if DEBUG: print(" 2. Comparison of file from source and dest complete ::")
+                    dest_path = os.path.dirname(dest_file)
+                    if DRY_RUN:
+                        print(" .. file exists but appears different, copy :: %s -> %s" % (source_file, dest_path))
+                    else:
+                        print(" .. file exists but appears different, copy :: %s -> %s " % (source_file, dest_path), end='\r')
+                        shutil.copy2(source_file, dest_path)
+                        total_time_taken = time.time() - initial_time
+                        print(" .. file exists but appears different, copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
+                else:
+                    skipped_files += 1
+                    if DEBUG: print(" ... file exists already: %s" % dest_file)
+                    continue 
+
+    print_stats(total_files, movie_string, total_movies, skipped_files, movies_skipped, DRY_RUN)
     return 
 
-def print_stats(num_files, movie_string, num_movies, num_skipped, DRY_RUN = False):
+def print_stats(num_files, movie_string, num_movies, num_skipped, num_movies_skipped, DRY_RUN = False):
     print(" ==============================================")
     print("       COPY LOOP COMPLETE:")
     if DRY_RUN: print("            (DRY RUN)")
     print(" ----------------------------------------------")
     print("  ...  %s files found" % num_files)
     print("  ...  %s movies found (...%s)" % (num_movies, movie_string))
-    print("  ...  %s files skipped this loop (already present at dest)" % num_skipped)
+    print("  ...  %s files (%s movies) skipped this loop (already present at dest)" % (num_skipped, num_movies_skipped))
     print(" ==============================================")
 
     return 
