@@ -131,7 +131,7 @@ def copy_project(source, dest, glob_string = '**'):
 
             total_files += 1
             if len(source_file_basename) > len(movie_string):
-                if source_file_basename[:-len(movie_string)] == movie_string:
+                if source_file_basename[-len(movie_string):] == movie_string:
                     total_movies += 1
 
             if not os.path.exists(dest_file):
