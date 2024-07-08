@@ -11,7 +11,7 @@
 #############################
 #region :: GLOBAL FLAGS
 #############################
-DEBUG = False
+DEBUG = True
 #endregion
 
 #############################
@@ -249,9 +249,8 @@ def copy_reorganized(source, dest, glob_string, DRY_RUN = False):
             ├── Movies :: all files matching movie_string (i.e. *Fractions.mrc)
             ├── Xml    :: .xml files for every acquisition containing all relevant microscope metadata for that image
             ├── Jpg    :: .jpg files for every acquisition in case the user wants to quickly check the datset by eye
-            └── Other  :: (optional) any files found in the project in a folder named 'Screening' or 'Misc'    
+            └── Other  :: any files found in the root project folder or folders named 'Screening' or 'Misc'    
     """
-    ## WIP!! Need to make a parent folder to put all the EPU project sub folders into 
 
     #region 1. prepare a list of the files we are interested in copying 
     other_files = []
@@ -264,6 +263,9 @@ def copy_reorganized(source, dest, glob_string, DRY_RUN = False):
             if os.path.isdir(os.path.join(source,i)):
                 for f in os.listdir(os.path.join(source,i)):
                     other_files.append(os.path.join(os.path.join(source, i),f))
+        ## also take any files in the root folder itself
+        if os.path.isfile(os.path.join(source,i)):
+            other_files.append(os.path.join(source, i))
 
     atlas_glob_str = os.path.join(os.path.join(os.path.normpath(source),'**/'), "Atlas*mrc")
     atlas_files = glob.glob(atlas_glob_str, recursive = True)
@@ -499,6 +501,7 @@ if __name__ == '__main__':
             print(" ... copy runtime = %.2f sec" % total_time_taken)
 
         except KeyboardInterrupt:
+            print()
             print(" Terminating ...")
 
             sys.exit()
