@@ -410,6 +410,33 @@ $ cd cryosparc_worker
 $ ./bin/cryosparcw connect --worker localhost --master localhost --port 39000 --ssdpath /scratch/cryosparc_cache --lane default --newlane
 ```
 
+## Install Tristan Bepler's `topaz`
+For up-to-date notes on install see the [topaz github project](https://github.com/tbepler/topaz) and [pytorch website](https://pytorch.org/get-started/locally/). This install is for a system with CUDA 11.8 installed.
+
+```sh
+## prepare a conda environment with python3 and pip 
+## note: the latest python 3.12.4 was installed at the time of this writing
+$ conda create -n topaz python=3
+
+## check pip/pip3 is running, via:
+(topaz) $ pip -V
+(topaz) $ pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+## check pytorch is cuda-enabled
+(topaz) $ python
+>>> import torch
+>>> torch.cuda.is_available()
+True ## NOTE: if False, then install for CUDA failed! Double check install from pytorch website: pytorch.org/get-started/locally
+
+## install topaz
+(topaz) $ pip install topaz-em
+
+## test topaz is running as expected by denoising a micrograph
+(topaz) $ topaz denoise --patch-size 1024 -o denoised/ test.mrc
+```
+Integrate topaz into `cryoSPARC` using the script they [outline](https://guide.cryosparc.com/processing-data/all-job-types-in-cryosparc/deep-picking/topaz#optional-create-a-topaz.sh-wrapper-script).
+
+
 ## Install `cryoDRGN`
 Since March 2023 `cryoDRGN` has become available via `PyPI`. In our case we needed to update the pytorch install to match the current CUDA toolkit in our system:
 
