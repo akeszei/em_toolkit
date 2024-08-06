@@ -113,6 +113,7 @@ single terminal session by multiple users.
 ... within a tmux session, use the Ctrl+b command to navigate or leave
   Ctrl+b , PgUp/Down to navigate ... q to return to terminal cmd line
   Ctrl+b , d = detach from current session
+  Ctrl+x , x = closer a terminal permanently (y to confirm)
 For more hotkeys see: tmuxcheatsheet.com
 ========================================"
    fi
@@ -310,5 +311,18 @@ Notes from tutorial: https://ez-lab.gitbook.io/cryodrgn/cryodrgn-empiar-10076-tu
     $ dir=<dir>; d=<box>; cryodrgn train_vae ${dir}/particles.${d}.(mrcs or txt) --ctf ${dir}/ctf.pkl --poses ${dir}/poses.pkl --zdim 8 -n 50 --enc-dim 1024 --enc-layers 3 --dec-dim 1024 --dec-layers 3 -o ${dir}/10_vae${d} --multigpu --max-theads 18 --lazy
 ========================================"
 fi
+# topaz 
+if [ "$1" = "topaz" ] ## -o is a logical OR operator in shell script
+then
+   echo "========================================
+Topaz denoising:
+    $ conda activate topaz 
+    (topaz) $ topaz denoise --patch-size 1024 -o /path/to/denoised/ /path/to/*.mrc
+   OPTIONS: 
+       -d (n) : choose a specific GPU device to use for denoising
+========================================"
+fi
+
+
 
 }
