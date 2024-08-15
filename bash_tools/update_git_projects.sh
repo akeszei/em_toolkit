@@ -44,7 +44,6 @@ chmod +x em_toolkit/cs_file_tools/get_mics_from_cs.py
 chmod +x em_toolkit/star_file_tools/class3D_statistics.py
 chmod +x em_toolkit/star_file_tools/display_class2D.py
 chmod +x em_toolkit/star_file_tools/remap_optics_groups.py
-chmod +x em_toolkit/star_file_tools/remap_optics_groups_by_inputfile.py
 chmod +x em_toolkit/star_file_tools/remove_mics_from_star.py
 chmod +x em_toolkit/star_file_tools/select_into_manpick.py
 chmod +x em_toolkit/star_file_tools/merge_star_coordinates.py
@@ -93,7 +92,6 @@ ln -s ../em_toolkit/cs_file_tools/get_mics_from_cs.py bin/
 ln -s ../em_toolkit/star_file_tools/class3D_statistics.py bin/
 ln -s ../em_toolkit/star_file_tools/display_class2D.py bin/
 ln -s ../em_toolkit/star_file_tools/remap_optics_groups.py bin/
-ln -s ../em_toolkit/star_file_tools/remap_optics_groups_by_inputfile.py bin/
 ln -s ../em_toolkit/star_file_tools/remove_mics_from_star.py bin/
 ln -s ../em_toolkit/star_file_tools/select_into_manpick.py bin/
 ln -s ../em_toolkit/star_file_tools/merge_star_coordinates.py bin/
