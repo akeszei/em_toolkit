@@ -50,6 +50,7 @@ chmod +x em_toolkit/star_file_tools/merge_star_coordinates.py
 chmod +x em_toolkit/star_file_tools/plot_fsc.py
 chmod +x em_toolkit/star_file_tools/get_mics_from_star.py
 chmod +x em_toolkit/star_file_tools/cryolo2manpick.py
+chmod +x em_toolkit/star_file_tools/curate_star_by_picks.py
 chmod +x em_toolkit/EPU_tools/show_atlas_position.py
 chmod +x em_toolkit/EPU_tools/EPU_assign_tiltgroups.py
 chmod +x em_toolkit/EPU_tools/EPU_sort_by_beamshift.py
@@ -98,6 +99,7 @@ ln -s ../em_toolkit/star_file_tools/merge_star_coordinates.py bin/
 ln -s ../em_toolkit/star_file_tools/plot_fsc.py bin/
 ln -s ../em_toolkit/star_file_tools/get_mics_from_star.py bin/
 ln -s ../em_toolkit/star_file_tools/cryolo2manpick.py bin/
+ln -s ../em_toolkit/star_file_tools/curate_star_by_picks.py bin/
 ln -s ../em_toolkit/EPU_tools/show_atlas_position.py bin/
 ln -s ../em_toolkit/EPU_tools/EPU_assign_tiltgroups.py bin/
 ln -s ../em_toolkit/EPU_tools/EPU_sort_by_beamshift.py bin/
