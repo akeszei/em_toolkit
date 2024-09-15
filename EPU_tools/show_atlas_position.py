@@ -3,7 +3,7 @@
 ###############################
 ##  FLAGS
 ###############################
-VERBOSE = False
+VERBOSE = True
 ###############################
 
 
@@ -28,7 +28,7 @@ def header_from_xml(input_string):
 
 def image2array(file, DEBUG = VERBOSE):
     """
-        Import an image into a grayscal 2d numpy array with values from (0 - 255), where
+        Import an image into a grayscale 2d numpy array with values from (0 - 255), where
             0 == black
             255 == white
     """
@@ -44,13 +44,38 @@ def image2array(file, DEBUG = VERBOSE):
 
     return im_data
 
-def get_tile_files(directory):
+def get_tile_files(directory, atlas_id = 27140412):
+    """
+    PARAMETERS 
+        directory = str() defining the location of the expected Tile...xml files 
+        atlas_id = str() defining the atlas to which the tiles are related (denoted by filename: 'Atlas_<atlas_id>.mrc')
+    RETURNS 
+        file_list = list() of filenames for each Tile...xml file in their defined order taken by EPU 
+    """
     file_list = []
-    for file in glob.glob(directory + "*.xml"):
+    for file in glob.glob(directory + "*" + str(atlas_id) + ".xml"):
         if 'Tile' in file:
             file_list.append(file)
     ## organize file list by alpha numeric
     file_list = sorted(file_list)
+
+    if not len(file_list) > 0:
+        print(" ERROR :: Could not find Tile_..._%s.xml files! Check given atlas directory for Tile and proper atlas id: %s" % (atlas_id, directory)) 
+        usage()
+
+    if VERBOSE: 
+        print("------------------------------------")
+        print(" get_tile_files ::")
+        print("------------------------------------")
+        print("  atlas directory = %s" % directory)
+        print("  altas_id string = %s" % atlas_id)
+        print("  # tile files found: ", len(file_list))
+        print("       %s" % file_list[0])
+        print("       %s" % file_list[1])
+        print("        ...")
+        print("       %s" % file_list[-1])
+        print("====================================")
+
     return file_list
 
 def get_tile_coords(file_list):
@@ -110,8 +135,8 @@ def point_to_relative_basis_lengths(point, basis_vectors):
     ## 3. determine the fold difference of the POI inner products against the magnitude of each basis vector along that axis (since the position of each basis vector is known relative to the final image, we can use this fold difference to rescale the image basis vectors correctly)
     fold_difference_point2basis_x = inner_product_x / np.linalg.norm(basis_vectors[0])
     fold_difference_point2basis_y = inner_product_y / np.linalg.norm(basis_vectors[1])
-    if VERBOSE:
-        print(" percent position of point to basis vectors = %s, %s " % (fold_difference_point2basis_x, fold_difference_point2basis_y))
+    # if VERBOSE:
+    #     print(" percent position of point to basis vectors = %s, %s " % (fold_difference_point2basis_x, fold_difference_point2basis_y))
 
     return (fold_difference_point2basis_x, fold_difference_point2basis_y)
 
@@ -161,13 +186,13 @@ def find_scaling_factor(tile_num):
     x = np.sqrt(tile_num) / 2
     # print(" # tiles = %s, x = %s, int(x) = %s" % (tile_num, x, int(x)))
     if x == int(x):
-        # print(" return %s" % x)
+        print(" return %s" % x)
         return x
     elif x <= int(x) + 0.5:
-        # print(" return %s" % (int(x) + 0.5))
+        print(" return %s" % (int(x) + 0.5))
         return int(x) + 0.5
     elif x > int(x) + 0.5:
-        # print(" return %s" % (int(x) + 1))
+        print(" return %s" % (int(x) + 1))
         return int(x) + 1
     else:
         return print("ERROR :: Unexpected number of tiles for atlas (%s)!" % tile_num)
@@ -221,13 +246,17 @@ if __name__ == '__main__':
     ##     |         |
     ##    5    0 -- 1
     real_origin = np.array([0, 0])
-    x_basis_real = np.array(tile_coordinates[3]) - np.array(tile_coordinates[0])
-    y_basis_real = np.array(tile_coordinates[5]) - np.array(tile_coordinates    [0])
+    # x_basis_real = np.array(tile_coordinates[3]) - np.array(tile_coordinates[0])
+    # y_basis_real = np.array(tile_coordinates[5]) - np.array(tile_coordinates    [0])
+    x_basis_real = np.array(tile_coordinates[1]) - np.array(tile_coordinates[0])
+    y_basis_real = np.array(tile_coordinates[3]) - np.array(tile_coordinates[0])
+
+
     realspace_basis = (x_basis_real, y_basis_real)
 
     # ## for visualization, plot these basis vectors
-    # plt.plot([real_origin[0], x_basis_real[0]], [real_origin[1], x_basis_real[1]], color='blue', alpha = 0.5)
-    # plt.plot([real_origin[0], y_basis_real[0]], [real_origin[1], y_basis_real[1]], color='tab:orange', alpha = 0.5)
+    # plt.plot([real_origin[0], x_basis_real[0]], [real_origin[1], x_basis_real[1]], color='red', alpha = 0.5)
+    # plt.plot([real_origin[0], y_basis_real[0]], [real_origin[1], y_basis_real[1]], color='blue', alpha = 0.5)
     # print("Basis vectors = %s, %s)" % (x_basis_real, y_basis_real))
     # plt.show()
 
@@ -264,21 +293,37 @@ if __name__ == '__main__':
     ## draw a red cicle of arbitrary size centered at the target pixel position
     plt.plot(img_pixel_position[0], img_pixel_position[1], 'o', markersize = 10, markerfacecolor="None", markeredgecolor = 'tab:red', markeredgewidth=2)
 
-    # ## get the point of interest in real space (the values found in the EPU .XML file)
-    # for square in glob.glob('Squares/*xml'):
+    # ## For debugging, plot all grid squares found in the target directory onto the atlas 
+    # for square in glob.glob('gridsquare_xmls/*xml'):
     #     poi_real = np.array(point_from_xml(square))
     #     # ## for visualization, plot the position of the real POI
     #     # plt.scatter(poi_real[0], poi_real[1], s = 30, color = 'red', alpha = 1)
-    #
+    
     #     ## determine for the given point, how much it lies on each axis defined by basis vectors of a fixed (known) length:
     #     relative_x, relative_y = point_to_relative_basis_lengths(poi_real, realspace_basis)
-    #
+    
     #     ## multiply the image-space basis vectors by the determined scaling factor to find the target pixel position of the input point
     #     img_pixel_position = (x_basis_im[0] * relative_x, y_basis_im[1] * relative_y)
     #     # print( " position of remapped pixel coordinate = ", img_pixel_position)
-    #
+    
     #     ## draw a red cicle of arbitrary size centered at the target pixel position
     #     plt.plot(img_pixel_position[0], img_pixel_position[1], 'o', markersize = 10, markerfacecolor="None", markeredgecolor = 'tab:red', markeredgewidth=2)
+
+    ## For debugging, print the coordinate of each tile for the atlas 
+    # for coord in tile_coordinates:
+    #     poi_real = coord
+    
+    #     ## determine for the given point, how much it lies on each axis defined by basis vectors of a fixed (known) length:
+    #     relative_x, relative_y = point_to_relative_basis_lengths(poi_real, realspace_basis)
+    
+    #     ## multiply the image-space basis vectors by the determined scaling factor to find the target pixel position of the input point
+    #     img_pixel_position = (x_basis_im[0] * relative_x, y_basis_im[1] * relative_y)
+    #     # print( " position of remapped pixel coordinate = ", img_pixel_position)
+    
+    #     ## draw a red cicle of arbitrary size centered at the target pixel position
+    #     plt.plot(img_pixel_position[0], img_pixel_position[1], 'o', markersize = 10, markerfacecolor="None", markeredgecolor = 'yellow', markeredgewidth=2)
+
+
 
     ## save the image
     plt.axis('off')
