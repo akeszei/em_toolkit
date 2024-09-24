@@ -119,8 +119,9 @@ def usage():
     print(" ")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
-    print("           --j (4) : Allow multiprocessing using indicated number of cores")
-    print("         --dry-run : Read the .cs file and give a report on what the script will do")
+    print("      --o (mrcs_stacks) : Set target directory name to save particle stacks into")
+    print("                --j (4) : Allow multiprocessing using indicated number of cores")
+    print("              --dry-run : Read the .cs file and give a report on what the script will do")
     print("===================================================================================================")
     sys.exit()
 
@@ -628,6 +629,8 @@ if __name__ == "__main__":
             usage()
 
     ## parse any flags
+    ## set defaults 
+    mrcs_output_dir_name = 'mrcs_stacks/'
     for i in range(len(cmd_line)):
         if cmd_line[i] == '--j':
             threads = 4
@@ -641,6 +644,17 @@ if __name__ == "__main__":
         if cmd_line[i] in ['--dry-run', '--dry_run']:
             DRY_RUN = True
             print(" Running in dry-run mode... no files will be written")
+        if cmd_line[i] in ['--o']:
+            ## try parsing the desired output folder name  
+            try:
+                mrcs_output_dir_name = str(cmd_line[i+1])
+                ## add leading slash if not provided
+                if mrcs_output_dir_name[-1] not in ['/', '\\']:
+                    mrcs_output_dir_name = mrcs_output_dir_name + '/'
+                print(" Setting output particle stack into folder: %s" % mrcs_output_dir_name)
+            except:
+                print(" Could not parse desired output folder (--o flag), check command line" )
+                usage()
 
     ## parse cmd line for the .CS file 
     cs_file = None
@@ -668,12 +682,9 @@ if __name__ == "__main__":
     if cs_project_dir == None:
         print(" ERROR :: No CS project directory was detected, e.g.: /path/to/CS-project/, be sure to add a forward slash at the end (e.g. ../)")
         usage()
-                                   
-    
 
 
     output_star_fname = 'particles.star'
-    mrcs_output_dir_name = 'mrcs_stacks/'
     output_dir = ''
 
     print("==================================================================")
