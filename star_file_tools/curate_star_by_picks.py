@@ -117,7 +117,7 @@ def find_star_column(file, column_type, header_length) :
                 column_num = int(line.split()[1].replace("#",""))
                 ## handle error case where input .STAR file is missing a necessary rlnColumn type
                 if column_num is None :
-                    print(" ERROR: Input .STAR file: %s, is missing a column for: %s" % (file, column_name) )
+                    print(" ERROR: Input .STAR file: %s, is missing a column for: %s" % (file, column_type) )
                     sys.exit()
             # search header and no further to find setup values
             if line_num >= header_length :

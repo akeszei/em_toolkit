@@ -32,6 +32,7 @@ chmod +x em_dataset_curator/em_dataset_curator.py
 chmod +x em_dataset_curator/marked_imgs_to_backup_selection.py
 chmod +x em_image_conversion/em_header.py
 chmod +x em_image_conversion/mrc2img.py
+chmod +x em_image_conversion/tif2img.py
 chmod +x em_image_conversion/ser2mrc.py
 chmod +x em_image_conversion/ser2img.py
 chmod +x em_image_conversion/mrcs_viewer.py
@@ -81,6 +82,7 @@ ln -s ../em_dataset_curator/em_dataset_curator.py bin/
 ln -s ../em_dataset_curator/marked_imgs_to_backup_selection.py bin/
 ln -s ../em_image_conversion/em_header.py bin/
 ln -s ../em_image_conversion/mrc2img.py bin/
+ln -s ../em_image_conversion/tif2img.py bin/
 ln -s ../em_image_conversion/ser2mrc.py bin/
 ln -s ../em_image_conversion/ser2img.py bin/
 ln -s ../em_image_conversion/mrcs_viewer.py bin/
