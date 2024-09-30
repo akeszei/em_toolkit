@@ -56,7 +56,7 @@ def parse_cmdline(cmdline):
     seconds_delay = 5
     kV = False
     frame_dose = False 
-
+    logfile = "otf.log"
 
     ## parse any flags 
     for i in range(len(cmdline)):
@@ -126,7 +126,7 @@ def parse_cmdline(cmdline):
         print("====================================")
 
 
-    return angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose
+    return angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile
 
 def check_if_atlas_directory(dir = "./"):
     if not os.path.isdir(dir):
@@ -243,32 +243,13 @@ def get_all_movies_not_yet_corrected(movies, micrographs):
 
     return movies_to_correct
 
-def run_motioncor2(movie, out_dir, pixel_size = False, frame_dose = False, kV = False, gain = False):
-    ## generate a suitable output path for the motion correct movie 
-    out_micrograph = os.path.join(out_dir, os.path.split(movie)[1])
-
-    ## Prepare the command line executable 
-    command = "motioncor2 -InMrc %s -OutMrc %s "  % (movie, out_micrograph)
-    if gain != False:
-        command += "-Gain %s" % gain
-    command += "-Patch 10 10 "
-    if pixel_size != False and frame_dose != False and kV != False:
-        command += "-PixSize %s -FmDose %s -kV %s " % (pixel_size, frame_dose, kV)
-    command += "-Gpu %s " % ('1')
-
-
-
-    print(" MotionCor2 command: ")
-    print( "    ", command)
-
-    # process = Popen(command, shell=True, stdout=PIPE)
-    # process.wait()
-    # print(process.returncode)
-
-    return 
-
 def micrographs_not_yet_CTF_estimated(ctf_dir, micrographs):
     micrographs_to_do = []
+
+    if len(micrographs) == 0:
+        print(" No micrographs are available for CTF correction yet.")
+        return micrographs_to_do
+
     for micrograph in micrographs:
         micrograph_ctf_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS.mrc"
         micrograph_ctf_path = os.path.join(ctf_dir, micrograph_ctf_name)
@@ -280,46 +261,9 @@ def micrographs_not_yet_CTF_estimated(ctf_dir, micrographs):
     if len(micrographs_to_do) > 0:
         print(" %s micrographs remain to be CTF estimated" % len(micrographs_to_do))
     else:
-        print(" All micrographs have bene CTF estimated")
+        print(" All micrographs have been CTF estimated")
 
     return micrographs_to_do
-
-def run_ctffind(micrograph, out_dir, pixel_size, kV):
-    micrograph_ctf_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS.mrc"
-    micrograph_ctf_path = os.path.join(out_dir, micrograph_ctf_name)
-
-    input_mrc = micrograph
-    diagnostic_output_mrc = micrograph_ctf_path
-    pixel_size = pixel_size
-    kV = kV
-    Cs = "2.7"
-    amp_contrast = "0.1"
-    amplitude_spectrum_size = "512"
-    resolution_min = "50"
-    resolution_max = "5"
-    dZ_min = "5000"
-    dZ_max = "50000"
-    dZ_search_step = "100"
-    astig_known_Q = "no"
-    slower_more_exhaustive_Q = "no"
-    astig_restraint_Q = "no"
-    additional_phase_shift_Q = "no"
-    set_expert_options_Q = "no"
-
-    cmds = [input_mrc, diagnostic_output_mrc, pixel_size, kV, Cs, amp_contrast, amplitude_spectrum_size, resolution_min, resolution_max, dZ_min, dZ_max, dZ_search_step, astig_known_Q, slower_more_exhaustive_Q, astig_restraint_Q, additional_phase_shift_Q, set_expert_options_Q]
-
-    print(" CTFFIND4 command: ")
-    print( "    ", cmds)
-
-
-    # # REF: https://stackoverflow.com/questions/8475290/how-do-i-write-to-a-python-subprocess-stdin
-    # p = Popen('ctffind', stdin=PIPE)
-    # for x in cmds:
-    #     p.stdin.write(x.encode() + b'\n')
-
-    # p.communicate()
-
-    return 
 
 def get_all_movies_to_save(save_dir, all_movies):
     """
@@ -365,15 +309,121 @@ def save_movie(file, save_dir):
     shutil.copy2(file, save_dir)
     return 
 
+def run_motioncor2(movie, out_dir, pixel_size = False, frame_dose = False, kV = False, gain = False):
+    ## generate a suitable output path for the motion correct movie 
+    out_micrograph = os.path.join(out_dir, os.path.split(movie)[1])
+
+    ## Prepare the command line executable 
+    command = "motioncor2 -InMrc %s -OutMrc %s "  % (movie, out_micrograph)
+    if gain != False:
+        command += "-Gain %s" % gain
+    command += "-Patch 10 10 "
+    if pixel_size != False and frame_dose != False and kV != False:
+        command += "-PixSize %s -FmDose %s -kV %s " % (pixel_size, frame_dose, kV)
+    command += "-Gpu %s " % ('1')
+
+
+
+    # print(" MotionCor2 command: ")
+    # print( "    ", command)
+
+    process = Popen(command, shell=True, stdout=PIPE)
+    process.wait()
+    # print(process.returncode) ## 0 == finished correctly, 1 == error
+
+    return out_micrograph
+
+def run_ctffind(micrograph, out_dir, pixel_size, kV):
+    if not kV:
+        print(" No --kV value supplied, cannot run CTFFIND4...")
+        return 
+
+    micrograph_ctf_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS.mrc"
+    micrograph_ctf_path = os.path.join(out_dir, micrograph_ctf_name)
+
+    input_mrc = str(micrograph)
+    diagnostic_output_mrc = str(micrograph_ctf_path)
+    pixel_size = str(pixel_size)
+    kV = str(kV)
+    Cs = "2.7"
+    amp_contrast = "0.1"
+    amplitude_spectrum_size = "512"
+    resolution_min = "50"
+    resolution_max = "5"
+    dZ_min = "5000"
+    dZ_max = "50000"
+    dZ_search_step = "100"
+    astig_known_Q = "no"
+    slower_more_exhaustive_Q = "no"
+    astig_restraint_Q = "no"
+    additional_phase_shift_Q = "no"
+    set_expert_options_Q = "no"
+
+    cmds = [input_mrc, diagnostic_output_mrc, pixel_size, kV, Cs, amp_contrast, amplitude_spectrum_size, resolution_min, resolution_max, dZ_min, dZ_max, dZ_search_step, astig_known_Q, slower_more_exhaustive_Q, astig_restraint_Q, additional_phase_shift_Q, set_expert_options_Q]
+
+    # print(" CTFFIND4 command: ")
+    # print( "    ", cmds)
+
+
+    ## REF: https://stackoverflow.com/questions/8475290/how-do-i-write-to-a-python-subprocess-stdin
+    p = Popen('ctffind', stdin=PIPE, stdout=DEVNULL)
+    for x in cmds:
+        p.stdin.write(x.encode() + b'\n')
+
+    p.communicate()
+    p.wait()
+
+    ## clean up undesired outputs 
+    avrot_file_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS_avrot.txt"
+    avrot_file_path = os.path.join(out_dir, avrot_file_name)
+    if os.path.exists(avrot_file_path):
+        os.remove(avrot_file_path)
+
+    ## parse the output text tile for dZ_1, dZ_2, ctf_fit
+    data_file_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS.txt"
+    data_file_path = os.path.join(out_dir, data_file_name)
+    dZ, ctf_fit = parse_ctffind_datafile(data_file_path)
+    ## write the resulting data to a logfile 
+    
+    return dZ, ctf_fit, os.path.split(micrograph)[1]
+
+def parse_ctffind_datafile(fname):
+    with open(fname, 'r') as f:
+        ## load all lines into buffer
+        lines = f.readlines()
+        ## get the last line
+        data = lines[-1].split()
+
+    dZ_1 = float(data[1]) / 10000
+    dZ_2 = float(data[2]) / 10000
+    dZ_avg = np.round(np.average([dZ_1, dZ_2]), decimals=2)
+    ctf_fit = np.round(float(data[-1]), decimals=2)
+
+    return dZ_avg, ctf_fit
+
+def write_logfile(logfile, dZ, ctf_fit, mic):
+    ## check if logfile already exists, in which case add to it
+    if not os.path.exists(logfile):
+        ## create the logfile 
+        with open(logfile, 'w') as f:
+            f.write("## mic_name  dZ  ctf_fit \n")
+    
+    ## write the new entry to the logfile 
+    with open(logfile, 'a') as f:
+        f.write("%s  %s  %s \n" % (mic, dZ, ctf_fit))
+
+    return 
+
 #############################
 #region     RUN BLOCK
 #############################
 
 if __name__ == "__main__":
     import os, sys, time, glob, shutil
-    from subprocess import Popen, PIPE
+    from subprocess import Popen, PIPE, DEVNULL
+    import numpy as np
 
-    angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose = parse_cmdline(sys.argv)
+    angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile = parse_cmdline(sys.argv)
 
     ## make any directories needed
     prepare_directories(jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir)
@@ -402,15 +452,27 @@ if __name__ == "__main__":
     movies_not_yet_corrected = get_all_movies_not_yet_corrected(movies_discovered, micrographs_corrected)
 
     ## iterate across all movies to be corrected 
-    for movie in movies_not_yet_corrected:
-        run_motioncor2(movie, mrc_dir, pixel_size = angpix, kV = kV, frame_dose = frame_dose)
+    for i in range(len(movies_not_yet_corrected)):
+        print(" ")
+        print(" ... motion correcting movie #%s: %s -> %s/" % (i + 1, movies_not_yet_corrected[i], mrc_dir), end='\r')
+        corrected_micrograph = run_motioncor2(movies_not_yet_corrected[i], mrc_dir, pixel_size = angpix, kV = kV, frame_dose = frame_dose)
+
+        ## while motion correcting, run the CTF estimation step immediately after so we can some quick feedback on quality during the run 
+        print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, corrected_micrograph, ctf_dir), end='\r')
+        dZ, ctf_fit, mic_name = run_ctffind(corrected_micrograph, ctf_dir, angpix, kV)
+        write_logfile(logfile, dZ, ctf_fit, mic_name)
+
 
     ## find which micrographs (prior to the initial correction step) have not had CTF estimates calculated 
     micrographs_ctf = micrographs_not_yet_CTF_estimated(ctf_dir, micrographs_corrected)
 
-    ## iterate across all micrographs to be CTF estimated 
-    for micrograph in micrographs_ctf:
-        run_ctffind(micrograph, ctf_dir, angpix, kV)
+    ## iterate across all micrographs to be CTF estimated
+    for i in range(len(micrographs_ctf)): 
+        print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, micrographs_ctf[i], ctf_dir), end='\r')
+        dZ, ctf_fit, mic_name = run_ctffind(micrographs_ctf[i], ctf_dir, angpix, kV)
+        write_logfile(logfile, dZ, ctf_fit, mic_name)
+
+    print(" ")
 
     ## run infinite loop 
     while True:
