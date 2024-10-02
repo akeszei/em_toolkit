@@ -14,6 +14,7 @@
 DEBUG = True
 
 #endregion
+#############################
 
 #############################
 #region     DEFINITION BLOCK
@@ -36,7 +37,6 @@ def usage():
     print("       --frame_dose (-1) : e/squared angstroms for each frame (total dose / total frames)" )
     print("===================================================================================================")
     sys.exit()
-
 
 def parse_cmdline(cmdline):
 
@@ -401,18 +401,21 @@ def parse_ctffind_datafile(fname):
 
     return dZ_avg, ctf_fit
 
-def write_logfile(logfile, dZ, ctf_fit, mic):
+def write_logfile(logfile, index, dZ, ctf_fit, mic):
     ## check if logfile already exists, in which case add to it
     if not os.path.exists(logfile):
-        ## create the logfile 
+        ## create the logfile header (use a csv structure easily parsed by Pandas into a DataFrame object)
         with open(logfile, 'w') as f:
-            f.write("## mic_name  dZ  ctf_fit \n")
+            f.write("index  mic_name  dZ  ctf_fit \n")
     
     ## write the new entry to the logfile 
     with open(logfile, 'a') as f:
-        f.write("%s  %s  %s \n" % (mic, dZ, ctf_fit))
+        f.write("%s  %s  %s  %s \n" % (index, mic, dZ, ctf_fit))
 
     return 
+
+#endregion
+#############################
 
 #############################
 #region     RUN BLOCK
@@ -460,7 +463,7 @@ if __name__ == "__main__":
         ## while motion correcting, run the CTF estimation step immediately after so we can some quick feedback on quality during the run 
         print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, corrected_micrograph, ctf_dir), end='\r')
         dZ, ctf_fit, mic_name = run_ctffind(corrected_micrograph, ctf_dir, angpix, kV)
-        write_logfile(logfile, dZ, ctf_fit, mic_name)
+        write_logfile(logfile, i, dZ, ctf_fit, mic_name)
 
 
     ## find which micrographs (prior to the initial correction step) have not had CTF estimates calculated 
@@ -493,3 +496,4 @@ if __name__ == "__main__":
             sys.exit()
 
 #endregion
+#############################
