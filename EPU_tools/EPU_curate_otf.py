@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 ## Written by: Alexander Keszei ver.1 2024-10-01
 
 """
