@@ -6,7 +6,8 @@
     A simple script to make easy-to-use outputs for curating a dataset on-the-fly 
 """
 
-## 2024-07-25: Initial script started  
+## 2024-07-25: Initial script started
+## 2024-10-11: The logfile needs to be re-written every time the program restarts... it should find the micrographs, then check for the corresponding text file in the ctf directory and corresponding jpg and fix all mismatches. Then it should re-build the logfile.   
 
 #############################
 #region     FLAGS
@@ -312,14 +313,23 @@ def save_movie(file, save_dir):
 def run_motioncor2(movie, out_dir, pixel_size = False, frame_dose = False, kV = False, gain = False):
     ## generate a suitable output path for the motion correct movie 
     out_micrograph = os.path.join(out_dir, os.path.split(movie)[1])
+    out_micrograph_DW = False
 
     ## Prepare the command line executable 
     command = "motioncor2 -InMrc %s -OutMrc %s "  % (movie, out_micrograph)
     if gain != False:
         command += "-Gain %s" % gain
     command += "-Patch 10 10 "
+    ## add option to include dose weighting 
     if pixel_size != False and frame_dose != False and kV != False:
         command += "-PixSize %s -FmDose %s -kV %s " % (pixel_size, frame_dose, kV)
+        out_micrograph_DW = os.path.splitext(out_micrograph)[0] + "_DW.mrc"
+    ## Turn off the output of a restricted dose range sum that falls between an accumulated dose range of (x, y), where `-SumRange x y' is the value, i.e. can try limiting sum between 3 and 35 electron per square angstroms ... 
+    x = 0
+    y = 0
+    command += "-SumRange %s %s " % (x, y)
+
+    ## Set default GPU behavior 
     command += "-Gpu %s " % ('1')
 
 
@@ -331,35 +341,60 @@ def run_motioncor2(movie, out_dir, pixel_size = False, frame_dose = False, kV = 
     process.wait()
     # print(process.returncode) ## 0 == finished correctly, 1 == error
 
+    ## Clean up the output directory to remove the non-doseweighted image 
+    if out_micrograph_DW != False:
+        ## to save space, delete the non-doseweighted file 
+        if os.path.exists(out_micrograph_DW):
+            if os.path.exists(out_micrograph):
+                os.remove(out_micrograph)
+                ## after deleting the old non-doseweighted image, rename the doseweighted one over the original
+                os.rename(out_micrograph_DW, out_micrograph)
+
     return out_micrograph
 
-def run_ctffind(micrograph, out_dir, pixel_size, kV):
+def write_jpg(mrc, dest):
+    out_fname = os.path.splitext(os.path.split(mrc)[1])[0] + ".jpg"
+    out_fname_w_path = os.path.join(dest, out_fname)
+    command = "mrc2img.py %s %s " % (mrc, out_fname_w_path)
+    command += "--bin"
+
+    process = Popen(command, shell=True, stdout=PIPE)
+    process.wait()
+    return 
+
+def run_ctffind(micrograph_path, out_dir, pixel_size, kV):
     if not kV:
         print(" No --kV value supplied, cannot run CTFFIND4...")
         return 
 
-    micrograph_ctf_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS.mrc"
+    micrograph_name = os.path.split(micrograph_path)[1]
+    micrograph_ctf_name = os.path.splitext(micrograph_name)[0] + "_PS.mrc"
     micrograph_ctf_path = os.path.join(out_dir, micrograph_ctf_name)
 
-    input_mrc = str(micrograph)
+    input_mrc = str(micrograph_path)
     diagnostic_output_mrc = str(micrograph_ctf_path)
     pixel_size = str(pixel_size)
     kV = str(kV)
     Cs = "2.7"
-    amp_contrast = "0.1"
-    amplitude_spectrum_size = "512"
+    amp_contrast = "0.09"
+    amplitude_spectrum_size = "700"
     resolution_min = "50"
     resolution_max = "5"
     dZ_min = "5000"
     dZ_max = "50000"
-    dZ_search_step = "100"
+    dZ_search_step = "50"
     astig_known_Q = "no"
     slower_more_exhaustive_Q = "no"
     astig_restraint_Q = "no"
     additional_phase_shift_Q = "no"
-    set_expert_options_Q = "no"
+    set_expert_options_Q = "yes"
+    ## if expert options yes
+    resample_Q = "no"
+    dZ_known_Q = "no"
+    threads = "20"
+    #################################
 
-    cmds = [input_mrc, diagnostic_output_mrc, pixel_size, kV, Cs, amp_contrast, amplitude_spectrum_size, resolution_min, resolution_max, dZ_min, dZ_max, dZ_search_step, astig_known_Q, slower_more_exhaustive_Q, astig_restraint_Q, additional_phase_shift_Q, set_expert_options_Q]
+    cmds = [input_mrc, diagnostic_output_mrc, pixel_size, kV, Cs, amp_contrast, amplitude_spectrum_size, resolution_min, resolution_max, dZ_min, dZ_max, dZ_search_step, astig_known_Q, slower_more_exhaustive_Q, astig_restraint_Q, additional_phase_shift_Q, set_expert_options_Q, resample_Q, dZ_known_Q, threads]
 
     # print(" CTFFIND4 command: ")
     # print( "    ", cmds)
@@ -374,18 +409,18 @@ def run_ctffind(micrograph, out_dir, pixel_size, kV):
     p.wait()
 
     ## clean up undesired outputs 
-    avrot_file_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS_avrot.txt"
+    avrot_file_name = os.path.splitext(micrograph_name)[0] + "_PS_avrot.txt"
     avrot_file_path = os.path.join(out_dir, avrot_file_name)
     if os.path.exists(avrot_file_path):
         os.remove(avrot_file_path)
 
     ## parse the output text tile for dZ_1, dZ_2, ctf_fit
-    data_file_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS.txt"
+    data_file_name = os.path.splitext(micrograph_name)[0] + "_PS.txt"
     data_file_path = os.path.join(out_dir, data_file_name)
     dZ, ctf_fit = parse_ctffind_datafile(data_file_path)
     ## write the resulting data to a logfile 
     
-    return dZ, ctf_fit, os.path.split(micrograph)[1]
+    return dZ, ctf_fit, micrograph_name
 
 def parse_ctffind_datafile(fname):
     with open(fname, 'r') as f:
@@ -459,6 +494,7 @@ if __name__ == "__main__":
         print(" ")
         print(" ... motion correcting movie #%s: %s -> %s/" % (i + 1, movies_not_yet_corrected[i], mrc_dir), end='\r')
         corrected_micrograph = run_motioncor2(movies_not_yet_corrected[i], mrc_dir, pixel_size = angpix, kV = kV, frame_dose = frame_dose)
+        write_jpg(corrected_micrograph, jpg_dir)
 
         ## while motion correcting, run the CTF estimation step immediately after so we can some quick feedback on quality during the run 
         print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, corrected_micrograph, ctf_dir), end='\r')
@@ -471,7 +507,7 @@ if __name__ == "__main__":
 
     ## iterate across all micrographs to be CTF estimated
     for i in range(len(micrographs_ctf)): 
-        print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, micrographs_ctf[i], ctf_dir), end='\r')
+        # print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, micrographs_ctf[i], ctf_dir), end='\r')
         dZ, ctf_fit, mic_name = run_ctffind(micrographs_ctf[i], ctf_dir, angpix, kV)
         write_logfile(logfile, dZ, ctf_fit, mic_name)
 
