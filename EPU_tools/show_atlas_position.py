@@ -44,7 +44,7 @@ def image2array(file, DEBUG = VERBOSE):
 
     return im_data
 
-def get_tile_files(directory, atlas_id = 27140412):
+def get_tile_files(directory, atlas_id = 1):
     """
     PARAMETERS 
         directory = str() defining the location of the expected Tile...xml files 
@@ -246,10 +246,12 @@ if __name__ == '__main__':
     ##     |         |
     ##    5    0 -- 1
     real_origin = np.array([0, 0])
-    # x_basis_real = np.array(tile_coordinates[3]) - np.array(tile_coordinates[0])
-    # y_basis_real = np.array(tile_coordinates[5]) - np.array(tile_coordinates    [0])
-    x_basis_real = np.array(tile_coordinates[1]) - np.array(tile_coordinates[0])
-    y_basis_real = np.array(tile_coordinates[3]) - np.array(tile_coordinates[0])
+    ## talos orientation
+    x_basis_real = np.array(tile_coordinates[3]) - np.array(tile_coordinates[0])
+    y_basis_real = np.array(tile_coordinates[5]) - np.array(tile_coordinates[0])
+    ## glacio orientation?
+    # x_basis_real = np.array(tile_coordinates[1]) - np.array(tile_coordinates[0])
+    # y_basis_real = np.array(tile_coordinates[3]) - np.array(tile_coordinates[0])
 
 
     realspace_basis = (x_basis_real, y_basis_real)
