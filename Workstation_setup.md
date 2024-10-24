@@ -144,10 +144,16 @@ For notes see official docs for using [GitHub CLI](https://docs.github.com/en/gi
 ```sh
 $ gh auth login 
 ```
-Follow the prompts and use `https` and browser to login using my credentials and phone. Once activated, I can push and pull code changes via:
+Follow the prompts and use `https` and browser to login using my credentials and phone. Once activated, I can assign my email identitiy on the computer via:
 ```sh
-
+$ git config --global user.email "user@email.com" # change only the final string to match my email
 ```
+Then update code changes via:
+```sh
+$ git commit -a # for updating all changed files 
+$ git push # send the changes to the server 
+```
+
 
 ## Set up base python environment 
 As of the time of writing these notes, aptitude installed python as `python3`. For simplicity, make this version the base version for the 'native' user environment by creating a symlink to this one at `/usr/bin` via:
