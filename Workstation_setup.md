@@ -195,6 +195,14 @@ The remote user can then use the username & password of the server to send its R
 ```
 After this you can then lock the server to avoid password attempts if desired. 
 
+### Consider adding workstation IP addresses as a known host 
+IP addresses can be mapped to hostnames via editing `/etc/hosts`, e.g.:
+```sh
+$ sudo gedit /etc/hosts 
+## Add a line for the host at the end of the file, e.g.:
+## 123.122.0.10     tal  # Glacios workstation 
+```
+
 
 ## Optionally, customize user experience
 For familiarity I like to install my own icon set and themes. This is easily done by copying the icon and theme sets into their respective folders from which they can then me 'installed' using the systems themes menu:
@@ -231,7 +239,7 @@ The resource file `bins.rc` can be copied from a set up server and adjusted as n
 ``` 
 Adjust this file as necessary to call out installed programs, for example it might look like:
 ```sh
-## Add desired programs onto $PATH
+## Add custom program binaries onto $PATH
 export PATH=$PATH:\
 /programs/relion/build/bin:\
 /programs/chimera/bin:\
@@ -251,13 +259,13 @@ export RELION_RESMAP_EXECUTABLE=resmap
 export RELION_PDFVIEWER_EXECUTABLE=okular
 
 ## Helpful script for calling command options.
-if [ -f /programs/bash_howto ]; then
-    . /programs/bash_howto
+if [ -f /programs/akeszei/em_toolkit/bash_tools/bash_howto ]; then
+    . /programs/akeszei/em_toolkit/bash_tools/bash_howto
 fi
 
-## Helpful script for getting microscope parameters
-if [ -f /programs/eminfo ]; then
-    alias eminfo="/usr/bin/env bash /programs/eminfo"
+## Helpful script for getting microscope parameters 
+if [ -f /programs/akeszei/em_toolkit/bash_tools/eminfo ]; then
+    alias eminfo="/usr/bin/env bash /programs/akeszei/em_toolkit/bash_tools/eminfo"
 fi
 ```
 
