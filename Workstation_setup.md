@@ -200,7 +200,7 @@ IP addresses can be mapped to hostnames via editing `/etc/hosts`, e.g.:
 ```sh
 $ sudo gedit /etc/hosts 
 ## Add a line for the host at the end of the file, e.g.:
-## 123.122.0.10     tal  # Glacios workstation 
+## 10.182.211.5     tal  # Glacios workstation 
 ```
 
 
