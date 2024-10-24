@@ -10,7 +10,8 @@ Plug in the USB and, if necessary, point the BIOS to boot from the thumb drive t
 ## Update base install 
 After installation, update base software:
 ```
-$ sudo apt update -y && sudo apt upgrade -y
+$ sudo apt update 
+$ sudo apt upgrade
 ```
 
 ## Adjust `GRUB` settings
@@ -28,32 +29,34 @@ $ sudo apt update -y && sudo apt upgrade -y
     $ sudo update-grub 
 ```
 
-## Mount disks permanently on `fstab`
-Internal drives can be mounted permanently easily using the `disks` program. 
+## Mount permanent disks
+Internal drives can be mounted permanently easily using the `disks` program GUI. 
 
-Common external drives that will be added/removed over time can be given fixed mount points so they automount on plugin/restart (avoiding need for `sudo` access) by adding their entry to the `fstab` file:
-0. Prepare a mount point and make it accessible to all users. 
-1. Plug in disk and find its UUID via. You may need to format it and mount it to get the UUID:
-```
+Common external drives that will be added/removed over time can be given fixed mount points so they automount on plugin/restart (avoiding need for `sudo` access) by adding their entry to the `/etc/fstab` file:
+
+1. Prepare a mount point and make it accessible to all users. 
+2. Plug in disk and find its UUID via. You may need to format it and mount it to get the UUID:
+```sh
 $ sudo blkid
-Find its dev code via:
+# Find its dev code via:
 $ lsblk
-or $ sudo fdisk -l
+# or 
+$ sudo fdisk -l
 ```
-2. Add entry into `/etc/fstab` file, for example:
+3. Add entry into `/etc/fstab` file, for example:
 ```sh
   ## Mount internal 2Tb SSD 
-  UUID=c135a8dc-b2c1-418f-j114-255d94d8b401 /scratch ext4 defaults 0 2  
+  UUID=c135a8dc-b2c1-418f-j114-255d94d323122 /scratch ext4 defaults 0 2  
   ## Mount data_1 4Tb drive for all users  
-  UUID=6146392E568902AB /media/usb/data_1  ntfs  user,gid=remote,umask=0002,rw,exec,X-mount.mkdir 0 2
+  UUID=6146392E568903CD /media/usb/data_1  ntfs  user,gid=remote,umask=0002,rw,exec,X-mount.mkdir 0 2
 ```
-3. If mounted automatically, unmount drive. Then test drive it mounts correctly via the `fstab` file to its target folder via:
+4. If mounted automatically, unmount drive. Then test drive it mounts correctly via the `fstab` file to its target folder via:
 ```sh
   $ sudo mount -a 
 ```
 You can repeat this procedure for any external drive. 
 
-## Set up remote user account & add accounts to `users`
+## Set up `remote` user account 
 Prepare a `remote` user account, from which external users can login and run common software but have reduced permissions to important files & folders in the system. This will be the account with `ssh` access.
 
 While editing accounts, it is useful to add both `administrator` and `remote` to a common group (e.g. `users`) to simplify permission structures later. 
@@ -132,8 +135,18 @@ If done correctly, then a fresh terminal window should show a return for:
 ## Install usual programs from aptitude
 Add/remove packages as desired. This is a list of the usual suspects I use:
 
+```sh
+$ sudo apt install gedit git gh tmux cmake fonts-inconsolata fonts-roboto ttf-mscorefonts-installer okular evince imagemagick gnuplot xorg openssh-server build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev python3-pip python3-setuptools libx11-dev tk8.6-dev csh python3-tk python3-pil.imagetk yakuake tree gimp openconnect network-manager-openconnect perl-tk
 ```
-$ sudo apt install gedit git cmake fonts-inconsolata fonts-roboto ttf-mscorefonts-installer okular evince imagemagick gnuplot xorg openssh-server build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev python3-pip python3-setuptools libx11-dev tk8.6-dev python-tk csh tmux python3-tk python3-pil.imagetk yakuake tree gimp openconnect network-manager-openconnect perl-tk
+
+## Authorize github account, if using for push/pulling 
+For notes see official docs for using [GitHub CLI](https://docs.github.com/en/github-cli/github-cli/quickstart). Attach your user account via:
+```sh
+$ gh auth login 
+```
+Follow the prompts and use `https` and browser to login using my credentials and phone. Once activated, I can push and pull code changes via:
+```sh
+
 ```
 
 ## Set up base python environment 
