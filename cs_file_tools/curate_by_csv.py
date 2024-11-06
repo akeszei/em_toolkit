@@ -20,18 +20,19 @@ def usage():
     print(" ")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
-    print("                  --dZ (0.8-2.5) : Keep movies within this target range")
-    print("                   --ctf_fit (5) : Keep movies with CTF fits equal or better (Ang)")
-    print("          --ice_thickness (1.06) : Keep movies less than this value")
-    print("         --in-frame_motion (25) : Keep moves less than this value")
-    print("                  --use_defaults : Use all above flags at their default values")
-    print("     --write (rejected_mics.txt) : Write out a list of movies that are rejected")
+    print("                   --dZ (0.8-2.5) : Keep movies within this target range")
+    print("                    --ctf_fit (5) : Keep movies with CTF fits equal or better (Ang)")
+    print("           --ice_thickness (1.06) : Keep movies less than this value")
+    print("           --in-frame_motion (25) : Keep moves less than this value")
+    print("                   --use_defaults : Use all above flags at their default values")
+    print(" --write_best (approved_mics.txt) : Write out list of movies that are not rejected")
+    print("      --write (rejected_mics.txt) : Write out a list of movies that are rejected")
     print("===================================================================================================")
     sys.exit()
     return
 
 def parse_flags(cmdline):
-    global out_fname, csv_file, dZ_min, dZ_max, ctf_fit_max, ice_thickness_max, in_frame_motion_max, WRITE_LIST
+    global out_fname, csv_file, dZ_min, dZ_max, ctf_fit_max, ice_thickness_max, in_frame_motion_max, WRITE_LIST, WRITE_BEST
 
     ## check if help flag was called or we have a minimum number of arguments to evaluate
     cmdline = sys.argv
@@ -104,6 +105,16 @@ def parse_flags(cmdline):
                     out_fname = cmdline[i+1]
                 else:
                     print(" --write flag detected but could not parse input. Using default: %s" % out_fname)
+
+        if param == '--write_best':
+            WRITE_LIST = True
+            WRITE_BEST = True
+            if len(cmdline) >= i+2:
+                if ".txt" in cmdline[i+1].lower():
+                    out_fname = cmdline[i+1]
+                else:
+                    print(" --write_best flag detected but could not parse input. Using default: %s" % out_fname)
+
 
     # check for existence of input file 
     if not os.path.splitext(csv_file)[-1] in [".csv", ".CSV"]:
@@ -208,7 +219,8 @@ def get_rejected_mics(csv_data):
     red = 'tab:red'
     csv_data['color'] = blue
 
-    rejection_list = []
+    rejection_list = [] # list of bad micrographs
+    approved_list = [] # list of good micrographs
     ## another approach is to look at each file name and then use its unique name to look up its threshold flag in the DataFrame
     for row in csv_data.iterrows():
         index, row_obj = row 
@@ -239,6 +251,7 @@ def get_rejected_mics(csv_data):
                 print("-------------------------------------------------------------------")
                 print("   ... ID = %s" % row_obj[CSV_columns["ID"]])
                 print("   ... CTF Fit (A) = %.2f" % row_obj[CSV_columns["CTF_FIT"]])
+            continue 
         
         if ctf_fit_max != None and CTF_FIT > ctf_fit_max:
             csv_data.at[index, 'color'] = red
@@ -265,7 +278,10 @@ def get_rejected_mics(csv_data):
             rejection_list.append(mic_basename)
             continue
 
-    return rejection_list, csv_data
+        ## if we made it passed all the above checks, then we are looking at a good micrograph
+        approved_list.append(mic_basename)
+
+    return rejection_list, approved_list, csv_data
 
 def write_list_to_file(list_obj, out_fname):
     with open(out_fname, "w") as f:
@@ -367,6 +383,8 @@ if __name__ == "__main__":
     csv_file = None
 
     ## Unset all optional flags, set them only if the flag is called without input values  
+    WRITE_LIST = False
+    WRITE_BEST = False
     dZ_min = None 
     dZ_max = None 
     ctf_fit_max = None  
@@ -397,7 +415,7 @@ if __name__ == "__main__":
 
     CSV_columns = check_csv_columns(csv_data)
 
-    rejection_list, csv_data = get_rejected_mics(csv_data)
+    rejection_list, approved_list, csv_data = get_rejected_mics(csv_data)
 
     print_summary(csv_file, rejection_list, out_fname)
 
@@ -405,7 +423,11 @@ if __name__ == "__main__":
 
 
     if WRITE_LIST:
-        write_list_to_file(rejection_list, out_fname)
+        if WRITE_BEST:
+            out_fname = 'approved_mics.txt'
+            write_list_to_file(approved_list, out_fname)
+        else:
+            write_list_to_file(rejection_list, out_fname)
 
     print("===================================================================")
     print("  COMPLETE.")
