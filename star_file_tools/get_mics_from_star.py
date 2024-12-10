@@ -41,7 +41,7 @@ def parse_flags(cmdline):
 
     star_file = None 
     subset_size = None 
-    out_fname = 'subset_mics.txt'
+    out_fname = 'mics.txt'
     omit_list = []
 
     ## check if help flag was called or we have a minimum number of arguments to evaluate
@@ -51,6 +51,12 @@ def parse_flags(cmdline):
         print(" Not enough arguments, or help flag called")
         usage()
         sys.exit()
+        
+    ## before running dynamically do a first pass through the command list to update potential default values so they can be overwritten correctly later 
+    for i in range(len(cmdline)):
+        param = cmdline[i]
+        if param == '--subset':
+            out_fname = 'subset_mics.txt'
 
     ## check for each relevant optional flag 
     for i in range(len(cmdline)):
@@ -409,8 +415,8 @@ if __name__ == '__main__':
         dZ_thresholds = analyse_dZ_range(star_data)
         ## overwrite the micrograph list data to grab only the subset we want
         mics = get_subset_by_dZ(star_data, dZ_thresholds, subset_size, omit_list)
-        write_all_mics_to_file(mics, out_fname)
+        write_all_mics_to_file(mics, out_fname = out_fname)
     else:
-        write_all_mics_to_file(star_data)
+        write_all_mics_to_file(mics, out_fname = out_fname)
 
 #endregion
