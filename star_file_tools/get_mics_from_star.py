@@ -24,7 +24,7 @@ def usage():
     print(" Options (default in brackets): ")
     print("                --subset (15) : Get a list of micrographs across the dZ range of the given size")
     print("      --out (subset_mics.txt) : Use a desired output name for the subset file ")
-    print("                    --omit () : Read in a subset list to avoid picking mics present in that list ")
+    print("                    --skip () : Read in a subset list to avoid picking mics present in that list ")
     print("===================================================================================================")
     sys.exit()
     return
@@ -77,7 +77,7 @@ def parse_flags(cmdline):
                 out_fname = str(cmdline[i + 1])
             except:
                 print(" ... could not parse input to '--out' flag, using default: %s" % out_fname)
-        if param == '--omit':
+        if param == '--skip':
             try: 
                 omit_fname = cmdline[i + 1]
                 ## try loading the data into memory 
@@ -86,11 +86,11 @@ def parse_flags(cmdline):
                         for line in f:
                             omit_list.append(line.strip())
                 except:
-                    print(" ... could not read or parse omit file: %s" % omit_fname)
+                    print(" ... could not read or parse skip file: %s" % omit_fname)
                     exit()
                     
             except:
-                print(" ... could not parse input to '--omit' flag")
+                print(" ... could not parse input to '--skip' flag")
                 exit()
 
     ## check for existence of input file 
@@ -135,7 +135,6 @@ def load_data_from_star_file(fname):
     print(" ... %s entries found" % len(parsed))
     return parsed
 
-
 def plot_hist(dataset):
     import matplotlib.pyplot as plt
     import numpy as np
@@ -170,12 +169,14 @@ def write_all_mics_to_file(mic_data, out_fname = "mics.txt"):
     with open(out_fname, 'w') as f:
         for item in mic_data:
             f.write("%s\n" % item[0]) 
+
+    print(" ... written subset of %s micrographs into file: %s" % (len(mic_data), out_fname))
     return 
 
 def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size, omit_list = []):
     subset = []
     if len(omit_list) > 0:
-        print(" Omit list provided (%s mics): " % len(omit_list))
+        print(" List of mics to skip provided (%s mics): " % len(omit_list))
         for n in range(3):
             print("   %s" % omit_list[n])
         print("   ...")

@@ -23,7 +23,9 @@ def usage():
     print(" ")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
-    print("       --subset (15) : Get a list of micrographs across the dZ range of the given size")
+    print("                --subset (15) : Get a list of micrographs across the dZ range of the given size")
+    print("      --out (subset_mics.txt) : Use a desired output name for the subset file ")
+    print("                    --skip () : Read in a subset list to avoid picking mics present in that list ")
     print("===================================================================================================")
     sys.exit()
     return
@@ -40,6 +42,8 @@ def parse_flags(cmdline):
 
     cs_file = None 
     subset_size = None 
+    out_fname = 'subset_mics.txt'
+    omit_list = []
 
     ## check if help flag was called or we have a minimum number of arguments to evaluate
     cmdline = sys.argv
@@ -76,7 +80,7 @@ def parse_flags(cmdline):
                 out_fname = str(cmdline[i + 1])
             except:
                 print(" ... could not parse input to '--out' flag, using default: %s" % out_fname)
-        if param == '--omit': 
+        if param == '--skip': 
             try: 
                 omit_fname = cmdline[i + 1]
                 ## try loading the data into memory 
@@ -85,11 +89,11 @@ def parse_flags(cmdline):
                         for line in f:
                             omit_list.append(line.strip())
                 except:
-                    print(" ... could not read or parse omit file: %s" % omit_fname)
-                    exit()
+                    print(" ... could not read or parse skip file: %s" % omit_fname)
+                    exit() 
                     
             except:
-                print(" ... could not parse input to '--omit' flag")
+                print(" ... could not parse input to '--skip' flag")
                 exit()
 
 
@@ -98,7 +102,7 @@ def parse_flags(cmdline):
         print(" Input file does not have the proper extension (.cs)")
         sys.exit()
 
-    return cs_file, subset_size 
+    return cs_file, subset_size, out_fname, omit_list
 
 def load_data_from_cs_file(fname):
     print(" Loading cs file: %s" % cs_fname)
@@ -173,10 +177,18 @@ def write_all_mics_to_file(mic_data, out_fname = "mics.txt"):
     with open(out_fname, 'w') as f:
         for item in mic_data:
             f.write("%s\n" % item[0]) 
+            
+    print(" ... written subset of %s micrographs into file: %s" % (len(mic_data), out_fname))
     return 
 
-def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size):
+def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size, omit_list = []):
     subset = []
+    if len(omit_list) > 0:
+        print(" List of mics to skip provided (%s mics): " % len(omit_list))
+        for n in range(3):
+            print("   %s" % omit_list[n])
+        print("   ...")
+
     for i in range(subset_size):
         chosen_micrograph = None 
 
@@ -190,7 +202,7 @@ def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size):
         if DEBUG: print(" Find micrograph within dZ range %s -> %s" % (threshold_lower, threshold_upper))
 
         ## start at a random initial point in the dataset and iterate forward until we find a match 
-        n = random.randint(0, len(mic_data))
+        n = random.randint(0, len(mic_data) - 1)
         full_traversal = 0 ## keep track how many times we run through the full dataset, we may have to skip some bins if there are no suitable micrographs!
         while chosen_micrograph == None:
             # print(" Start search for micrograph at #%s" % n)
@@ -203,6 +215,9 @@ def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size):
                     ## check if the match already exists in the subset
                     if current_mic_data in subset:
                         print(" !! Match already exists in the subset, find another... ")
+                        n = random.randint(0, len(mic_data) - 1)
+                    elif current_mic_data in omit_list:
+                        print(" !! Match exists in the omit list, find another... ")
                         n = random.randint(0, len(mic_data) - 1)
                     else:
                         chosen_micrograph = current_mic_data
@@ -236,7 +251,7 @@ def get_subset_by_dZ(mic_data, dZ_thresholds, subset_size):
         
     print(" >> Randomly selected %s micrographs across the dZ range" % (len(subset)))
     for i in range(len(subset)):
-        if i > 8: 
+        if i > 8 or i == len(subset): 
             break 
         print("   %s [dZ %s]" % (subset[i][0], subset[i][1]))
     print("   ...")
@@ -306,7 +321,7 @@ if __name__ == '__main__':
     import random 
 
 
-    cs_fname, subset_size = parse_flags(sys.argv)
+    cs_fname, subset_size, out_fname, omit_list = parse_flags(sys.argv)
 
     cs_data = load_data_from_cs_file(cs_fname)
 
@@ -318,7 +333,7 @@ if __name__ == '__main__':
     if subset_size != None:
         dZ_thresholds = analyse_dZ_range(mics)
         ## overwrite the micrograph list data to grab only the subset we want
-        mics = get_subset_by_dZ(mics, dZ_thresholds, subset_size)
+        mics = get_subset_by_dZ(mics, dZ_thresholds, subset_size, omit_list)
         write_all_mics_to_file(mics, out_fname = 'subset_mics.txt')
     else:
         write_all_mics_to_file(mics)
