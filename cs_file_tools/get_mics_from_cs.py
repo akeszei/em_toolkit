@@ -71,6 +71,28 @@ def parse_flags(cmdline):
                 subset_size = 15
                 print(" .. no explicit subset size given, using defaults: %s " % subset_size)
 
+        if param == '--out':
+            try:
+                out_fname = str(cmdline[i + 1])
+            except:
+                print(" ... could not parse input to '--out' flag, using default: %s" % out_fname)
+        if param == '--omit': 
+            try: 
+                omit_fname = cmdline[i + 1]
+                ## try loading the data into memory 
+                try:
+                    with open(omit_fname, 'r') as f:
+                        for line in f:
+                            omit_list.append(line.strip())
+                except:
+                    print(" ... could not read or parse omit file: %s" % omit_fname)
+                    exit()
+                    
+            except:
+                print(" ... could not parse input to '--omit' flag")
+                exit()
+
+
     ## check for existence of input file 
     if not os.path.splitext(cs_file)[-1] in [".cs", ".CS"]:
         print(" Input file does not have the proper extension (.cs)")
