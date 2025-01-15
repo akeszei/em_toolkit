@@ -2,20 +2,187 @@
 
 ## Author : A. Keszei 
 
-"""
-    A simple script to make easy-to-use outputs for curating a dataset on-the-fly 
-"""
-
 ## 2024-07-25: Initial script started
 ## 2024-10-11: The logfile needs to be re-written every time the program restarts... it should find the micrographs, then check for the corresponding text file in the ctf directory and corresponding jpg and fix all mismatches. Then it should re-build the logfile.   
+## 2025-01-15: Focus on correct parsing of working directory to allow easy user determination of what squares micrograhs are coming from after-the-fact 
 
 #############################
-#region     FLAGS
+#region     GLOBAL FLAGS
 #############################
 DEBUG = True
 
 #endregion
 #############################
+
+
+#############################
+#region     CUSTOM OBJECTS
+#############################
+class PARAMETERS():
+    """
+    Create an object to contain all parsing and active parameters for the session that we can easily refer to and debug in one location 
+    """
+    def __init__(self, cmdline):
+        ## initialize the object with a commandline input that we can parse 
+        ## default parameters on the object 
+        self.angpix = False 
+        self.movie_glob = "*Fractions.mrc"
+        self.jpg_dir = "jpg"
+        self.mrc_dir = "micrographs"
+        self.ctf_dir = "ctf"
+        self.save_movies = False
+        self.movie_dir = "movies"
+        self.seconds_delay = 5
+        self.kV = False
+        self.frame_dose = False 
+        self.logfile = "otf.log"
+        self.atlas_dir = False    
+        self.epu_dir = False
+
+
+        self.parse_cmdline(cmdline)
+
+        return
+
+    def parse_cmdline(self, cmdline):
+
+        ## read all entries and check if the help flag is called at any point
+        for cmd in cmdline:
+            if cmd == '-h' or cmd == '--help' or cmd == '--h':
+                usage()
+
+        ## parse any flags 
+        for i in range(len(cmdline)):
+            if cmdline[i] == '--save_movies':
+                self.save_movies = True
+            if cmdline[i] == '--angpix':
+                try:
+                    self.angpix = float(cmdline[i+1])
+                except:
+                    print(" Could not parse --angpix entry or none given, will read directly from movie")
+            if cmdline[i] == '--kV' or cmdline[i] == '--kv':
+                try:
+                    self.kV = float(cmdline[i+1])
+                except:
+                    print(" Could not parse --kV entry or none given")
+            if cmdline[i] == '--frame_dose':
+                try:
+                    self.frame_dose = float(cmdline[i+1])
+                except:
+                    print(" Could not parse --frame_dose entry or none given")
+
+            if "*" in cmdline[i]:
+                self.movie_glob = cmdline[i]
+
+        ## check for corresponding directories for EPU session and potential atlas directory 
+
+        for i in range(len(cmdline)):
+            ## ignore the first entry on the cmdline (the calling of the script itself)
+            if i == 0:
+                continue 
+
+            if '/' in cmdline[i] or '\\' in cmdline[i]:
+                if self.epu_dir == False:
+                    if check_if_EPU_directory(cmdline[i]):
+                        self.epu_dir = cmdline[i]
+                        continue 
+                
+                if self.atlas_dir == False:
+                    if check_if_atlas_directory(cmdline[i]):
+                        self.atlas_dir = cmdline[i]
+                        continue 
+                
+                print(" WARNING :: Could not parse input directory:", cmdline[i])
+                
+        if self.epu_dir == False:
+            print(" ERROR :: No EPU directory was detected as input (i.e. lacking EpuSession.dm file and/or Images-Disc1 directory!")
+            usage()
+
+        if DEBUG:
+            print("====================================")
+            print(" parse_cmdline :: %s" % cmdline)
+            print("------------------------------------")
+            print("   EPU directory = %s" % self.epu_dir)
+            print("   Movie glob string = %s" % self.movie_glob)
+            if self.atlas_dir != False:
+                print("   Atlas directory = %s" % self.atlas_dir)
+
+            print("   Pixel size = %s" % self.angpix)
+            if self.kV != False:
+                print("   kV = %s" % self.kV)
+            if self.frame_dose != False:
+                print("   frame dose = %s e/A**2/frame" % self.frame_dose)
+            if self.save_movies != False:
+                print("   Save movies = %s " % self.save_movies)
+            print("====================================")
+
+        return 
+
+    
+    # def __str__(self):
+    #     print("=============================")
+    #     print("  PARAMETERS")
+    #     print("-----------------------------")
+    #     print("   optics input file = %s" % self.optics_remap_file)
+    #     print("   input star file = %s" % self.star_file)
+    #     print("   output star file name = %s " % self.output_star_file)
+    #     print("=============================")
+    #     return ''
+
+    def movie_save_string(self, input_movie_path):
+        """"
+        For a given input path to a movie in the EPU directory, unpack the path details to formulate how we want to save the movie path as 
+        """
+        movie_fname = os.path.split(input_movie_path)[-1]
+        ## get the GridSquare_##### identity for the movie
+        dirs = splitall(input_movie_path) 
+        grid_square_str = dirs[-3] # by convention the GridSquare directory is 2 folders behind 
+        ## update the basename of the movie to include the gridsquare identity 
+        new_movie_fname = grid_square_str + "_" + movie_fname
+        ## append the save path for movies to get the full save string for this movie 
+        movie_save_string = os.path.join(self.movie_dir, new_movie_fname)
+
+        return movie_save_string
+
+    def mrc_save_string(self, input_movie_path):
+        """"
+        For a given input path to a movie in the EPU directory, unpack the path details to formulate how we want to save the motion corrected micrograph as  
+        """
+        movie_fname = os.path.split(input_movie_path)[-1] ## i.e. mic_001.mrc
+        movie_basename = os.path.splitext(movie_fname)[0] ## i.e. mic_001
+        ## get the GridSquare_##### identity for the movie
+        dirs = splitall(input_movie_path) 
+        grid_square_str = dirs[-3] # by convention the GridSquare directory is 2 folders behind 
+        ## update the basename of the movie to include the gridsquare identity 
+        new_movie_basename = grid_square_str + "_" + movie_basename
+        ## add the .mrc extension 
+        output_mrc_fname = new_movie_basename + ".mrc"
+        ## append the save path for mrc files to get the full save string for the motion corrected movie 
+        mrc_save_string = os.path.join(self.mrc_dir, output_mrc_fname)
+
+        return mrc_save_string
+
+    def jpg_save_string(self, input_movie_path):
+        """"
+        For a given input path to a movie in the EPU directory, unpack the path details to formulate how we want to save the motion corrected jpg as  
+        """
+        ## first generate the mrc name we expect, then use that to develop the string for the expected jpg file 
+        mrc_fname = os.path.split(self.mrc_save_string(input_movie_path))[-1]
+        mrc_basename = os.path.splitext(mrc_fname)[0] ## i.e. mic_001
+
+        ## add the .jpg extension 
+        output_jpg_fname = mrc_basename + ".jpg"
+        ## append the save path for mrc files to get the full save string for the motion corrected movie 
+        jpg_save_string = os.path.join(self.jpg_dir, output_jpg_fname)
+
+        return jpg_save_string
+
+
+
+#endregion
+#############################
+
+
 
 #############################
 #region     DEFINITION BLOCK
@@ -39,95 +206,49 @@ def usage():
     print("===================================================================================================")
     sys.exit()
 
-def parse_cmdline(cmdline):
+def get_all_movies(EPU_dir, movie_glob):
+    """
+    PARAMETERS 
+        EPU_dir = path-like str() pointing to the main EPU Session directory
+        movie_glob = glob-like str(), i.e. containing *, that uniquely identifies a movie in the EPU session 
+    RETURNS 
+        movies = list() object containing all the movies found in the EPU session 
+    """
+    movies = list()
 
-    ## read all entries and check if the help flag is called at any point
-    for cmd in cmdline:
-        if cmd == '-h' or cmd == '--help' or cmd == '--h':
-            usage()
+    ## prepare the EPU dir with infinite recursion string appended (i.e. **)
+    search_dir = os.path.join(EPU_dir, "**/Data/**")
+    search_glob = os.path.join(search_dir, movie_glob)
+    # print(" Glob string to find movies: %s" % search_dir)
+    for match in glob.glob(search_glob, recursive = True):
+        movies.append(match)
 
-    ## set defaults 
-    angpix = False
-    movie_glob = "*Fractions.mrc"
-    jpg_dir = "jpg"
-    mrc_dir = "micrographs"
-    ctf_dir = "ctf"
-    save_movies = False
-    movie_dir = "movies"
-    seconds_delay = 5
-    kV = False
-    frame_dose = False 
-    logfile = "otf.log"
+    print(" %s movies found in EPU directory (%s)" % (len(movies), EPU_dir))
+    if len(movies) > 1:
+        print("    %s" % movies[0])
+        print("    ...")
 
-    ## parse any flags 
-    for i in range(len(cmdline)):
-        if cmdline[i] == '--save_movies':
-            save_movies = True
-        if cmdline[i] == '--angpix':
-            try:
-                angpix = float(cmdline[i+1])
-            except:
-                print(" Could not parse --angpix entry or none given, will read directly from movie")
-        if cmdline[i] == '--kV' or cmdline[i] == '--kv':
-            try:
-                kV = float(cmdline[i+1])
-            except:
-                print(" Could not parse --kV entry or none given")
-        if cmdline[i] == '--frame_dose':
-            try:
-                frame_dose = float(cmdline[i+1])
-            except:
-                print(" Could not parse --frame_dose entry or none given")
+    return movies
 
-        if "*" in cmdline[i]:
-            movie_glob = cmdline[i]
-
-    ## check for corresponding directories for EPU session and potential atlas directory 
-    atlas_dir = False    
-    epu_dir = False
-
-    for i in range(len(cmdline)):
-        ## ignore the first entry on the cmdline (the calling of the script itself)
-        if i == 0:
-            continue 
-
-        if '/' in cmdline[i] or '\\' in cmdline[i]:
-            if epu_dir == False:
-                if check_if_EPU_directory(cmdline[i]):
-                    epu_dir = cmdline[i]
-                    continue 
-            
-            if atlas_dir == False:
-                if check_if_atlas_directory(cmdline[i]):
-                    atlas_dir = cmdline[i]
-                    continue 
-            
-            print(" WARNING :: Could not parse input directory:", cmdline[i])
-            
-    if epu_dir == False:
-        print(" ERROR :: No EPU directory was detected as input (i.e. lacking EpuSession.dm file and/or Images-Disc1 directory!")
-        usage()
-
-    if DEBUG:
-        print("====================================")
-        print(" parse_cmdline :: %s" % cmdline)
-        print("------------------------------------")
-        print("   EPU directory = %s" % epu_dir)
-        print("   Movie glob string = %s" % movie_glob)
-        if atlas_dir != False:
-            print("   Atlas directory = %s" % atlas_dir)
-
-        print("   Pixel size = %s" % angpix)
-        if kV != False:
-            print("   kV = %s" % kV)
-        if frame_dose != False:
-            print("   frame dose = %s e/A**2/frame" % frame_dose)
-        if save_movies != False:
-            print("   Save movies = %s " % save_movies)
-        print("====================================")
-
-
-    return angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile
+def splitall(path):
+    """
+    Split a path into all its parts into a convenient list form, i.e.:
+        /path/to/file -> ['/', 'path', 'to', 'file']
+    REF: https://www.oreilly.com/library/view/python-cookbook/0596001673/ch04s16.html
+    """
+    allparts = []
+    while 1:
+        parts = os.path.split(path)
+        if parts[0] == path:  # sentinel for absolute paths
+            allparts.insert(0, parts[0])
+            break
+        elif parts[1] == path: # sentinel for relative paths
+            allparts.insert(0, parts[1])
+            break
+        else:
+            path = parts[0]
+            allparts.insert(0, parts[1])
+    return allparts
 
 def check_if_atlas_directory(dir = "./"):
     if not os.path.isdir(dir):
@@ -182,30 +303,6 @@ def prepare_directories(jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir):
             continue 
 
     return
-
-def get_all_movies(EPU_dir, movie_glob):
-    """
-    PARAMETERS 
-        EPU_dir = path-like str() pointing to the main EPU Session directory
-        movie_glob = glob-like str(), i.e. containing *, that uniquely identifies a movie in the EPU session 
-    RETURNS 
-        movies = list() object containing all the movies found in the EPU session 
-    """
-    movies = list()
-
-    ## prepare the EPU dir with infinite recursion string appended
-    search_dir = os.path.join(EPU_dir, "**/Data/**")
-    search_glob = os.path.join(search_dir, movie_glob)
-    print(" Glob string to find movies: %s" % search_dir)
-    for match in glob.glob(search_glob, recursive = True):
-        movies.append(match)
-
-    print(" %s movies found in EPU directory (%s)" % (len(movies), EPU_dir))
-    if len(movies) > 1:
-        print("    %s" % movies[0])
-        print("    ...")
-
-    return movies
 
 def get_all_micrographs_corrected(mrc_dir, movie_glob):
     micrographs = []
@@ -461,13 +558,28 @@ if __name__ == "__main__":
     from subprocess import Popen, PIPE, DEVNULL
     import numpy as np
 
+    PARAMS = PARAMETERS(sys.argv)
+
+    ## discover all movies in the EPU session 
+    movies_discovered = get_all_movies(PARAMS.epu_dir, PARAMS.movie_glob)
+
+    ## for each movie, determine the desired outputs 
+    for movie in movies_discovered:
+        print(" ===============================================")
+        print("    ", movie)
+        print(" -----------------------------------------------")
+        print(PARAMS.movie_save_string(movie))
+        print(PARAMS.mrc_save_string(movie))
+        print(PARAMS.jpg_save_string(movie))
+        print(" ===============================================")
+
+    exit()
+
     angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile = parse_cmdline(sys.argv)
 
     ## make any directories needed
     prepare_directories(jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir)
 
-    ## get all movies in the EPU session 
-    movies_discovered = get_all_movies(epu_dir, movie_glob)
 
     ## if saving movies, start by saving them to the target directory  
     if save_movies:
