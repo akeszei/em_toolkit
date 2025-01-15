@@ -10,6 +10,7 @@
 #region     GLOBAL FLAGS
 #############################
 DEBUG = True
+DRY_RUN = True
 
 #endregion
 #############################
@@ -53,7 +54,7 @@ class PARAMETERS():
 
         ## parse any flags 
         for i in range(len(cmdline)):
-            if cmdline[i] == '--save_movies':
+            if cmdline[i] == '--save_movies' or cmdline[i] == '--save_movie':
                 self.save_movies = True
             if cmdline[i] == '--angpix':
                 try:
@@ -83,12 +84,12 @@ class PARAMETERS():
 
             if '/' in cmdline[i] or '\\' in cmdline[i]:
                 if self.epu_dir == False:
-                    if check_if_EPU_directory(cmdline[i]):
+                    if self.check_if_EPU_directory(cmdline[i]):
                         self.epu_dir = cmdline[i]
                         continue 
                 
                 if self.atlas_dir == False:
-                    if check_if_atlas_directory(cmdline[i]):
+                    if self.check_if_atlas_directory(cmdline[i]):
                         self.atlas_dir = cmdline[i]
                         continue 
                 
@@ -106,6 +107,8 @@ class PARAMETERS():
             print("   Movie glob string = %s" % self.movie_glob)
             if self.atlas_dir != False:
                 print("   Atlas directory = %s" % self.atlas_dir)
+            else:
+                print("   No atlas directory provided")
 
             print("   Pixel size = %s" % self.angpix)
             if self.kV != False:
@@ -118,7 +121,61 @@ class PARAMETERS():
 
         return 
 
+    def check_if_EPU_directory(self, dir = "./"):
+
+        if not os.path.isdir(dir):
+            return False 
+        
+        SESSION_FILE = False
+        IMAGES_DIR = False 
+
+        for f in os.listdir(dir):
+            if f.lower() == "EpuSession.dm".lower():
+                SESSION_FILE = True 
+                
+            if f.lower() == "Images-Disc1".lower():
+                IMAGES_DIR = True 
+        
+        if SESSION_FILE and IMAGES_DIR:
+            return True
+
+        return False 
     
+    def check_if_atlas_directory(self, dir = "./"):
+        if not os.path.isdir(dir):
+            return False 
+        
+        ATLAS_FILE = False
+
+        for f in os.listdir(dir):
+            if f.lower()[:5] == "Atlas".lower():
+                
+                if f.lower()[-4:] == ".mrc".lower():
+                    ATLAS_FILE = True 
+        
+        if ATLAS_FILE:
+            return True
+
+        return False 
+
+    def prepare_directories(self):
+
+        ## prepare the directory list
+        dirs = [self.jpg_dir, self.mrc_dir, self.ctf_dir]
+        if self.save_movies:
+            dirs = dirs + [self.movie_dir]
+
+        ## make any directories that do not already exist 
+        for dir in dirs:
+            if not os.path.exists(dir):
+                print(" create dir :: %s" % (dir))
+                os.makedirs(dir, exist_ok=True)
+            else:
+                continue 
+
+        return
+
+
     # def __str__(self):
     #     print("=============================")
     #     print("  PARAMETERS")
@@ -176,7 +233,6 @@ class PARAMETERS():
         jpg_save_string = os.path.join(self.jpg_dir, output_jpg_fname)
 
         return jpg_save_string
-
 
 
 #endregion
@@ -249,60 +305,6 @@ def splitall(path):
             path = parts[0]
             allparts.insert(0, parts[1])
     return allparts
-
-def check_if_atlas_directory(dir = "./"):
-    if not os.path.isdir(dir):
-        return False 
-    
-    ATLAS_FILE = False
-
-    for f in os.listdir(dir):
-        if f.lower()[:5] == "Atlas".lower():
-            
-            if f.lower()[-4:] == ".mrc".lower():
-                ATLAS_FILE = True 
-    
-    if ATLAS_FILE:
-        return True
-
-    return False 
-
-def check_if_EPU_directory(dir = "./"):
-
-    if not os.path.isdir(dir):
-        return False 
-    
-    SESSION_FILE = False
-    IMAGES_DIR = False 
-
-    for f in os.listdir(dir):
-        if f.lower() == "EpuSession.dm".lower():
-            SESSION_FILE = True 
-            
-        if f.lower() == "Images-Disc1".lower():
-            IMAGES_DIR = True 
-    
-    if SESSION_FILE and IMAGES_DIR:
-        return True
-
-    return False 
-
-def prepare_directories(jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir):
-
-    ## prepare the directory list
-    dirs = [jpg_dir, mrc_dir, ctf_dir]
-    if save_movies:
-        dirs = dirs + [movie_dir]
-
-    ## make any directories that do not already exist 
-    for dir in dirs:
-        if not os.path.exists(dir):
-            print(" create dir :: %s" % (dir))
-            os.makedirs(dir, exist_ok=True)
-        else:
-            continue 
-
-    return
 
 def get_all_micrographs_corrected(mrc_dir, movie_glob):
     micrographs = []
@@ -387,12 +389,15 @@ def get_all_movies_to_save(save_dir, all_movies):
 
     return movies_to_save 
 
-def save_movie(file, save_dir):
+def save_movie(file, save_path, DRY_RUN = False):
     """
     PARAMETERS 
         file : path-like string of the file to save 
-        save_dir : path-like string of the target directory to save the file into 
+        save_path : path-like string of the target directory to save the file into with its full name (i.e. /path/to/mrc_001.mrc)
+        DRY_RUN : only write out the terminal the steps to be executed without any copying  
     """
+    save_dir = os.path.split(save_path)[0]
+
     ## check the target file exists 
     if not os.path.isfile(file):
         print(" Input movie to save was not found! (%s)" % file)
@@ -400,12 +405,20 @@ def save_movie(file, save_dir):
 
     ## check the save directory exists 
     if not os.path.isdir(save_dir):
-        print(" Input save director for movie not found! (%s)" % save_dir)
+        print(" Input save directory for movie not found! (%s)" % save_dir)
         return 
 
-    ## write the target file to the save directory 
-    shutil.copy2(file, save_dir)
+    if DRY_RUN:
+        print(" shutil.copy2(%s, %s)" % (file, save_dir))
+        print(" shutil.move(%s, %s)" % (os.path.join(save_dir, os.path.split(file)[-1]), save_path ))
+    else:
+        ## write the target file to the save directory 
+        shutil.copy2(file, save_dir)
+        ## rename the output file to the desired final name 
+        shutil.move(os.path.join(save_dir, os.path.split(file)[-1]), save_path )
     return 
+
+
 
 def run_motioncor2(movie, out_dir, pixel_size = False, frame_dose = False, kV = False, gain = False):
     ## generate a suitable output path for the motion correct movie 
@@ -559,6 +572,7 @@ if __name__ == "__main__":
     import numpy as np
 
     PARAMS = PARAMETERS(sys.argv)
+    PARAMS.prepare_directories()
 
     ## discover all movies in the EPU session 
     movies_discovered = get_all_movies(PARAMS.epu_dir, PARAMS.movie_glob)
@@ -568,18 +582,30 @@ if __name__ == "__main__":
         print(" ===============================================")
         print("    ", movie)
         print(" -----------------------------------------------")
-        print(PARAMS.movie_save_string(movie))
+        ## 1. Check if we want to save the full movie
+        save_movie(movie, PARAMS.movie_save_string(movie), DRY_RUN = DRY_RUN)
+
+        exit()
+        ## 2. Motion correct the movie to a single .MRC
         print(PARAMS.mrc_save_string(movie))
+
+        ## 3. Write out a compressed .JPG file for analysis later 
         print(PARAMS.jpg_save_string(movie))
+
+        ## 4. If not yet, write out a GridSquare image for the corresponding micrograph
+
+
+        ## 5. If atlase directory was provided, write out the main atlas of the grid
+
+
+        ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
+
+
         print(" ===============================================")
 
     exit()
 
     angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile = parse_cmdline(sys.argv)
-
-    ## make any directories needed
-    prepare_directories(jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir)
-
 
     ## if saving movies, start by saving them to the target directory  
     if save_movies:
