@@ -34,6 +34,11 @@ def get_coords(input_star, VERBOSE = False):
     ## use star_handler module to parse the input file correctly
     table_title = "data_"
     TABLE_START, HEADER_START, DATA_START, DATA_END = star_handler.get_table_position(input_star, table_title, DEBUG = False)
+    ## in case where micrographs do not have any coordinates associated with them, they will have a value of -1 for the DATA_START variable by default. Pass a warning to the user and return an empty list to continue parting remaining files 
+    if DATA_START < 1:
+        print(" !! WARNING :: No coordinates were found for micrograph: %s" % input_star)
+        return []
+
     X_column_name = '_rlnCoordinateX'
     Y_column_name = '_rlnCoordinateY'
     X_column_num = star_handler.find_star_column(input_star, X_column_name, HEADER_START, (DATA_START - 1), DEBUG = False)
@@ -59,7 +64,9 @@ def get_coords(input_star, VERBOSE = False):
 
             X_coord = star_handler.get_star_data(line, X_column_num)
             Y_coord = star_handler.get_star_data(line, Y_column_num)
+
             coords.append((X_coord, Y_coord))
+
     if VERBOSE:
         print(" ... %s coordinates extracted from file: %s" % (len(coords), input_star))
     return coords
