@@ -9,8 +9,10 @@
 #############################
 #region     GLOBAL FLAGS
 #############################
-DEBUG = True
+DEBUG = False
 DRY_RUN = False
+h_bar = "==============================================="
+h_sub_bar = "------------------------------------"
 
 #endregion
 #############################
@@ -99,25 +101,25 @@ class PARAMETERS():
             print(" ERROR :: No EPU directory was detected as input (i.e. lacking EpuSession.dm file and/or Images-Disc1 directory!")
             usage()
 
-        if DEBUG:
-            print("====================================")
-            print(" parse_cmdline :: %s" % cmdline)
-            print("------------------------------------")
-            print("   EPU directory = %s" % self.epu_dir)
-            print("   Movie glob string = %s" % self.movie_glob)
-            if self.atlas_dir != False:
-                print("   Atlas directory = %s" % self.atlas_dir)
-            else:
-                print("   No atlas directory provided")
+        
+        print(h_bar)
+        print(" PARAMETERS :: ")  #%s" % cmdline)
+        print(h_sub_bar)
+        print("   EPU directory = %s" % self.epu_dir)
+        print("   Movie glob string = %s" % self.movie_glob)
+        if self.atlas_dir != False:
+            print("   Atlas directory = %s" % self.atlas_dir)
+        else:
+            print("   No atlas directory provided")
 
-            print("   Pixel size = %s" % self.angpix)
-            if self.kV != False:
-                print("   kV = %s" % self.kV)
-            if self.frame_dose != False:
-                print("   frame dose = %s e/A**2/frame" % self.frame_dose)
-            if self.save_movies != False:
-                print("   Save movies = %s " % self.save_movies)
-            print("====================================")
+        print("   Pixel size = %s" % self.angpix)
+        if self.kV != False:
+            print("   kV = %s" % self.kV)
+        if self.frame_dose != False:
+            print("   frame dose = %s e/A**2/frame" % self.frame_dose)
+        if self.save_movies != False:
+            print("   Save movies = %s " % self.save_movies)
+        print(h_bar)
 
         return 
 
@@ -270,6 +272,13 @@ class DATASET():
         if mic_name in self.data:
             print(" !! WARNING :: Overwriting micrograph CTF data (%s)" % mic_name)
         self.data[mic_name] = [dZ, ctf_fit]
+        return 
+
+    def entry_exists(self, mic_name):
+        if mic_name in self.data:
+            return True
+        else:
+            return False
 
     def get_dZ(self, mic_name):
         dZ = self.data[mic_name][0]
@@ -281,6 +290,9 @@ class DATASET():
 
 
     def parse_logfile(self, fname):
+        ## first check if a log file even exists yet 
+        if not os.path.isfile(fname):
+            return 
         
         HEADER_START, DATA_START, DATA_END = get_table_position(fname, 'data_micrographs', DEBUG=DEBUG)
         COLUMN_MIC_NAME = find_star_column(fname, '_MicrographName', HEADER_START, DATA_START, DEBUG=DEBUG)
@@ -306,7 +318,7 @@ class DATASET():
                     self.add_entry(mic_name, dZ, ctf_fit)
                     parsed += 1
 
-        print(" ... %s entries found" % parsed)
+        print(" ... %s entries parsed from logfile (%s)" % (parsed, fname))
         return 
 
 
@@ -354,10 +366,16 @@ def get_all_movies(EPU_dir, movie_glob):
     for match in glob.glob(search_glob, recursive = True):
         movies.append(match)
 
-    print(" %s movies found in EPU directory (%s)" % (len(movies), EPU_dir))
-    if len(movies) > 1:
-        print("    %s" % movies[0])
-        print("    ...")
+    print(" %s movies found in EPU directory, e.g.: " % (len(movies)))
+    print(h_sub_bar)
+    if len(movies) > 0:
+        for i in range(len(movies)):
+            print("    %s" % movies[i])
+            if i == 2: 
+                print("    ...")
+                break 
+        
+        
 
     return movies
 
@@ -381,64 +399,64 @@ def splitall(path):
             allparts.insert(0, parts[1])
     return allparts
 
-def get_all_micrographs_corrected(mrc_dir, movie_glob):
-    micrographs = []
+# def get_all_micrographs_corrected(mrc_dir, movie_glob):
+#     micrographs = []
 
-    for match in glob.glob(os.path.join(mrc_dir, movie_glob)):
-        micrographs.append(match)
+#     for match in glob.glob(os.path.join(mrc_dir, movie_glob)):
+#         micrographs.append(match)
 
-    print(" %s micrographs found in save directory (%s/)" % (len(micrographs), mrc_dir))
-    return micrographs
+#     print(" %s micrographs found in save directory (%s/)" % (len(micrographs), mrc_dir))
+#     return micrographs
 
-def get_all_movies_not_yet_corrected(movies, micrographs): 
-    ## recast the movies and micrographs to a common basename for direct comparison using sets        
-    movies_basenames = []
-    for movie in movies:
-        movies_basenames.append(os.path.splitext(os.path.split(movie)[1])[0])
+# def get_all_movies_not_yet_corrected(movies, micrographs): 
+#     ## recast the movies and micrographs to a common basename for direct comparison using sets        
+#     movies_basenames = []
+#     for movie in movies:
+#         movies_basenames.append(os.path.splitext(os.path.split(movie)[1])[0])
 
-    micrographs_basenames = []
-    for micrograph in micrographs:
-        micrographs_basenames.append(os.path.splitext(os.path.split(micrograph)[1])[0])
+#     micrographs_basenames = []
+#     for micrograph in micrographs:
+#         micrographs_basenames.append(os.path.splitext(os.path.split(micrograph)[1])[0])
 
-    unique = list(set(movies_basenames).difference(micrographs_basenames))
+#     unique = list(set(movies_basenames).difference(micrographs_basenames))
 
-    if len(unique) > 0:
-        print(" %s movies remain to be corrected" % len(unique))
-    else:
-        print(" All movies in the EPU directory have been corrected")
+#     if len(unique) > 0:
+#         print(" %s movies remain to be corrected" % len(unique))
+#     else:
+#         print(" All movies in the EPU directory have been corrected")
 
-    ## use the output unique set to return a truncated list of the movies we need to correct that still contains their path information 
-    movies_to_correct = []
-    for movie in movies:
-        movie_basename = os.path.splitext(os.path.split(movie)[1])[0]
-        if movie_basename in unique:
-            movies_to_correct.append(movie)
-        else:
-            continue 
+#     ## use the output unique set to return a truncated list of the movies we need to correct that still contains their path information 
+#     movies_to_correct = []
+#     for movie in movies:
+#         movie_basename = os.path.splitext(os.path.split(movie)[1])[0]
+#         if movie_basename in unique:
+#             movies_to_correct.append(movie)
+#         else:
+#             continue 
 
-    return movies_to_correct
+#     return movies_to_correct
 
-def micrographs_not_yet_CTF_estimated(ctf_dir, micrographs):
-    micrographs_to_do = []
+# def micrographs_not_yet_CTF_estimated(ctf_dir, micrographs):
+#     micrographs_to_do = []
 
-    if len(micrographs) == 0:
-        print(" No micrographs are available for CTF correction yet.")
-        return micrographs_to_do
+#     if len(micrographs) == 0:
+#         print(" No micrographs are available for CTF correction yet.")
+#         return micrographs_to_do
 
-    for micrograph in micrographs:
-        micrograph_ctf_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS.mrc"
-        micrograph_ctf_path = os.path.join(ctf_dir, micrograph_ctf_name)
-        if os.path.exists(micrograph_ctf_path):
-            continue
-        else:
-            micrographs_to_do.append(micrograph)
+#     for micrograph in micrographs:
+#         micrograph_ctf_name = os.path.splitext(os.path.split(micrograph)[1])[0] + "_PS.mrc"
+#         micrograph_ctf_path = os.path.join(ctf_dir, micrograph_ctf_name)
+#         if os.path.exists(micrograph_ctf_path):
+#             continue
+#         else:
+#             micrographs_to_do.append(micrograph)
 
-    if len(micrographs_to_do) > 0:
-        print(" %s micrographs remain to be CTF estimated" % len(micrographs_to_do))
-    else:
-        print(" All micrographs have been CTF estimated")
+#     if len(micrographs_to_do) > 0:
+#         print(" %s micrographs remain to be CTF estimated" % len(micrographs_to_do))
+#     else:
+#         print(" All micrographs have been CTF estimated")
 
-    return micrographs_to_do
+#     return micrographs_to_do
 
 def get_all_movies_to_save(save_dir, all_movies):
     """
@@ -490,11 +508,12 @@ def save_movie(file, save_path, DRY_RUN = False):
         dest_size = os.stat(save_path).st_size
         if source_size == dest_size:
         ## the file appears to already exist and is the correct size, we can skip it 
-            print(" Movie is already saved") 
+            # print(" Movie is already saved") 
             return 
     ## if we have not returned, then there is a percieved difference in size, so we should re-copy the file 
 
     if DRY_RUN:
+        print()
         print(" shutil.copy2(%s, %s)" % (file, save_dir))
         print(" shutil.move(%s, %s)" % (os.path.join(save_dir, os.path.split(file)[-1]), save_path ))
     else:
@@ -507,7 +526,7 @@ def save_movie(file, save_path, DRY_RUN = False):
 
         except KeyboardInterrupt:
             ## clean up partial copied file 
-            potential_partial_file = os.join(save_dir, os.path.split(file)[-1])
+            potential_partial_file = os.path.join(save_dir, os.path.split(file)[-1])
             if os.path.isfile(potential_partial_file):
                 os.remove(potential_partial_file)
 
@@ -523,7 +542,7 @@ def run_motioncor2(movie, out_micrograph, pixel_size = False, frame_dose = False
         
         ## make sure is at least greater than 30 Mb large
         if mrc_size_mb > 30:
-            print(" Motion corrected micrograph already exists (%.1f Mbs)" % (mrc_size_mb))    
+            # print(" Motion corrected micrograph already exists (%.1f Mbs)" % (mrc_size_mb))    
             return 
 
     out_micrograph_DW = False
@@ -550,28 +569,34 @@ def run_motioncor2(movie, out_micrograph, pixel_size = False, frame_dose = False
         print("     $", command)
         return 
 
-    # print(" MotionCor2 command: ")
-    # print( "    ", command)
+    try:
 
-    process = Popen(command, shell=True, stdout=PIPE)
-    process.wait()
-    # print(process.returncode) ## 0 == finished correctly, 1 == error
+        process = Popen(command, shell=True, stdout=PIPE)
+        process.wait()
+        # print(process.returncode) ## 0 == finished correctly, 1 == error
 
-    ## Clean up the output directory to remove the non-doseweighted image 
-    if out_micrograph_DW != False:
-        ## to save space, delete the non-doseweighted file 
-        if os.path.exists(out_micrograph_DW):
-            if os.path.exists(out_micrograph):
-                os.remove(out_micrograph)
-                ## after deleting the old non-doseweighted image, rename the doseweighted one over the original
-                os.rename(out_micrograph_DW, out_micrograph)
+        ## Clean up the output directory to remove the non-doseweighted image 
+        if out_micrograph_DW != False:
+            ## to save space, delete the non-doseweighted file 
+            if os.path.exists(out_micrograph_DW):
+                if os.path.exists(out_micrograph):
+                    os.remove(out_micrograph)
+                    ## after deleting the old non-doseweighted image, rename the doseweighted one over the original
+                    os.rename(out_micrograph_DW, out_micrograph)
 
-    ## update the pixel size in the header of the output file 
-    with mrcfile.open(out_micrograph, mode = 'r+') as mrc:
-        mrc.voxel_size = pixel_size
-        mrc.update_header_from_data()
-        mrc.update_header_stats()
+        ## update the pixel size in the header of the output file 
+        with mrcfile.open(out_micrograph, mode = 'r+') as mrc:
+            mrc.voxel_size = pixel_size
+            mrc.update_header_from_data()
+            mrc.update_header_stats()
 
+    except KeyboardInterrupt:
+        ## clean up potential partial file:
+        potential_partial_file = out_micrograph
+        if os.path.isfile(potential_partial_file):
+            os.remove(potential_partial_file)
+
+        sys.exit()
     return
 
 def write_jpg(input_mrc, output_jpg, bin = 4, DRY_RUN = False):
@@ -582,7 +607,7 @@ def write_jpg(input_mrc, output_jpg, bin = 4, DRY_RUN = False):
         
         ## make sure is at least greater than 30 Mb large
         if size_kb > 50:
-            print(" .JPG already exists (%.1f kbs)" % (size_kb))    
+            # print(" .JPG already exists (%.1f kbs)" % (size_kb))    
             return 
 
     command = "mrc2img.py %s %s " % (input_mrc, output_jpg)
@@ -591,8 +616,14 @@ def write_jpg(input_mrc, output_jpg, bin = 4, DRY_RUN = False):
     if DRY_RUN:
         print(" ", command)
     else:
-        process = Popen(command, shell=True, stdout=PIPE)
-        process.wait()
+
+        try:
+            process = Popen(command, shell=True, stdout=PIPE)
+            process.wait()
+        except KeyboardInterrupt:
+            ## clean up partial files 
+            if os.path.isfile(output_jpg):
+                os.remove(output_jpg)
 
     return 
 
@@ -642,7 +673,7 @@ def markup_gridsquare_on_atlas_jpg(input_movie_path, atlas_dir, jpg_dir, DRY_RUN
 
     if os.path.isfile(gridsquare_markup_jpg_path):
         ## gridsquare markup already exists, we can skip remaking it 
-        print(" Gridsquare atlas position is already made ")
+        # print(" Gridsquare atlas position is already made ")
         return 
 
     ## rebuild the path to the gridsquare directory 
@@ -682,9 +713,13 @@ def markup_gridsquare_on_atlas_jpg(input_movie_path, atlas_dir, jpg_dir, DRY_RUN
 def run_ctffind(micrograph_path, out_dir, pixel_size, kV, logfile, ctf_dataset):
     if not kV:
         print(" No --kV value supplied, cannot run CTFFIND4...")
-        return 
+        return -1, -1, None
 
     micrograph_name = os.path.split(micrograph_path)[1]
+    ## check there is no entry already for this micrograph in the logfile
+    if ctf_dataset.entry_exists(micrograph_name):
+        return -1, -1, None
+
     micrograph_ctf_name = os.path.splitext(micrograph_name)[0] + "_PS.mrc"
     micrograph_ctf_path = os.path.join(out_dir, micrograph_ctf_name)
 
@@ -716,32 +751,37 @@ def run_ctffind(micrograph_path, out_dir, pixel_size, kV, logfile, ctf_dataset):
     # print(" CTFFIND4 command: ")
     # print( "    ", cmds)
 
+    try:
+        ## REF: https://stackoverflow.com/questions/8475290/how-do-i-write-to-a-python-subprocess-stdin
+        p = Popen('ctffind', stdin=PIPE, stdout=DEVNULL)
+        for x in cmds:
+            p.stdin.write(x.encode() + b'\n')
 
-    ## REF: https://stackoverflow.com/questions/8475290/how-do-i-write-to-a-python-subprocess-stdin
-    p = Popen('ctffind', stdin=PIPE, stdout=DEVNULL)
-    for x in cmds:
-        p.stdin.write(x.encode() + b'\n')
+        p.communicate()
+        p.wait()
 
-    p.communicate()
-    p.wait()
+        ## clean up undesired outputs 
+        avrot_file_name = os.path.splitext(micrograph_name)[0] + "_PS_avrot.txt"
+        avrot_file_path = os.path.join(out_dir, avrot_file_name)
+        if os.path.exists(avrot_file_path):
+            os.remove(avrot_file_path)
 
-    ## clean up undesired outputs 
-    avrot_file_name = os.path.splitext(micrograph_name)[0] + "_PS_avrot.txt"
-    avrot_file_path = os.path.join(out_dir, avrot_file_name)
-    if os.path.exists(avrot_file_path):
-        os.remove(avrot_file_path)
-
-    ## parse the output text tile for dZ_1, dZ_2, ctf_fit
-    data_file_name = os.path.splitext(micrograph_name)[0] + "_PS.txt"
-    data_file_path = os.path.join(out_dir, data_file_name)
-    dZ, ctf_fit = parse_ctffind_datafile(data_file_path)
-    # print(" CTFFIND results: ")
-    # print("    dZ =", dZ)
-    # print("   fit =", ctf_fit)
-    ## add this entry to the dataset 
-    ctf_dataset.add_entry(micrograph_name, dZ, ctf_fit)
-    write_logfile(logfile, ctf_dataset)
-    return dZ, ctf_fit, micrograph_name
+        ## parse the output text tile for dZ_1, dZ_2, ctf_fit
+        data_file_name = os.path.splitext(micrograph_name)[0] + "_PS.txt"
+        data_file_path = os.path.join(out_dir, data_file_name)
+        dZ, ctf_fit = parse_ctffind_datafile(data_file_path)
+        # print(" CTFFIND results: ")
+        # print("    dZ =", dZ)
+        # print("   fit =", ctf_fit)
+        ## add this entry to the dataset 
+        ctf_dataset.add_entry(micrograph_name, dZ, ctf_fit)
+        write_logfile(logfile, ctf_dataset)
+        return dZ, ctf_fit, micrograph_name
+    
+    except KeyboardInterrupt:
+        ## clean up any partial files 
+        print(" !!! WIP")
+        sys.exit()
 
 def parse_ctffind_datafile(fname):
     """
@@ -793,8 +833,68 @@ def write_logfile(logfile, ctf_dataset):
                 f.write("%s\t%s\t%s\n" % (mic, dZ, ctf_fit))
 
 
-    print(" Written logfile: %s" % logfile )
+    # print(" Written logfile: %s" % logfile )
     return 
+
+def processing_pipeline(movie, i, PARAMS):
+    step_string = "  Processing movie #%s :: " % (i + 1)
+    print(step_string, end = "")
+    print("\r", end="")
+
+    ## 1. Check if we want to save the full movie
+    print(" " * len(step_string), end = "")
+    print("\r", end="")
+    step_string = "  Processing movie #%s :: saving movie" % (i + 1)
+    print(step_string, end = "")
+    print("\r", end="")
+    save_movie(movie, PARAMS.movie_save_string(movie), DRY_RUN = DRY_RUN)
+
+    ## 2. Motion correct the movie to a single .MRC
+    print(" " * len(step_string), end = "")
+    print("\r", end="")
+    step_string = "  Processing movie #%s :: running motion correction" % (i + 1)
+    print(step_string, end = "")
+    print("\r", end="")
+    run_motioncor2(movie, PARAMS.mrc_save_string(movie), pixel_size = PARAMS.angpix, kV = PARAMS.kV, frame_dose = PARAMS.frame_dose, DRY_RUN = DRY_RUN)
+
+    ## 3. Write out a compressed .JPG file for analysis later 
+    print(" " * len(step_string), end = "")
+    print("\r", end="")
+    step_string = "  Processing movie #%s :: writing jpgs" % (i + 1)
+    print(step_string, end = "")
+    print("\r", end="")
+    write_jpg(PARAMS.mrc_save_string(movie), PARAMS.jpg_save_string(movie), DRY_RUN = DRY_RUN)
+
+    ## 4. If not yet, write out a GridSquare image for the corresponding micrograph
+    write_gridsquare_jpg(movie, PARAMS.jpg_dir)
+
+    ## 5. If atlas directory was provided, write out the main atlas of the grid
+    if PARAMS.atlas_dir != False:
+        write_atlas_jpg(PARAMS.atlas_dir, PARAMS.jpg_dir)
+
+    ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
+    if PARAMS.atlas_dir != False:
+        markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
+
+    ## 7. Calculate CTF estimate of micrograph
+    print(" " * len(step_string), end = "")
+    print("\r", end="")
+    step_string = "  Processing movie #%s :: running CTFFIND4" % (i + 1)
+    print(step_string, end = "")
+    print("\r", end="")
+    dZ, ctf_fit, micrograph_name = run_ctffind(PARAMS.mrc_save_string(movie), PARAMS.ctf_dir, PARAMS.angpix, PARAMS.kV, PARAMS.logfile, CTF_DATA)
+
+    print(" " * len(step_string), end = "")
+    print("\r", end="")
+    if micrograph_name == None:
+        step_string = ""
+    else:
+        step_string = "  Processing movie #%s :: running CTFFIND4 (dZ = %s, ctf_fit = %s)" % ((i + 1), dZ, ctf_fit)
+    print(step_string, end = "")
+    print("\r", end="")
+
+    print()
+
 
 #region STAR handler functions
 def get_table_position(file, table_title, DEBUG = True):
@@ -949,6 +1049,10 @@ if __name__ == "__main__":
     import numpy as np
     import mrcfile 
 
+    print(h_bar)
+    print("    EPU ON-THE-FLY PROCESSING")
+
+
     PARAMS = PARAMETERS(sys.argv)
     PARAMS.prepare_directories()
     CTF_DATA = DATASET()
@@ -958,90 +1062,120 @@ if __name__ == "__main__":
 
     ## parse any existing log file in the working directory 
     CTF_DATA.parse_logfile(PARAMS.logfile)
-    print(CTF_DATA)
-    exit()
 
     ## for each movie, determine the desired outputs 
-    for movie in movies_discovered:
-        print(" ===============================================")
-        print("    Opening: ", movie)
-        print(" -----------------------------------------------")
-        ## 1. Check if we want to save the full movie
-        save_movie(movie, PARAMS.movie_save_string(movie), DRY_RUN = DRY_RUN)
+    print(h_bar)
+    print("  Processing :: ", end = "")
+    print("\r", end="")
+    # print(h_sub_bar)
+    for i in range(len(movies_discovered)):
+        movie = movies_discovered[i]
+        processing_pipeline(movie, i, PARAMS)
+        # step_string = "  Processing movie #%s :: " % (i + 1)
+        # print(step_string, end = "")
+        # print("\r", end="")
 
-        ## 2. Motion correct the movie to a single .MRC
-        run_motioncor2(movie, PARAMS.mrc_save_string(movie), pixel_size = PARAMS.angpix, kV = PARAMS.kV, frame_dose = PARAMS.frame_dose, DRY_RUN = DRY_RUN)
+        # ## 1. Check if we want to save the full movie
+        # print(" " * len(step_string), end = "")
+        # print("\r", end="")
+        # step_string = "  Processing movie #%s :: saving movie" % (i + 1)
+        # print(step_string, end = "")
+        # print("\r", end="")
+        # save_movie(movie, PARAMS.movie_save_string(movie), DRY_RUN = DRY_RUN)
 
-        ## 3. Write out a compressed .JPG file for analysis later 
-        write_jpg(PARAMS.mrc_save_string(movie), PARAMS.jpg_save_string(movie), DRY_RUN = DRY_RUN)
-        
-        ## 4. If not yet, write out a GridSquare image for the corresponding micrograph
-        write_gridsquare_jpg(movie, PARAMS.jpg_dir)
+        # ## 2. Motion correct the movie to a single .MRC
+        # print(" " * len(step_string), end = "")
+        # print("\r", end="")
+        # step_string = "  Processing movie #%s :: running motion correction" % (i + 1)
+        # print(step_string, end = "")
+        # print("\r", end="")
+        # run_motioncor2(movie, PARAMS.mrc_save_string(movie), pixel_size = PARAMS.angpix, kV = PARAMS.kV, frame_dose = PARAMS.frame_dose, DRY_RUN = DRY_RUN)
 
-        ## 5. If atlas directory was provided, write out the main atlas of the grid
-        if PARAMS.atlas_dir != False:
-            write_atlas_jpg(PARAMS.atlas_dir, PARAMS.jpg_dir)
+        # ## 3. Write out a compressed .JPG file for analysis later 
+        # print(" " * len(step_string), end = "")
+        # print("\r", end="")
+        # step_string = "  Processing movie #%s :: writing jpgs" % (i + 1)
+        # print(step_string, end = "")
+        # print("\r", end="")
+        # write_jpg(PARAMS.mrc_save_string(movie), PARAMS.jpg_save_string(movie), DRY_RUN = DRY_RUN)
 
-        ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
-        if PARAMS.atlas_dir != False:
-            markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
+        # ## 4. If not yet, write out a GridSquare image for the corresponding micrograph
+        # write_gridsquare_jpg(movie, PARAMS.jpg_dir)
 
-        ## 7. Calculate CTF estimate of micrograph
-        run_ctffind(PARAMS.mrc_save_string(movie), PARAMS.ctf_dir, PARAMS.angpix, PARAMS.kV, PARAMS.logfile, CTF_DATA)
-        print(CTF_DATA)
-        
+        # ## 5. If atlas directory was provided, write out the main atlas of the grid
+        # if PARAMS.atlas_dir != False:
+        #     write_atlas_jpg(PARAMS.atlas_dir, PARAMS.jpg_dir)
 
-        print(" ===============================================")
+        # ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
+        # if PARAMS.atlas_dir != False:
+        #     markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
 
-    exit()
+        # ## 7. Calculate CTF estimate of micrograph
+        # print(" " * len(step_string), end = "")
+        # print("\r", end="")
+        # step_string = "  Processing movie #%s :: running CTFFIND4" % (i + 1)
+        # print(step_string, end = "")
+        # print("\r", end="")
+        # dZ, ctf_fit, micrograph_name = run_ctffind(PARAMS.mrc_save_string(movie), PARAMS.ctf_dir, PARAMS.angpix, PARAMS.kV, PARAMS.logfile, CTF_DATA)
 
-    angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile = parse_cmdline(sys.argv)
+        # print(" " * len(step_string), end = "")
+        # print("\r", end="")
+        # step_string = "  Processing movie #%s :: running CTFFIND4 (dZ = %s, ctf_fit = %s)" % ((i + 1), dZ, ctf_fit)
+        # print(step_string, end = "")
+        # print("\r", end="")
 
-    ## if saving movies, start by saving them to the target directory  
-    if save_movies:
-        ## find the movies that do not have a corresponding file in the save directory 
-        movies_to_save = get_all_movies_to_save(movie_dir, movies_discovered)
-        ## save the movies not present in the save directory 
-        for i in range(len(movies_to_save)):
-            print(" ... saving movie #%s: %s -> %s/" % (i + 1, movies_to_save[i], movie_dir), end='\r')
+        # print()
 
-            save_movie(movies_to_save[i], movie_dir)
-
-        ## report the number of movies saved on completion 
-        print(" ")
-        print(" %s movies were saved in %s/" % (len(movies_to_save), movie_dir))
-
-    ## get all motion corrected micrographs
-    micrographs_corrected = get_all_micrographs_corrected(mrc_dir, movie_glob)
-
-    ## find which movies have not been corrected yet 
-    movies_not_yet_corrected = get_all_movies_not_yet_corrected(movies_discovered, micrographs_corrected)
-
-    ## iterate across all movies to be corrected 
-    for i in range(len(movies_not_yet_corrected)):
-        print(" ")
-        print(" ... motion correcting movie #%s: %s -> %s/" % (i + 1, movies_not_yet_corrected[i], mrc_dir), end='\r')
-        corrected_micrograph = run_motioncor2(movies_not_yet_corrected[i], mrc_dir, pixel_size = angpix, kV = kV, frame_dose = frame_dose)
-        write_jpg(corrected_micrograph, jpg_dir)
-
-        ## while motion correcting, run the CTF estimation step immediately after so we can some quick feedback on quality during the run 
-        print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, corrected_micrograph, ctf_dir), end='\r')
-        dZ, ctf_fit, mic_name = run_ctffind(corrected_micrograph, ctf_dir, angpix, kV)
-        write_logfile(logfile, i, dZ, ctf_fit, mic_name)
+    print(h_bar)
 
 
-    ## find which micrographs (prior to the initial correction step) have not had CTF estimates calculated 
-    micrographs_ctf = micrographs_not_yet_CTF_estimated(ctf_dir, micrographs_corrected)
+    # angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile = parse_cmdline(sys.argv)
 
-    ## iterate across all micrographs to be CTF estimated
-    for i in range(len(micrographs_ctf)): 
-        # print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, micrographs_ctf[i], ctf_dir), end='\r')
-        dZ, ctf_fit, mic_name = run_ctffind(micrographs_ctf[i], ctf_dir, angpix, kV)
-        write_logfile(logfile, dZ, ctf_fit, mic_name)
+    # ## if saving movies, start by saving them to the target directory  
+    # if save_movies:
+    #     ## find the movies that do not have a corresponding file in the save directory 
+    #     movies_to_save = get_all_movies_to_save(movie_dir, movies_discovered)
+    #     ## save the movies not present in the save directory 
+    #     for i in range(len(movies_to_save)):
+    #         print(" ... saving movie #%s: %s -> %s/" % (i + 1, movies_to_save[i], movie_dir), end='\r')
+
+    #         save_movie(movies_to_save[i], movie_dir)
+
+    #     ## report the number of movies saved on completion 
+    #     print(" ")
+    #     print(" %s movies were saved in %s/" % (len(movies_to_save), movie_dir))
+
+    # ## get all motion corrected micrographs
+    # micrographs_corrected = get_all_micrographs_corrected(mrc_dir, movie_glob)
+
+    # ## find which movies have not been corrected yet 
+    # movies_not_yet_corrected = get_all_movies_not_yet_corrected(movies_discovered, micrographs_corrected)
+
+    # ## iterate across all movies to be corrected 
+    # for i in range(len(movies_not_yet_corrected)):
+    #     print(" ")
+    #     print(" ... motion correcting movie #%s: %s -> %s/" % (i + 1, movies_not_yet_corrected[i], mrc_dir), end='\r')
+    #     corrected_micrograph = run_motioncor2(movies_not_yet_corrected[i], mrc_dir, pixel_size = angpix, kV = kV, frame_dose = frame_dose)
+    #     write_jpg(corrected_micrograph, jpg_dir)
+
+    #     ## while motion correcting, run the CTF estimation step immediately after so we can some quick feedback on quality during the run 
+    #     print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, corrected_micrograph, ctf_dir), end='\r')
+    #     dZ, ctf_fit, mic_name = run_ctffind(corrected_micrograph, ctf_dir, angpix, kV)
+    #     write_logfile(logfile, i, dZ, ctf_fit, mic_name)
+
+
+    # ## find which micrographs (prior to the initial correction step) have not had CTF estimates calculated 
+    # micrographs_ctf = micrographs_not_yet_CTF_estimated(ctf_dir, micrographs_corrected)
+
+    # ## iterate across all micrographs to be CTF estimated
+    # for i in range(len(micrographs_ctf)): 
+    #     # print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, micrographs_ctf[i], ctf_dir), end='\r')
+    #     dZ, ctf_fit, mic_name = run_ctffind(micrographs_ctf[i], ctf_dir, angpix, kV)
+    #     write_logfile(logfile, dZ, ctf_fit, mic_name)
 
     print(" ")
 
-    ## run infinite loop 
+    ## run infinite loop after initial pass 
     while True:
         try:
             # start_time = time.time()
@@ -1049,8 +1183,16 @@ if __name__ == "__main__":
             # total_time_taken = end_time - start_time
             # print(" ... copy runtime = %.2f sec" % total_time_taken)
 
+            ## discover all movies in the EPU session 
+            movies_discovered = get_all_movies(PARAMS.epu_dir, PARAMS.movie_glob)
+
+            for i in range(len(movies_discovered)):
+                movie = movies_discovered[i]
+                processing_pipeline(movie, i, PARAMS)
+
+
             ## Add a live timer to display to the user the sleeping state is actively running 
-            for i in range(seconds_delay,0,-1):
+            for i in range(PARAMS.seconds_delay,0,-1):
                 print(f" ... next check in: {i} seconds", end="\r", flush=True)
                 time.sleep(1)
 
