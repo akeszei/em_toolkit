@@ -288,7 +288,6 @@ class DATASET():
         ctf_fit = self.data[mic_name][1]
         return ctf_fit
 
-
     def parse_logfile(self, fname):
         ## first check if a log file even exists yet 
         if not os.path.isfile(fname):
@@ -321,6 +320,8 @@ class DATASET():
         print(" ... %s entries parsed from logfile (%s)" % (parsed, fname))
         return 
 
+    def size(self):
+        return len(self.data)
 
 #endregion
 #############################
@@ -349,7 +350,7 @@ def usage():
     print("===================================================================================================")
     sys.exit()
 
-def get_all_movies(EPU_dir, movie_glob):
+def get_all_movies(EPU_dir, movie_glob, VERBOSE = True):
     """
     PARAMETERS 
         EPU_dir = path-like str() pointing to the main EPU Session directory
@@ -366,14 +367,15 @@ def get_all_movies(EPU_dir, movie_glob):
     for match in glob.glob(search_glob, recursive = True):
         movies.append(match)
 
-    print(" %s movies found in EPU directory, e.g.: " % (len(movies)))
-    print(h_sub_bar)
-    if len(movies) > 0:
-        for i in range(len(movies)):
-            print("    %s" % movies[i])
-            if i == 2: 
-                print("    ...")
-                break 
+    if VERBOSE:
+        print(" %s movies found in EPU directory, e.g.: " % (len(movies)))
+        print(h_sub_bar)
+        if len(movies) > 0:
+            for i in range(len(movies)):
+                print("    %s" % movies[i])
+                if i == 2: 
+                    print("    ...")
+                    break 
         
         
 
@@ -888,12 +890,13 @@ def processing_pipeline(movie, i, PARAMS):
     print("\r", end="")
     if micrograph_name == None:
         step_string = ""
+        pass
     else:
         step_string = "  Processing movie #%s :: running CTFFIND4 (dZ = %s, ctf_fit = %s)" % ((i + 1), dZ, ctf_fit)
-    print(step_string, end = "")
-    print("\r", end="")
-
-    print()
+        print(step_string, end = "")
+        print("\r", end="")
+        print()
+    
 
 
 #region STAR handler functions
@@ -1173,7 +1176,7 @@ if __name__ == "__main__":
     #     dZ, ctf_fit, mic_name = run_ctffind(micrographs_ctf[i], ctf_dir, angpix, kV)
     #     write_logfile(logfile, dZ, ctf_fit, mic_name)
 
-    print(" ")
+    # print(" ")
 
     ## run infinite loop after initial pass 
     while True:
@@ -1184,12 +1187,12 @@ if __name__ == "__main__":
             # print(" ... copy runtime = %.2f sec" % total_time_taken)
 
             ## discover all movies in the EPU session 
-            movies_discovered = get_all_movies(PARAMS.epu_dir, PARAMS.movie_glob)
-
+            movies_discovered = get_all_movies(PARAMS.epu_dir, PARAMS.movie_glob, VERBOSE = False)
+            delta = len(movies_discovered) - CTF_DATA.size()
+            print("  %s movies processed, %s in queue" % (CTF_DATA.size(), delta))
             for i in range(len(movies_discovered)):
                 movie = movies_discovered[i]
                 processing_pipeline(movie, i, PARAMS)
-
 
             ## Add a live timer to display to the user the sleeping state is actively running 
             for i in range(PARAMS.seconds_delay,0,-1):
