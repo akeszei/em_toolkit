@@ -203,6 +203,7 @@ if __name__ == '__main__':
     import xml.etree.ElementTree as ET
     import glob
     import sys # for sys.exit() calls while building script
+    import os 
     import matplotlib.pyplot as plt
 
     cmd_line = sys.argv
@@ -225,8 +226,16 @@ if __name__ == '__main__':
         print("  output_fname = %s " % output_fname)
         print("==================================================")
 
+    ## get the latest atlas file and read its id 
+    ## get all Atlas files in the directory 
+    search_glob = os.path.join(atlas_directory, 'Atlas*mrc')
+    ## take the match with the highest alpha numeric match 
+    atlas_mrc_path = sorted(glob.glob(search_glob))[-1]
+    atlas_id = os.path.splitext(os.path.split(atlas_mrc_path)[-1])[0].split("_")[-1]
+
+
     ## get all .xml files corresponding to Tiles in the atlas
-    tile_files = get_tile_files(atlas_directory)
+    tile_files = get_tile_files(atlas_directory, atlas_id = atlas_id)
 
     ## pass each xml file through a parser and get the cached X and Y coordinates
     tile_coordinates = get_tile_coords(tile_files)
