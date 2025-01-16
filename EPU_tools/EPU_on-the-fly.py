@@ -407,22 +407,50 @@ def save_movie(file, save_path, DRY_RUN = False):
     if not os.path.isdir(save_dir):
         print(" Input save directory for movie not found! (%s)" % save_dir)
         return 
+        
+    ## check the movie is not already saved 
+    if os.path.isfile(save_path):
+    ## file appears to exist, check if it is the right size
+        source_size = os.stat(file).st_size
+        dest_size = os.stat(save_path).st_size
+        if source_size == dest_size:
+        ## the file appears to already exist and is the correct size, we can skip it 
+            print(" Movie is already saved") 
+            return 
+    ## if we have not returned, then there is a percieved difference in size, so we should re-copy the file 
 
     if DRY_RUN:
         print(" shutil.copy2(%s, %s)" % (file, save_dir))
         print(" shutil.move(%s, %s)" % (os.path.join(save_dir, os.path.split(file)[-1]), save_path ))
     else:
-        ## write the target file to the save directory 
-        shutil.copy2(file, save_dir)
-        ## rename the output file to the desired final name 
-        shutil.move(os.path.join(save_dir, os.path.split(file)[-1]), save_path )
+        ## wrap in try statement to allow graceful exiting of program in case it is mid-copying 
+        try:
+            ## write the target file to the save directory 
+            shutil.copy2(file, save_dir)
+            ## rename the output file to the desired final name 
+            shutil.move(os.path.join(save_dir, os.path.split(file)[-1]), save_path )
+
+        except KeyboardInterrupt:
+            ## clean up partial copied file 
+            potential_partial_file = os.join(save_dir, os.path.split(file)[-1])
+            if os.path.isfile(potential_partial_file):
+                os.remove(potential_partial_file)
+
+            sys.exit()
+
     return 
 
+def run_motioncor2(movie, out_micrograph, pixel_size = False, frame_dose = False, kV = False, gain = False, DRY_RUN = False):
+    ## sanity check the motion correct micrograph does not already exist 
+    if os.path.isfile(out_micrograph):
+        mrc_size_bytes = os.stat(out_micrograph).st_size
+        mrc_size_mb = mrc_size_bytes / (1024*1024)
+        
+        ## make sure is at least greater than 30 Mb large
+        if mrc_size_mb > 30:
+            print(" Motion corrected micrograph already exists (%.1f Mbs)" % (mrc_size_mb))    
+            return 
 
-
-def run_motioncor2(movie, out_dir, pixel_size = False, frame_dose = False, kV = False, gain = False):
-    ## generate a suitable output path for the motion correct movie 
-    out_micrograph = os.path.join(out_dir, os.path.split(movie)[1])
     out_micrograph_DW = False
 
     ## Prepare the command line executable 
@@ -442,7 +470,10 @@ def run_motioncor2(movie, out_dir, pixel_size = False, frame_dose = False, kV = 
     ## Set default GPU behavior 
     command += "-Gpu %s " % ('1')
 
-
+    if DRY_RUN:
+        print(" Motion correction commmand: ")
+        print("     $", command)
+        return 
 
     # print(" MotionCor2 command: ")
     # print( "    ", command)
@@ -460,16 +491,117 @@ def run_motioncor2(movie, out_dir, pixel_size = False, frame_dose = False, kV = 
                 ## after deleting the old non-doseweighted image, rename the doseweighted one over the original
                 os.rename(out_micrograph_DW, out_micrograph)
 
-    return out_micrograph
+    ## update the pixel size in the header of the output file 
+    with mrcfile.open(out_micrograph, mode = 'r+') as mrc:
+        mrc.voxel_size = pixel_size
+        mrc.update_header_from_data()
+        mrc.update_header_stats()
 
-def write_jpg(mrc, dest):
-    out_fname = os.path.splitext(os.path.split(mrc)[1])[0] + ".jpg"
-    out_fname_w_path = os.path.join(dest, out_fname)
-    command = "mrc2img.py %s %s " % (mrc, out_fname_w_path)
-    command += "--bin"
+    return
 
-    process = Popen(command, shell=True, stdout=PIPE)
-    process.wait()
+def write_jpg(input_mrc, output_jpg, bin = 4, DRY_RUN = False):
+    ## sanity check the jpg does not already exist 
+    if os.path.isfile(output_jpg):
+        size_bytes = os.stat(output_jpg).st_size
+        size_kb = size_bytes / (1024)
+        
+        ## make sure is at least greater than 30 Mb large
+        if size_kb > 50:
+            print(" .JPG already exists (%.1f kbs)" % (size_kb))    
+            return 
+
+    command = "mrc2img.py %s %s " % (input_mrc, output_jpg)
+    command += "--bin %s" % bin
+
+    if DRY_RUN:
+        print(" ", command)
+    else:
+        process = Popen(command, shell=True, stdout=PIPE)
+        process.wait()
+
+    return 
+
+def write_gridsquare_jpg(input_movie_path, jpg_dir):
+    ## get the GridSquare_##### identity for the movie
+    dirs = splitall(input_movie_path) 
+    grid_square_str = dirs[-3] # by convention the GridSquare directory is 2 folders behind 
+    
+    ## rebuild the path to the gridsquare directory 
+    grid_square_dir = ''
+    for step in dirs:
+        if 'GridSquare' in step:
+            grid_square_dir = os.path.join(grid_square_dir, step)
+            break
+        else:
+            grid_square_dir = os.path.join(grid_square_dir, step)
+    
+    ## find all GridSquare*mrc files 
+    search_glob = os.path.join(grid_square_dir, 'GridSquare*mrc')
+    ## take the first match 
+    gridsquare_file = glob.glob(search_glob)[0]
+    gridsquare_jpg_path = os.path.join(jpg_dir, grid_square_str + '.jpg')
+    
+    write_jpg(gridsquare_file, gridsquare_jpg_path)
+
+    return 
+
+def write_atlas_jpg(atlas_dir, jpg_dir):
+    ## get all Atlas files in the directory 
+    search_glob = os.path.join(atlas_dir, 'Atlas*mrc')
+    ## take the match with the highest alpha numeric match 
+    atlas_mrc_path = sorted(glob.glob(search_glob))[-1]
+
+    ## determine the output jpg name 
+    atlas_jpg_path = os.path.join(jpg_dir, os.path.splitext(os.path.split(atlas_mrc_path)[-1])[0] + ".jpg")
+    # print(" atlas found = %s, jpg = %s" % (atlas_mrc_path, atlas_jpg_path)) 
+
+    write_jpg(atlas_mrc_path, atlas_jpg_path, bin = 2)
+
+    return 
+
+def markup_gridsquare_on_atlas_jpg(input_movie_path, atlas_dir, jpg_dir, DRY_RUN = False):
+    ## 1. generate the expected gridsquare markedup output and check if it already exists 
+    dirs = splitall(input_movie_path) 
+    grid_square_str = dirs[-3] # by convention the GridSquare directory is 2 folders behind 
+    gridsquare_markup_jpg_path = os.path.join(jpg_dir, grid_square_str + '_location.jpg')
+
+    if os.path.isfile(gridsquare_markup_jpg_path):
+        ## gridsquare markup already exists, we can skip remaking it 
+        print(" Gridsquare atlas position is already made ")
+        return 
+
+    ## rebuild the path to the gridsquare directory 
+    grid_square_dir = ''
+    for step in dirs:
+        if 'GridSquare' in step:
+            grid_square_dir = os.path.join(grid_square_dir, step)
+            break
+        else:
+            grid_square_dir = os.path.join(grid_square_dir, step)
+    
+    ## 2. find the corresponding .xml file for the gridsquare 
+    ## find all GridSquare*xml files 
+    search_glob = os.path.join(grid_square_dir, 'GridSquare*xml')
+    ## take the first match 
+    gridsquare_xml_file = glob.glob(search_glob)[0]
+
+    ## 3. figure out the expected location of the atlas.jpg file that should already exist 
+    search_glob = os.path.join(atlas_dir, 'Atlas*mrc')
+    atlas_mrc_path = sorted(glob.glob(search_glob))[-1]
+    atlas_jpg_path = os.path.join(jpg_dir, os.path.splitext(os.path.split(atlas_mrc_path)[-1])[0] + ".jpg")
+    if not os.path.isfile(atlas_jpg_path):
+        print(" !! WARNING :: Could not generate a GridSquare location file since no Atlas_<x>.jpg was found")
+        return 
+
+    ## run the mark up script with the relevant input information 
+    command = "show_atlas_position.py %s %s %s %s " % (atlas_dir, atlas_jpg_path, gridsquare_xml_file, gridsquare_markup_jpg_path)
+
+    if DRY_RUN:
+        print(" ", command)
+    else:
+        process = Popen(command, shell=True, stdout=PIPE)
+        process.wait()
+
     return 
 
 def run_ctffind(micrograph_path, out_dir, pixel_size, kV):
@@ -570,6 +702,7 @@ if __name__ == "__main__":
     import os, sys, time, glob, shutil
     from subprocess import Popen, PIPE, DEVNULL
     import numpy as np
+    import mrcfile 
 
     PARAMS = PARAMETERS(sys.argv)
     PARAMS.prepare_directories()
@@ -580,30 +713,32 @@ if __name__ == "__main__":
     ## for each movie, determine the desired outputs 
     for movie in movies_discovered:
         print(" ===============================================")
-        print("    ", movie)
+        print("    Opening: ", movie)
         print(" -----------------------------------------------")
         ## 1. Check if we want to save the full movie
         save_movie(movie, PARAMS.movie_save_string(movie), DRY_RUN = DRY_RUN)
 
-        exit()
         ## 2. Motion correct the movie to a single .MRC
-        print(PARAMS.mrc_save_string(movie))
+        run_motioncor2(movie, PARAMS.mrc_save_string(movie), pixel_size = PARAMS.angpix, kV = PARAMS.kV, frame_dose = PARAMS.frame_dose, DRY_RUN = DRY_RUN)
 
         ## 3. Write out a compressed .JPG file for analysis later 
-        print(PARAMS.jpg_save_string(movie))
-
+        write_jpg(PARAMS.mrc_save_string(movie), PARAMS.jpg_save_string(movie), DRY_RUN = DRY_RUN)
+        
         ## 4. If not yet, write out a GridSquare image for the corresponding micrograph
+        write_gridsquare_jpg(movie, PARAMS.jpg_dir)
 
-
-        ## 5. If atlase directory was provided, write out the main atlas of the grid
-
+        ## 5. If atlas directory was provided, write out the main atlas of the grid
+        if PARAMS.atlas_dir != False:
+            write_atlas_jpg(PARAMS.atlas_dir, PARAMS.jpg_dir)
 
         ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
+        if PARAMS.atlas_dir != False:
+            markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
 
+        exit()
 
         print(" ===============================================")
 
-    exit()
 
     angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile = parse_cmdline(sys.argv)
 
