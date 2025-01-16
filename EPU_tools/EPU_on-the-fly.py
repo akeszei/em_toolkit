@@ -10,7 +10,7 @@
 #region     GLOBAL FLAGS
 #############################
 DEBUG = True
-DRY_RUN = True
+DRY_RUN = False
 
 #endregion
 #############################
@@ -36,7 +36,7 @@ class PARAMETERS():
         self.seconds_delay = 5
         self.kV = False
         self.frame_dose = False 
-        self.logfile = "otf.log"
+        self.logfile = "ctf.star"
         self.atlas_dir = False    
         self.epu_dir = False
 
@@ -233,6 +233,81 @@ class PARAMETERS():
         jpg_save_string = os.path.join(self.jpg_dir, output_jpg_fname)
 
         return jpg_save_string
+
+
+class DATASET(): 
+    """
+    For ease of tracking, use a single object to hold all active log file data
+    """
+    def __init__(self):
+        ## initialize the object with an empty dictionary that will contain all micrograph log data 
+        self.data = dict()
+        return 
+
+    def __str__(self):
+        print("=============================")
+        print("  DATASET")
+        print("-----------------------------")
+        print("   # entries = %s" % len(self.data))
+        if len(self.data) > 0:
+            print("  e.g.:       ")
+
+            i = 1
+            for k in self.data:
+                dZ = self.data[k][0]
+                ctf_fit = self.data[k][1]
+                if i < 4:                
+                    print("     %s. %s -> dZ = %s, ctf_fit = %s" % (i, k, dZ, ctf_fit))
+                    i = i+1
+            if len(self.data) > 3:
+                print("     ...") 
+
+        print("=============================")
+        return ''
+    
+    def add_entry(self, mic_name, dZ, ctf_fit):
+        ## check the micrograph does not already exist in the dictionary, if it does spit out a warning to the user 
+        if mic_name in self.data:
+            print(" !! WARNING :: Overwriting micrograph CTF data (%s)" % mic_name)
+        self.data[mic_name] = [dZ, ctf_fit]
+
+    def get_dZ(self, mic_name):
+        dZ = self.data[mic_name][0]
+        return dZ
+
+    def get_ctf_fit(self, mic_name):
+        ctf_fit = self.data[mic_name][1]
+        return ctf_fit
+
+
+    def parse_logfile(self, fname):
+        
+        HEADER_START, DATA_START, DATA_END = get_table_position(fname, 'data_micrographs', DEBUG=DEBUG)
+        COLUMN_MIC_NAME = find_star_column(fname, '_MicrographName', HEADER_START, DATA_START, DEBUG=DEBUG)
+        COLUMN_dZ = find_star_column(fname, '_dZ', HEADER_START, DATA_START, DEBUG=DEBUG)
+        COLUMN_CTFFIT = find_star_column(fname, '_CtfFit', HEADER_START, DATA_START, DEBUG=DEBUG)
+
+        ## iterate over each data point and extract the information, then parse it into a desired data structure:
+        with open(fname, 'r') as f :
+            line_num = 0
+            parsed = 0
+            for line in f :
+                line_num += 1
+                ## ignore empty lines
+                if len(line.strip()) == 0 :
+                    continue
+                ## start working only after the header length
+                if DATA_END >= line_num > DATA_START - 1:
+
+                    mic_name = get_star_data(line, COLUMN_MIC_NAME)
+                    dZ = float(get_star_data(line, COLUMN_dZ))
+                    ctf_fit = float(get_star_data(line, COLUMN_CTFFIT))
+
+                    self.add_entry(mic_name, dZ, ctf_fit)
+                    parsed += 1
+
+        print(" ... %s entries found" % parsed)
+        return 
 
 
 #endregion
@@ -563,7 +638,7 @@ def markup_gridsquare_on_atlas_jpg(input_movie_path, atlas_dir, jpg_dir, DRY_RUN
     ## 1. generate the expected gridsquare markedup output and check if it already exists 
     dirs = splitall(input_movie_path) 
     grid_square_str = dirs[-3] # by convention the GridSquare directory is 2 folders behind 
-    gridsquare_markup_jpg_path = os.path.join(jpg_dir, grid_square_str + '_location.jpg')
+    gridsquare_markup_jpg_path = os.path.join(jpg_dir, grid_square_str + '_Atlas.jpg')
 
     if os.path.isfile(gridsquare_markup_jpg_path):
         ## gridsquare markup already exists, we can skip remaking it 
@@ -594,7 +669,7 @@ def markup_gridsquare_on_atlas_jpg(input_movie_path, atlas_dir, jpg_dir, DRY_RUN
         return 
 
     ## run the mark up script with the relevant input information 
-    command = "show_atlas_position.py %s %s %s %s " % (atlas_dir, atlas_jpg_path, gridsquare_xml_file, gridsquare_markup_jpg_path)
+    command = "./show_atlas_position.py %s %s %s %s " % (atlas_dir, atlas_jpg_path, gridsquare_xml_file, gridsquare_markup_jpg_path)
 
     if DRY_RUN:
         print(" ", command)
@@ -604,7 +679,7 @@ def markup_gridsquare_on_atlas_jpg(input_movie_path, atlas_dir, jpg_dir, DRY_RUN
 
     return 
 
-def run_ctffind(micrograph_path, out_dir, pixel_size, kV):
+def run_ctffind(micrograph_path, out_dir, pixel_size, kV, logfile, ctf_dataset):
     if not kV:
         print(" No --kV value supplied, cannot run CTFFIND4...")
         return 
@@ -660,11 +735,18 @@ def run_ctffind(micrograph_path, out_dir, pixel_size, kV):
     data_file_name = os.path.splitext(micrograph_name)[0] + "_PS.txt"
     data_file_path = os.path.join(out_dir, data_file_name)
     dZ, ctf_fit = parse_ctffind_datafile(data_file_path)
-    ## write the resulting data to a logfile 
-    
+    # print(" CTFFIND results: ")
+    # print("    dZ =", dZ)
+    # print("   fit =", ctf_fit)
+    ## add this entry to the dataset 
+    ctf_dataset.add_entry(micrograph_name, dZ, ctf_fit)
+    write_logfile(logfile, ctf_dataset)
     return dZ, ctf_fit, micrograph_name
 
 def parse_ctffind_datafile(fname):
+    """
+    A crude parser to read the output .txt file from CTFFIND4 output 
+    """
     with open(fname, 'r') as f:
         ## load all lines into buffer
         lines = f.readlines()
@@ -678,18 +760,181 @@ def parse_ctffind_datafile(fname):
 
     return dZ_avg, ctf_fit
 
-def write_logfile(logfile, index, dZ, ctf_fit, mic):
-    ## check if logfile already exists, in which case add to it
-    if not os.path.exists(logfile):
-        ## create the logfile header (use a csv structure easily parsed by Pandas into a DataFrame object)
-        with open(logfile, 'w') as f:
-            f.write("index  mic_name  dZ  ctf_fit \n")
+def write_logfile(logfile, ctf_dataset):
+    ## overwrite any existing logfile by making a fresh file with headers 
+    # with open(logfile, 'w') as f:
+    #     f.write("mic_name  dZ  ctf_fit \n")
     
-    ## write the new entry to the logfile 
-    with open(logfile, 'a') as f:
-        f.write("%s  %s  %s  %s \n" % (index, mic, dZ, ctf_fit))
+    # ## write the new entry to the logfile 
+    # with open(logfile, 'a') as f:
+    #     if len(ctf_dataset.data) > 0:
+    #         for mic in ctf_dataset.data:
+    #             dZ = ctf_dataset.get_dZ(mic)
+    #             ctf_fit = ctf_dataset.get_ctf_fit(mic)
+    #             f.write("%s  %s  %s  \n" % (mic, dZ, ctf_fit))
 
+    ## create an empty file with the target name (erase previous file if present)
+    f = open(logfile, 'w+')
+    f.write("\n")
+    f.write("data_micrographs\n")
+    f.write("\n")
+    f.write("loop_\n")
+    f.write("_MicrographName #1\n")
+    f.write("_dZ #2\n")
+    f.write("_CtfFit #3\n")
+    f.close()
+
+    ## write the entries to the logfile 
+    with open(logfile, 'a') as f:
+        if len(ctf_dataset.data) > 0:
+            for mic in ctf_dataset.data:
+                dZ = ctf_dataset.get_dZ(mic)
+                ctf_fit = ctf_dataset.get_ctf_fit(mic)
+                f.write("%s\t%s\t%s\n" % (mic, dZ, ctf_fit))
+
+
+    print(" Written logfile: %s" % logfile )
     return 
+
+#region STAR handler functions
+def get_table_position(file, table_title, DEBUG = True):
+    """ Find the line numbers for key elements in a relion .STAR table.
+		---------------------------------------------------------------
+		PARAMETERS
+		---------------------------------------------------------------
+			file = str(); name of .STAR file with tables (e.g. "run_it025_model.star")
+			table_title = str(); name of the .STAR table we are interested in (e.g. "data_model_classes")
+			DEBUG = bool(); optional parameter to display or not return values
+		---------------------------------------------------------------
+		RETURNS
+		---------------------------------------------------------------
+			HEADER_START = int(); line number for the first entry after `loop_' in the table
+			DATA_START = int(); line number for the first data entry after header
+			DATA_END = int(); line number for the last data entry in the table
+    """
+    TABLE_START = -1
+    HEADER_START = -1 ## line number for the first _COLUMN_NAME #value entry in the header
+    DATA_START = -1 ## line number for the first data entry corresponding to the table
+    DATA_END = -1 ## line number for the last data entry corresponding to the table
+
+    with open(file, 'r') as f :
+        line_num = 0
+        for line in f :
+            line_num += 1
+            line = line.strip() # remove empty spaces around line
+            line_to_list = line.split() # break words into indexed list format
+            ## check if we can exit the loop since we have all data we want
+            if DATA_END > 0:
+                break
+            ## handle empty lines
+            if len(line) == 0 :
+                ## check if we are in the data section, in which case the first empty line corresponds to the end of the data
+                if DATA_START > 0:
+                    DATA_END = line_num - 1
+                    continue
+                else:
+                    continue
+            ## catch the table title
+            if line_to_list[0] == table_title and TABLE_START < 0:
+                TABLE_START = line_num
+                continue
+            ## catch the header start position
+            if line_to_list[0] == "loop_" and TABLE_START > 0:
+                HEADER_START = line_num + 1
+                continue
+            ## if we in the header, check if we have entered the data section by checking when the first character is no longer a `_'
+            if HEADER_START > 0 and DATA_START < 0:
+                first_character = list(line_to_list[0])[0]
+                if first_character != '_':
+                    DATA_START = line_num
+                    continue
+    ## in cases where there is no empty line at the end of the file we need to manually update the DATA_END to match this line value
+    if DATA_END == -1:
+        DATA_END = line_num
+        
+    if DEBUG:
+        print(" Find line numbers for table '%s' in %s" % (table_title, file))
+        print("   >> Table starts at line:  %s" % TABLE_START)
+        print("   >> Data range (start, end) = (%s, %s)" % (DATA_START, DATA_END))
+        print("-------------------------------------------------------------")
+    return HEADER_START, DATA_START, DATA_END
+
+def find_star_column(file, column_name, header_start, header_end, DEBUG = True) :
+    """ For an input .STAR file and line number range corresponding to the header, find the assigned column of a desired column by name (e.g. 'rlnMicrographName')
+	---------------------------------------------------------------
+	PARAMETERS
+	---------------------------------------------------------------
+		file = str(); name of the star file to parse
+		column_name = str(); name of the header column to look for (e.g. '_rlnEstimatedResolution')
+		header_start = int(); line number correspondnig to the first entry of the header
+		header_end = int(); line number corresponding to the last entry of the header (typically line before start of data)
+		DEBUG = bool(); optionally print out steps during run
+	---------------------------------------------------------------
+	RETURNS
+	---------------------------------------------------------------
+		column_num = int(); number assigned to the given column (e.g. _rlnCoordinateX #3 -> 3)
+    """
+    column_num = None # initialize variable for error handling
+    with open(file, 'r') as f :
+        line_num = 0
+        for line in f :
+            line_num += 1
+            ## check if we are in range of the header
+            if line_num < header_start or line_num > header_end:
+                continue
+            ## extract column number for micrograph name
+            if column_name in line :
+                column_num = int(line.split()[1].replace("#",""))
+                ## handle error case where input .STAR file is missing a necessary rlnColumn type
+                if column_num is None :
+                    print(" ERROR: Input .STAR file: %s, is missing a column for: %s" % (file, column_name) )
+                    sys.exit()
+                else:
+                    if DEBUG:
+                        print("  ... %s column value: #%s" % (column_name, column_num))
+                        # print("-------------------------------------------------------------")
+                    return column_num
+
+def get_star_data(line, column, DEBUG = False):
+    """ For a given .STAR file line entry, extract the data at the given column index.
+        If the column does not exist (e.g. for a header line read in), return 'False'
+		---------------------------------------------------------------
+		PARAMETERS
+		---------------------------------------------------------------
+			line = str(); line from file containing data columns
+			column = int(); index of column from which to find data
+			DEBUG = bool(); print on cmd line function process
+		---------------------------------------------------------------
+		RETURNS
+		---------------------------------------------------------------
+			column_value = str() or bool(); returns the value in star column index as a string, or False if no column exists
+    """
+    # break an input line into a list data type for column-by-column indexing
+    line_to_list = line.split()
+    try:
+        column_entry = line_to_list[column-1]
+        if DEBUG:
+            print("Data in column #%s = %s" % (column, column_entry))
+        return column_entry
+    except:
+        return False
+
+def remove_path(file_w_path):
+    """ Parse an input string containing a path and return the file name without the path. Useful for getting micrograph name from 'rlnMicrographName' column.
+	---------------------------------------------------------------
+	PARAMETERS
+	---------------------------------------------------------------
+		file_w_path = str()
+	---------------------------------------------------------------
+	RETURNS
+	---------------------------------------------------------------
+		file_wo_path = str() (e.g. /path/to/file -> 'file')
+    """
+    globals()['os'] = __import__('os')
+    file_wo_path = os.path.basename(file_w_path)
+    return file_wo_path
+#endregion
+
 
 #endregion
 #############################
@@ -706,9 +951,15 @@ if __name__ == "__main__":
 
     PARAMS = PARAMETERS(sys.argv)
     PARAMS.prepare_directories()
+    CTF_DATA = DATASET()
 
     ## discover all movies in the EPU session 
     movies_discovered = get_all_movies(PARAMS.epu_dir, PARAMS.movie_glob)
+
+    ## parse any existing log file in the working directory 
+    CTF_DATA.parse_logfile(PARAMS.logfile)
+    print(CTF_DATA)
+    exit()
 
     ## for each movie, determine the desired outputs 
     for movie in movies_discovered:
@@ -735,10 +986,14 @@ if __name__ == "__main__":
         if PARAMS.atlas_dir != False:
             markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
 
-        exit()
+        ## 7. Calculate CTF estimate of micrograph
+        run_ctffind(PARAMS.mrc_save_string(movie), PARAMS.ctf_dir, PARAMS.angpix, PARAMS.kV, PARAMS.logfile, CTF_DATA)
+        print(CTF_DATA)
+        
 
         print(" ===============================================")
 
+    exit()
 
     angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile = parse_cmdline(sys.argv)
 
