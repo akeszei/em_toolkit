@@ -848,12 +848,13 @@ def processing_pipeline(movie, i, PARAMS):
     print("\r", end="")
 
     ## 1. Check if we want to save the full movie
-    print(" " * len(step_string), end = "")
-    print("\r", end="")
-    step_string = "  Processing movie #%s :: saving movie" % (i + 1)
-    print(step_string, end = "")
-    print("\r", end="")
-    save_movie(movie, PARAMS.movie_save_string(movie), DRY_RUN = DRY_RUN)
+    if PARAMS.save_movie:
+        print(" " * len(step_string), end = "")
+        print("\r", end="")
+        step_string = "  Processing movie #%s :: saving movie" % (i + 1)
+        print(step_string, end = "")
+        print("\r", end="")
+        save_movie(movie, PARAMS.movie_save_string(movie), DRY_RUN = DRY_RUN)
 
     ## 2. Motion correct the movie to a single .MRC
     print(" " * len(step_string), end = "")
