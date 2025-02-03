@@ -141,6 +141,10 @@ class PARAMETERS():
         if SESSION_FILE and IMAGES_DIR:
             return True
 
+        ## update: do not necessary need EpuSession.dm file! This file is only made after stopping an EPU collection...
+        if IMAGES_DIR:
+            return True
+
         return False 
     
     def check_if_atlas_directory(self, dir = "./"):
@@ -702,7 +706,7 @@ def markup_gridsquare_on_atlas_jpg(input_movie_path, atlas_dir, jpg_dir, DRY_RUN
         return 
 
     ## run the mark up script with the relevant input information 
-    command = "./show_atlas_position.py %s %s %s %s " % (atlas_dir, atlas_jpg_path, gridsquare_xml_file, gridsquare_markup_jpg_path)
+    command = "show_atlas_position.py %s %s %s %s " % (atlas_dir, atlas_jpg_path, gridsquare_xml_file, gridsquare_markup_jpg_path)
 
     if DRY_RUN:
         print(" ", command)
