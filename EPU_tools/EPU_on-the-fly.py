@@ -848,7 +848,7 @@ def processing_pipeline(movie, i, PARAMS):
     print("\r", end="")
 
     ## 1. Check if we want to save the full movie
-    if PARAMS.save_movie:
+    if PARAMS.save_movies:
         print(" " * len(step_string), end = "")
         print("\r", end="")
         step_string = "  Processing movie #%s :: saving movie" % (i + 1)
