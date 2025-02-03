@@ -1,8 +1,21 @@
+#!/usr/bin/env python3
+
+## Author : A. Keszei 
+
+## 2025-02-03: version 1 finished
+
+def usage():
+    print(
 """
     # run this script from the output directory of EPU_on-the-fly.py (containing ctf.star file) using panel:
         $ panel serve EPU_curate_otf.py 
     # the webapp can be found at the address written in the terminal, typically at: host:5006/EPU_curate_otf
 """
+    )
+    exit()
+
+if __name__ == "__main__":
+    usage()
 
 ######################################
 #region GLOBALS 
