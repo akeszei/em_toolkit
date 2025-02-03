@@ -7,6 +7,8 @@
 def usage():
     print(
 """
+    ## Dependencies: 
+        $ pip install panel hvplot starfile
     # run this script from the output directory of EPU_on-the-fly.py (containing ctf.star file) using panel:
         $ panel serve EPU_curate_otf.py 
     # the webapp can be found at the address written in the terminal, typically at: host:5006/EPU_curate_otf
