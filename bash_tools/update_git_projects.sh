@@ -60,7 +60,8 @@ chmod +x em_toolkit/EPU_tools/EPU_sort_by_beamshift.py
 chmod +x em_toolkit/EPU_tools/EPU_reorganize_krios_data.sh
 chmod +x em_toolkit/EPU_tools/EPU_reorganize_talos_data.sh
 chmod +x em_toolkit/EPU_tools/EPU_array_atlas_jpgs.py
-chmod +x em_toolkit/EPU_tools/EPU_active_copy.py
+chmod +x em_toolkit/EPU_tools/EPU_on-the-fly.py
+chmod +x em_toolkit/EPU_tools/EPU_curate_otf.py
 chmod +x em_toolkit/bash_tools/add_dummy_picks_to_missing_mics.sh
 chmod +x em_toolkit/bash_tools/link_data.sh
 chmod +x em_toolkit/bash_tools/bash_howto
@@ -112,7 +113,8 @@ ln -s ../em_toolkit/EPU_tools/EPU_sort_by_beamshift.py bin/
 ln -s ../em_toolkit/EPU_tools/EPU_reorganize_krios_data.sh bin/
 ln -s ../em_toolkit/EPU_tools/EPU_reorganize_talos_data.sh bin/
 ln -s ../em_toolkit/EPU_tools/EPU_array_atlas_jpgs.py bin/
-ln -s ../em_toolkit/EPU_tools/EPU_active_copy.py bin/
+ln -s ../em_toolkit/EPU_tools/EPU_on-the-fly.py bin/
+ln -s ../em_toolkit/EPU_tools/EPU_curate_otf.py bin/
 ln -s ../em_toolkit/topaz_tools/topaz_viewer.py bin/
 ln -s ../em_toolkit/topaz_tools/coord2star.py bin/
 ln -s ../em_toolkit/topaz_tools/topaz_preproc_mrc.py bin/
