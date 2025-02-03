@@ -875,26 +875,14 @@ def processing_pipeline(movie, i, PARAMS):
     ## 4. If not yet, write out a GridSquare image for the corresponding micrograph
     write_gridsquare_jpg(movie, PARAMS.jpg_dir)
 
-    start_time = time.time()
-
     ## 5. If atlas directory was provided, write out the main atlas of the grid
     if PARAMS.atlas_dir != False:
         write_atlas_jpg(PARAMS.atlas_dir, PARAMS.jpg_dir)
 
-        end_time = time.time()
-        total_time_taken = end_time - start_time
-        print(" ... write atlas jpg runtime = %.2f sec" % total_time_taken) ## 0.3 s
-        start_time = time.time()
-
-    ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
-    if PARAMS.atlas_dir != False:
-        markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
-
-        end_time = time.time()
-        total_time_taken = end_time - start_time
-        print(" ... write gridsquare on atlas jpg runtime = %.2f sec" % total_time_taken) ## 0.3 s
-
-
+    ## WIP
+    # ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
+    # if PARAMS.atlas_dir != False:
+    #     markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
 
     ## 7. Calculate CTF estimate of micrograph
     print(" " * len(step_string), end = "")
