@@ -11,7 +11,10 @@ def usage():
         $ pip install panel hvplot starfile
     ## Run this script from the output directory of EPU_on-the-fly.py (containing ctf.star file) using panel:
         $ panel serve /programs/akeszei/bin/EPU_curate_otf.py 
-    ## The webapp can be found at the address written in the terminal, typically at: host:5006/EPU_curate_otf
+    ## The webapp can be found at the address written in the terminal, typically at: localhost:5006/EPU_curate_otf
+    ## You can use ssh tunnelling to remotely access the web app via:
+        $ ssh -N -L localhost:5006:localhost:5006 remote@tal
+        ... then open the app using the exepcted address: localhost:5006/EPU_curate_otf
 """
     )
     exit()
@@ -134,10 +137,11 @@ def get_plot(df, header, alternate_style = False):
                                     nonselection_alpha = 0.35, ## range = [0,1] 
                                     ylabel = y_axis_label, 
                                     labelled=['y'], ## labelled =['x', 'y'], informs which axis to actually label 
-                                    title = header
+                                    title = header,
+                                    ylim = (0,15)
                                 )  
     else:
-        plot = d.hvplot.scatter(height=280, legend=False, color=df['color'], responsive=True, size=40, xlabel = 'index', ylabel = y_axis_label)
+        plot = d.hvplot.scatter(height=350, legend=False, color=df['color'], responsive=True, size=40, xlabel = 'index', ylabel = y_axis_label, ylim = (0,15))
 
 
     # plot = hv.Scatter(d, linked_axes = False)
@@ -309,16 +313,16 @@ def update_imgs(i):
 
         ## get the template objects for the images 
         atlas_obj = template.main[0][1][1][0][0]
-        square_obj = template.main[0][1][1][1][0]
-        mic_obj = template.main[0][1][1][2][0]
+        square_obj = template.main[0][1][1][0][1]
+        mic_obj = template.main[0][1][1][1][0]
 
         atlas_obj.loading = True
         square_obj.loading = True
         mic_obj.loading = True
 
-        atlas_obj.object = get_img(matched_grid_atlas_jpg_path, 'Atlas', 350)
-        square_obj.object = get_img(matched_grid_square_jpg_path, 'Square', 350)
-        mic_obj.object = get_img(mic_path, 'Micrograph', 350)
+        atlas_obj.object = get_img(matched_grid_atlas_jpg_path, 'Atlas', 325)
+        square_obj.object = get_img(matched_grid_square_jpg_path, 'Square', 325)
+        mic_obj.object = get_img(mic_path, 'Micrograph', 700)
 
         atlas_obj.loading = False
         square_obj.loading = False
@@ -401,7 +405,7 @@ dZ_min_input.param.watch(text_updated, 'enter_pressed')
 ctfFit_max_input.param.watch(text_updated, 'enter_pressed')
 ctfFit_min_input.param.watch(text_updated, 'enter_pressed')
 
-cb = pn.state.add_periodic_callback(update, 2000, timeout=100000)
+cb = pn.state.add_periodic_callback(update, 2000, timeout=None)
 
 
 # jpg_mic_path = 'jpg/GridSquare_7358443_FoilHole_8326055_Data_7370147_0_20250109_002057_Fractions.jpg'
@@ -409,9 +413,9 @@ cb = pn.state.add_periodic_callback(update, 2000, timeout=100000)
 # jpg_atlas_path = 'jpg/GridSquare_7358443_Atlas.jpg'
 
 ## load empty images into squares 
-atlas_img = get_img('', 'Atlas', 350)
-square_img = get_img('', 'Square', 350)
-mic_img = get_img('', 'Micrograph', 350)
+atlas_img = get_img('', 'Atlas', 325)
+square_img = get_img('', 'Square', 325)
+mic_img = get_img('', 'Micrograph', 700)
 
 
 # Instantiate the template with widgets displayed in the sidebar
@@ -435,8 +439,10 @@ template.main.append(
                 ('Analysis', pn.Column(
                                 analysis_plot,
                                 pn.Row(
-                                    pn.pane.HoloViews(atlas_img, linked_axes=False),
-                                    pn.pane.HoloViews(square_img, linked_axes=False),
+                                    pn.Column(
+                                        pn.pane.HoloViews(atlas_img, linked_axes=False),
+                                        pn.pane.HoloViews(square_img, linked_axes=False),
+                                    ),
                                     pn.pane.HoloViews(mic_img, linked_axes=False)
                                 )
                             )
