@@ -9,9 +9,9 @@ def usage():
 """
     ## Dependencies: 
         $ pip install panel hvplot starfile
-    # run this script from the output directory of EPU_on-the-fly.py (containing ctf.star file) using panel:
-        $ panel serve EPU_curate_otf.py 
-    # the webapp can be found at the address written in the terminal, typically at: host:5006/EPU_curate_otf
+    ## Run this script from the output directory of EPU_on-the-fly.py (containing ctf.star file) using panel:
+        $ panel serve /programs/akeszei/bin/EPU_curate_otf.py 
+    ## The webapp can be found at the address written in the terminal, typically at: host:5006/EPU_curate_otf
 """
     )
     exit()
@@ -197,7 +197,7 @@ def delete_rejected_files(event):
                 f_path = os.path.join(dir, f)
                 if os.path.exists(f_path):
                     print(" Delete file: %s" % f_path)
-                    os.remove(f)
+                    os.remove(f_path)
                 else:
                     print(" File could not be found (perhaps was already deleted) = %s" % f_path)
 
