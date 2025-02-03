@@ -116,7 +116,7 @@ def assign_point_colors(df):
     REJECTED = rejection_list
     return df, rejection_list, approved_list
 
-def get_plot(df, header, alternate_style = False):
+def get_plot(df, header, alternate_style = False, ylim = (2,12)):
     """Use hvplot to generate an interactive scatter plot
     PARAMETERS 
         df = pandas DataFrame object 
@@ -141,7 +141,7 @@ def get_plot(df, header, alternate_style = False):
                                     ylim = (0,15)
                                 )  
     else:
-        plot = d.hvplot.scatter(height=350, legend=False, color=df['color'], responsive=True, size=40, xlabel = 'index', ylabel = y_axis_label, ylim = (0,15))
+        plot = d.hvplot.scatter(height=350, legend=False, color=df['color'], responsive=True, size=40, xlabel = 'index', ylabel = y_axis_label, ylim = ylim)
 
 
     # plot = hv.Scatter(d, linked_axes = False)
@@ -171,7 +171,7 @@ def reload_data(event):
     analysis_plot.loading = True
 
 
-    dZ_plot.object = get_plot(df, "dZ")
+    dZ_plot.object = get_plot(df, "dZ", ylim = (0, 3.5))
     ctfFit_plot.object = get_plot(df, "CtfFit")
     analysis_plot.object = get_plot(df, "CtfFit", alternate_style = True)
 
@@ -380,7 +380,7 @@ ctfFit_sidebar = pn.layout.WidgetBox(
 )
 
 df = get_data(STAR_FILE)
-dZ_plot = get_plot(df, "dZ")
+dZ_plot = get_plot(df, "dZ", ylim = (0, 3.5))
 ctfFit_plot = get_plot(df, "CtfFit")
 analysis_plot = get_plot(df, "CtfFit", alternate_style = True)
 
@@ -440,10 +440,10 @@ template.main.append(
                                 analysis_plot,
                                 pn.Row(
                                     pn.Column(
-                                        pn.pane.HoloViews(atlas_img, linked_axes=False),
-                                        pn.pane.HoloViews(square_img, linked_axes=False),
+                                        pn.pane.HoloViews(atlas_img, linked_axes=False, align = "end"),
+                                        pn.pane.HoloViews(square_img, linked_axes=False, align = "end"),
                                     ),
-                                    pn.pane.HoloViews(mic_img, linked_axes=False)
+                                    pn.pane.HoloViews(mic_img, linked_axes=False, align = "start"), 
                                 )
                             )
                 ),
