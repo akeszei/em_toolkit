@@ -879,10 +879,9 @@ def processing_pipeline(movie, i, PARAMS):
     if PARAMS.atlas_dir != False:
         write_atlas_jpg(PARAMS.atlas_dir, PARAMS.jpg_dir)
 
-    ## WIP
-    # ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
-    # if PARAMS.atlas_dir != False:
-    #     markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
+    ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
+    if PARAMS.atlas_dir != False:
+        markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
 
     ## 7. Calculate CTF estimate of micrograph
     print(" " * len(step_string), end = "")

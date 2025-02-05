@@ -62,8 +62,8 @@ def get_data(star_file, VERBOSE = True):
     df = sf.read(star_file)
     df, reject_list, approve_list = assign_point_colors(df)
 
-    if VERBOSE: 
-        print(df)
+    # if VERBOSE: 
+    #     print(df)
 
     return df 
 
@@ -149,7 +149,7 @@ def get_plot(df, header, alternate_style = False, ylim = (2,12)):
     return plot  
 
 def reload_data(event):
-    global df, ACCEPTED, REJECTED, template
+    global df, ACCEPTED, REJECTED, template, stream
     print(" REFRESH ")
     pn.state.clear_caches()
     df = get_data(STAR_FILE)
@@ -163,22 +163,29 @@ def reload_data(event):
     dZ_plot = template.main[0][0][0]
     ctfFit_plot = template.main[0][0][1]
     plots_tab = template.main[0][0]
-    analysis_plot = template.main[0][1][0]  
+    analysis_plot_pane = template.main[0][1][0]  
 
     plots_tab.loading = True
     # dZ_plot.loading = True
     # ctfFit_plot.loading = True
-    analysis_plot.loading = True
+    analysis_plot_pane.loading = True
 
 
     dZ_plot.object = get_plot(df, "dZ", ylim = (0, 3.5))
     ctfFit_plot.object = get_plot(df, "CtfFit")
-    analysis_plot.object = get_plot(df, "CtfFit", alternate_style = True)
+
+    ## generate the analysis plot outside of the pane object assignment so we can reassign the stream correctly 
+    analysis_plot = get_plot(df, "CtfFit", alternate_style = True)
+    stream = hv.streams.Selection1D(source=analysis_plot)
+    stream.add_subscriber(on_scatterplot_click)
+    ## pass the new, steam assigned, plot to the pane object to update the visual  
+    analysis_plot_pane.object = analysis_plot
+
 
     plots_tab.loading = False
     # dZ_plot.loading = False
     # ctfFit_plot.loading = False
-    analysis_plot.loading = False
+    analysis_plot_pane.loading = False
 
 
     ## update the text describing the accpted and rejected values
@@ -290,6 +297,7 @@ def get_img(im_path, title, width):
         return display_img
 
 def on_scatterplot_click(index):
+    print(" clicked plot = ", index)
     if len(index) > 0:
         i = index[0]
         update_imgs(i)
@@ -440,11 +448,13 @@ template.main.append(
                                 analysis_plot,
                                 pn.Row(
                                     pn.Column(
-                                        pn.pane.HoloViews(atlas_img, linked_axes=False, align = "end"),
-                                        pn.pane.HoloViews(square_img, linked_axes=False, align = "end"),
-                                    ),
+                                        pn.pane.HoloViews(atlas_img, linked_axes=False, align = "start"),
+                                        pn.pane.HoloViews(square_img, linked_axes=False, align = "start"),
+                                        align = "start"
+                                    ), 
                                     pn.pane.HoloViews(mic_img, linked_axes=False, align = "start"), 
-                                )
+                                    pn.Spacer(align = "start")
+                                ),
                             )
                 ),
                 ('Options', pn.layout.WidgetBox(action_sidebar)
