@@ -677,9 +677,11 @@ def markup_gridsquare_on_atlas_jpg(input_movie_path, atlas_dir, jpg_dir, DRY_RUN
     grid_square_str = dirs[-3] # by convention the GridSquare directory is 2 folders behind 
     gridsquare_markup_jpg_path = os.path.join(jpg_dir, grid_square_str + '_Atlas.jpg')
 
+    # print(" .... Gridsquare mark up file name : ", gridsquare_markup_jpg_path)
+
     if os.path.isfile(gridsquare_markup_jpg_path):
         ## gridsquare markup already exists, we can skip remaking it 
-        # print(" Gridsquare atlas position is already made ")
+        # print(" .... Gridsquare atlas position is already made ")
         return 
 
     ## rebuild the path to the gridsquare directory 

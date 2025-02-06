@@ -58,7 +58,8 @@ def get_tile_files(directory, atlas_id = 1):
         file_list = list() of filenames for each Tile...xml file in their defined order taken by EPU 
     """
     file_list = []
-    for file in glob.glob(directory + "*" + str(atlas_id) + ".xml"):
+    glob_str = os.path.join(directory, "Tile*" + str(atlas_id) + ".xml")
+    for file in glob.glob(glob_str):
         if 'Tile' in file:
             file_list.append(file)
     ## organize file list by alpha numeric
