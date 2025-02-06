@@ -417,6 +417,6 @@ if __name__ == '__main__':
         mics = get_subset_by_dZ(star_data, dZ_thresholds, subset_size, omit_list)
         write_all_mics_to_file(mics, out_fname = out_fname)
     else:
-        write_all_mics_to_file(mics, out_fname = out_fname)
+        write_all_mics_to_file(star_data, out_fname = out_fname)
 
 #endregion
