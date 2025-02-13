@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+"""
+TO DO:
+    - Is there a way to select micrographs from the analysis board into a message? maybe display the micrograph name? 
+"""
+
 ## Author : A. Keszei 
 
 ## 2025-02-03: version 1 finished
@@ -62,9 +67,9 @@ def get_data(star_file, VERBOSE = True):
     df = sf.read(star_file)
     df, reject_list, approve_list = assign_point_colors(df)
 
-    # if VERBOSE: 
-    #     print(df)
-
+    if VERBOSE: 
+        print(df)
+    
     return df 
 
 def assign_point_colors(df):
@@ -75,13 +80,15 @@ def assign_point_colors(df):
     blue = BLUE
     red = RED
     df['color'] = blue
+    df['index'] = -1 ## while assigning color column, also reassign the indexes so we can refer to the index for plotting with hv.Scatter
 
     rejection_list = [] # list of bad micrographs
     approved_list = [] # list of good micrographs
     ## another approach is to look at each file name and then use its unique name to look up its threshold flag in the DataFrame
     for row in df.iterrows():
         index, row_obj = row 
-        print(row_obj)
+        # print(row_obj)
+        df.at[index, 'index'] = index
 
         CTF_FIT = row_obj['CtfFit']
         dZ_FIT = row_obj['dZ']
@@ -129,19 +136,29 @@ def get_plot(df, header, alternate_style = False, ylim = (2,12)):
         y_axis_label = 'Å'
     if alternate_style:
         # plot = d.hvplot.scatter(height=200, legend=False, color=df['color'], responsive=True, size=40)
-        plot = hv.Scatter(d).opts(  tools = ["tap"], 
+        plot = hv.Scatter(
+                            data = df, 
+                            kdims = ['index'], # key dimensions :: the independent value, typically the x-axis 
+                            vdims = [header, 'color', 'dZ'] # value dimensions :: the dependent value, typically the look up value for the key dimension. If a list is provided, the first header context is the one that is plotted while the other header contexts are loaded with the data for use elsewhere (such as in a tooltip)
+                            ).opts(  
+                                    tools = ["tap", "hover"],
+                                    hover_tooltips = ["dZ", "CtfFit"],
                                     size = 8, 
                                     height=200, 
-                                    responsive=True, ## responsive means it will stretch the axis that is not explicitly defined to fit the UI area 
+                                    responsive=True, ## responsive means it will stretch the axis that is not explicitly defined to fit the UI area
+                                    color = 'color', 
                                     # nonselection_color='red', 
                                     nonselection_alpha = 0.35, ## range = [0,1] 
                                     ylabel = y_axis_label, 
                                     labelled=['y'], ## labelled =['x', 'y'], informs which axis to actually label 
                                     title = header,
-                                    ylim = (0,15)
+                                    ylim = (0,15), 
+                                    xlim = (-5, len(d.index) + 5),       
                                 )  
+        # plot.options({'Scatter':{'color' : df['color']}})
+                                
     else:
-        plot = d.hvplot.scatter(height=350, legend=False, color=df['color'], responsive=True, size=40, xlabel = 'index', ylabel = y_axis_label, ylim = ylim)
+        plot = d.hvplot.scatter(height=350, legend=False, color=df['color'], responsive=True, size=40, xlabel = 'index', ylabel = y_axis_label, ylim = ylim, xlim = (-5, len(d.index) + 5))
 
 
     # plot = hv.Scatter(d, linked_axes = False)
@@ -214,7 +231,7 @@ def delete_rejected_files(event):
 
     return 
 
-def text_updated(widget_event):
+def input_text_updated(widget_event):
     global dZ_MAX, dZ_MIN, CTFFIT_MAX, CTFFIT_MIN
     print(" text boxes updated")
     print(" enter pressed? ", widget_event.obj.enter_pressed)
@@ -320,9 +337,9 @@ def update_imgs(i):
         matched_grid_atlas_jpg_path = os.path.join(jpg_dir, grid_square_id + "_Atlas.jpg")
 
         ## get the template objects for the images 
-        atlas_obj = template.main[0][1][1][0][0]
-        square_obj = template.main[0][1][1][0][1]
-        mic_obj = template.main[0][1][1][1][0]
+        atlas_obj =     template.main[0][1][2][0][0]
+        square_obj =    template.main[0][1][2][0][1]
+        mic_obj =       template.main[0][1][2][1][0]
 
         atlas_obj.loading = True
         square_obj.loading = True
@@ -336,7 +353,15 @@ def update_imgs(i):
         square_obj.loading = False
         mic_obj.loading = False
 
+        update_img_label(mic_fname, i)
+
     return
+
+def update_img_label(img_name, index):
+    ## update the text identifying the micrograph
+    text = "## {}".format(img_name)
+    template.main[0][1][1].object = text
+    return 
  
 
 pn.extension(design="material", sizing_mode="stretch_width")
@@ -407,11 +432,11 @@ button_delete_marked.on_click(delete_rejected_files)
 
 
 ## tie the enter pressed event to the execution of the thresholds to avoid constantly calculating point colors 
-# dZ_max_input.param.watch(text_updated, 'value')
-dZ_max_input.param.watch(text_updated, 'enter_pressed')
-dZ_min_input.param.watch(text_updated, 'enter_pressed')
-ctfFit_max_input.param.watch(text_updated, 'enter_pressed')
-ctfFit_min_input.param.watch(text_updated, 'enter_pressed')
+# dZ_max_input.param.watch(input_text_updated, 'value')
+dZ_max_input.param.watch(input_text_updated, 'enter_pressed')
+dZ_min_input.param.watch(input_text_updated, 'enter_pressed')
+ctfFit_max_input.param.watch(input_text_updated, 'enter_pressed')
+ctfFit_min_input.param.watch(input_text_updated, 'enter_pressed')
 
 cb = pn.state.add_periodic_callback(update, 2000, timeout=None)
 
@@ -446,6 +471,8 @@ template.main.append(
                 ),
                 ('Analysis', pn.Column(
                                 analysis_plot,
+                                # pn.layout.Divider(),
+                                pn.pane.Markdown("## ", margin=(25, 0, 0, 25)),
                                 pn.Row(
                                     pn.Column(
                                         pn.pane.HoloViews(atlas_img, linked_axes=False, align = "start"),
@@ -462,7 +489,17 @@ template.main.append(
                     
     )
 )
-    
+
+print(
+"""
+    ## Run this script from the output directory of EPU_on-the-fly.py (containing ctf.star file) using panel:
+        $ panel serve /programs/akeszei/bin/EPU_curate_otf.py 
+    ## The webapp can be found at the address written in the terminal, typically at: localhost:5006/EPU_curate_otf
+    ## You can use ssh tunnelling to remotely access the web app via:
+        $ ssh -N -L localhost:5006:localhost:5006 remote@tal
+        ... then open the app using the exepcted address: localhost:5006/EPU_curate_otf
+"""
+ )   
 
 
 template.servable();
