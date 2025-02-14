@@ -2,7 +2,7 @@
 
 """
 TO DO:
-    - Is there a way to select micrographs from the analysis board into a message? maybe display the micrograph name? 
+    - In the main plot window, add a text widget that updates the # micrographs processed and how many are out of thresholds
 """
 
 ## Author : A. Keszei 
