@@ -37,6 +37,8 @@ class PARAMETERS():
         self.movie_dir = "movies"
         self.seconds_delay = 5
         self.kV = False
+        self.frames = False
+        self.total_dose = False
         self.frame_dose = False 
         self.logfile = "ctf.star"
         self.atlas_dir = False    
@@ -44,6 +46,8 @@ class PARAMETERS():
 
 
         self.parse_cmdline(cmdline)
+
+        self.write_otf_parameters()
 
         return
 
@@ -68,11 +72,28 @@ class PARAMETERS():
                     self.kV = float(cmdline[i+1])
                 except:
                     print(" Could not parse --kV entry or none given")
-            if cmdline[i] == '--frame_dose':
+            # if cmdline[i] == '--frame_dose':
+            #     try:
+            #         self.frame_dose = float(cmdline[i+1])
+            #     except:
+            #         print(" Could not parse --frame_dose entry or none given")
+            if cmdline[i] == '--frames':
                 try:
-                    self.frame_dose = float(cmdline[i+1])
+                    self.frames = int(cmdline[i+1])
                 except:
-                    print(" Could not parse --frame_dose entry or none given")
+                    print(" Could not parse --frames entry or none given")
+            if cmdline[i] == '--total_dose':
+                try:
+                    self.total_dose = float(cmdline[i+1])
+                except:
+                    print(" Could not parse --total_dose entry or none given")
+
+            if self.frames != False and self.total_dose != False:
+                self.frame_dose = self.total_dose / float(self.frames) 
+            else:
+                print(" !! ERROR : Could not calculate dose per frame (# frames given = %s; toal dose given = %s)" % (self.frames, self.total_dose))
+                usage()
+
 
             if "*" in cmdline[i]:
                 self.movie_glob = cmdline[i]
@@ -115,6 +136,10 @@ class PARAMETERS():
         print("   Pixel size = %s" % self.angpix)
         if self.kV != False:
             print("   kV = %s" % self.kV)
+        if self.frames != False:
+            print("    frames = %s" % self.frames)
+        if self.total_dose != False:
+            print("    total dose = %s" % self.total_dose)
         if self.frame_dose != False:
             print("   frame dose = %s e/A**2/frame" % self.frame_dose)
         if self.save_movies != False:
@@ -180,6 +205,22 @@ class PARAMETERS():
                 continue 
 
         return
+
+    def write_otf_parameters(self):
+        fname = 'otf_parameters.txt'
+        ## write out the inputs the user gave into a file we can refer to later in case we need it 
+        with open(fname, 'w') as f:
+            f.write("EPU directory = %s\n" % self.epu_dir)
+            f.write("Movie glob string = %s\n" % self.movie_glob)
+            f.write("Atlas directory = %s\n" % self.atlas_dir)
+            f.write("Pixel size = %s\n" % self.angpix)
+            f.write("kV = %s\n" % self.kV)
+            f.write("movie frame # = %s\n" % self.frames)
+            f.write("total dose = %s\n" % self.total_dose)
+            f.write("frame dose = %s e/A**2/frame\n" % self.frame_dose)
+            f.write("Save movies = %s\n" % self.save_movies)
+        print(" ... written OTF parameters to: %s" % fname)
+        return 
 
 
     # def __str__(self):
@@ -350,7 +391,9 @@ def usage():
     print("       --save_movies : also save the movies")
     print("       --angpix (-1) : Angstroms per pixel in movie")
     print("       --kV (-1) : energy of the electron beam  ")
-    print("       --frame_dose (-1) : e/squared angstroms for each frame (total dose / total frames)" )
+    # print("       --frame_dose (-1) : e/squared angstroms for each frame (total dose / total frames)" )
+    print("       --frames (-1) : total frames in each movie" )
+    print("       --total_dose (-1) : e/squared angstroms for entire movie" )
     print("===================================================================================================")
     sys.exit()
 
