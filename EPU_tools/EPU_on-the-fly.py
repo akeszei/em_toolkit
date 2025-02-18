@@ -43,6 +43,7 @@ class PARAMETERS():
         self.logfile = "ctf.star"
         self.atlas_dir = False    
         self.epu_dir = False
+        self.gpu_id = 0
 
 
         self.parse_cmdline(cmdline)
@@ -87,16 +88,23 @@ class PARAMETERS():
                     self.total_dose = float(cmdline[i+1])
                 except:
                     print(" Could not parse --total_dose entry or none given")
+            if cmdline[i] == '--gpu':
+                try:
+                    self.gpu_id = int(cmdline[i+1])
+                except:
+                    print(" Could not parse --gpu entry or none given")
 
-            if self.frames != False and self.total_dose != False:
-                self.frame_dose = self.total_dose / float(self.frames) 
-            else:
-                print(" !! ERROR : Could not calculate dose per frame (# frames given = %s; toal dose given = %s)" % (self.frames, self.total_dose))
-                usage()
 
 
             if "*" in cmdline[i]:
                 self.movie_glob = cmdline[i]
+
+        if self.frames != False and self.total_dose != False:
+            self.frame_dose = self.total_dose / float(self.frames) 
+        else:
+            print(" !! ERROR : Could not calculate dose per frame (# frames given = %s; toal dose given = %s)" % (self.frames, self.total_dose))
+            usage()
+
 
         ## check for corresponding directories for EPU session and potential atlas directory 
 
@@ -144,6 +152,7 @@ class PARAMETERS():
             print("   frame dose = %s e/A**2/frame" % self.frame_dose)
         if self.save_movies != False:
             print("   Save movies = %s " % self.save_movies)
+        print("   GPU to use = %s" % self.gpu_id)
         print(h_bar)
 
         return 
@@ -394,6 +403,7 @@ def usage():
     # print("       --frame_dose (-1) : e/squared angstroms for each frame (total dose / total frames)" )
     print("       --frames (-1) : total frames in each movie" )
     print("       --total_dose (-1) : e/squared angstroms for entire movie" )
+    print("       --gpu (0) : if you have a specific GPU you want to use, set this flag with the id number" )
     print("===================================================================================================")
     sys.exit()
 
@@ -583,7 +593,7 @@ def save_movie(file, save_path, DRY_RUN = False):
 
     return 
 
-def run_motioncor2(movie, out_micrograph, pixel_size = False, frame_dose = False, kV = False, gain = False, DRY_RUN = False):
+def run_motioncor2(movie, out_micrograph, pixel_size = False, frame_dose = False, kV = False, gain = False, gpu_id = False, DRY_RUN = False):
     ## sanity check the motion correct micrograph does not already exist 
     if os.path.isfile(out_micrograph):
         mrc_size_bytes = os.stat(out_micrograph).st_size
@@ -611,7 +621,7 @@ def run_motioncor2(movie, out_micrograph, pixel_size = False, frame_dose = False
     command += "-SumRange %s %s " % (x, y)
 
     ## Set default GPU behavior 
-    command += "-Gpu %s " % ('1')
+    command += "-Gpu %s " % (gpu_id)
 
     if DRY_RUN:
         print(" Motion correction commmand: ")
@@ -907,7 +917,7 @@ def processing_pipeline(movie, i, PARAMS):
     step_string = "  Processing movie #%s :: running motion correction" % (i + 1)
     print(step_string, end = "")
     print("\r", end="")
-    run_motioncor2(movie, PARAMS.mrc_save_string(movie), pixel_size = PARAMS.angpix, kV = PARAMS.kV, frame_dose = PARAMS.frame_dose, DRY_RUN = DRY_RUN)
+    run_motioncor2(movie, PARAMS.mrc_save_string(movie), pixel_size = PARAMS.angpix, kV = PARAMS.kV, frame_dose = PARAMS.frame_dose, gpu_id = PARAMS.gpu_id, DRY_RUN = DRY_RUN)
 
     ## 3. Write out a compressed .JPG file for analysis later 
     print(" " * len(step_string), end = "")
