@@ -6,6 +6,12 @@
 ## 2024-10-11: The logfile needs to be re-written every time the program restarts... it should find the micrographs, then check for the corresponding text file in the ctf directory and corresponding jpg and fix all mismatches. Then it should re-build the logfile.   
 ## 2025-01-15: Focus on correct parsing of working directory to allow easy user determination of what squares micrograhs are coming from after-the-fact 
 
+"""
+To Do:
+    - Consider adding an atlas image with all marked positions (i.e. squares collected image)?
+"""
+
+
 #############################
 #region     GLOBAL FLAGS
 #############################
@@ -30,6 +36,7 @@ class PARAMETERS():
         ## default parameters on the object 
         self.angpix = False 
         self.movie_glob = "*Fractions.mrc"
+        self.misc_dir = "misc"
         self.jpg_dir = "jpg"
         self.mrc_dir = "micrographs"
         self.ctf_dir = "ctf"
@@ -201,7 +208,7 @@ class PARAMETERS():
     def prepare_directories(self):
 
         ## prepare the directory list
-        dirs = [self.jpg_dir, self.mrc_dir, self.ctf_dir]
+        dirs = [self.jpg_dir, self.mrc_dir, self.ctf_dir, self.misc_dir]
         if self.save_movies:
             dirs = dirs + [self.movie_dir]
 
@@ -771,6 +778,33 @@ def markup_gridsquare_on_atlas_jpg(input_movie_path, atlas_dir, jpg_dir, DRY_RUN
 
     return 
 
+def copy_misc_files(epu_dir, misc_dir, allowed_extensions = ['.png', '.jpg', '.jpg', '.mrc']):
+    """
+    PARAMETERS 
+        epu_dir = path-like str() indicating the route to the EPU directory 
+        misc_dir = path-like str() indicating route to the misc file to save into 
+    """
+    ## sanity check the paths
+    if not os.path.isdir(epu_dir):
+        print(" !! ERROR :: Could not find path to EPU directory: %s" % epu_dir)
+        return 
+    if not os.path.isdir(misc_dir):
+        print(" !! ERROR :: Could not find save path to misc directory: %s" % misc_dir)
+        return 
+
+    ## find all misc files in the epu directory 
+    files_and_folders_in_epu_dir = os.listdir()
+    for f in files_and_folders_in_epu_dir:
+        ## ignore directories 
+        if os.path.isfile(f):
+            ## find the extension of the current file
+            extension = os.path.splitext(f)[-1]
+            if extension.lower() in allowed_extensions:
+                ## copy suitable misc files into the target directory 
+                shutil.copy2(f, misc_dir)
+
+    return 
+
 def run_ctffind(micrograph_path, out_dir, pixel_size, kV, logfile, ctf_dataset):
     if not kV:
         print(" No --kV value supplied, cannot run CTFFIND4...")
@@ -1245,6 +1279,9 @@ if __name__ == "__main__":
             # end_time = time.time()
             # total_time_taken = end_time - start_time
             # print(" ... copy runtime = %.2f sec" % total_time_taken)
+
+            ## copy any miscellaneous files from the EPU session into the misc file 
+            copy_misc_files(PARAMS.epu_dir, PARAMS.misc_dir)
 
             ## discover all movies in the EPU session 
             movies_discovered = get_all_movies(PARAMS.epu_dir, PARAMS.movie_glob, VERBOSE = False)
