@@ -166,7 +166,7 @@ def get_plot(df, header, alternate_style = False, ylim = (2,12)):
     return plot  
 
 def reload_data(event):
-    global df, ACCEPTED, REJECTED, template, stream
+    global df, ACCEPTED, REJECTED, template, stream, text_sidebar
     print(" REFRESH ")
     pn.state.clear_caches()
     df = get_data(STAR_FILE)
@@ -210,6 +210,9 @@ def reload_data(event):
     text = "{}/{} micrographs ({} %) are marked as out of range based on current thresholds: CTF FIT [{}, {}], dZ RANGE [{}, {}]".format(len(REJECTED), len(df.index), 100 * len(REJECTED)/len(df.index), CTFFIT_MIN, CTFFIT_MAX, dZ_MIN, dZ_MAX)
     action_sidebar[1].object = text
     
+    sidebar_text = "  {} processed \n    {} accepted ({:.1f}%)\n    {} rejected ({:.1f}%)".format(len(df.index), len(ACCEPTED), 100 * len(ACCEPTED)/len(df.index), len(REJECTED), 100 * len(REJECTED)/len(df.index))
+    text_sidebar[0].object = sidebar_text
+
     return 
 
 def delete_rejected_files(event):
@@ -412,6 +415,10 @@ ctfFit_sidebar = pn.layout.WidgetBox(
     sizing_mode='stretch_width'
 )
 
+text_sidebar = pn.Column(
+    pn.pane.Markdown("", margin=(5, 0, 0, 10)), #  top, right, bottom, and left
+)
+
 df = get_data(STAR_FILE)
 dZ_plot = get_plot(df, "dZ", ylim = (0, 3.5))
 ctfFit_plot = get_plot(df, "CtfFit")
@@ -454,7 +461,7 @@ mic_img = get_img('', 'Micrograph', 700)
 # Instantiate the template with widgets displayed in the sidebar
 template = pn.template.FastListTemplate(
     title='EM on-the-fly dataset analyser',
-    sidebar=[title_bar, dZ_sidebar, ctfFit_sidebar],
+    sidebar=[title_bar, dZ_sidebar, ctfFit_sidebar, text_sidebar],
     main=[],
     # raw_css=[RAW_CSS]
     main_layout = None,
