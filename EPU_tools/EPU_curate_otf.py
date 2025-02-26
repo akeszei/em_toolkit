@@ -210,7 +210,7 @@ def reload_data(event):
     text = "{}/{} micrographs ({} %) are marked as out of range based on current thresholds: CTF FIT [{}, {}], dZ RANGE [{}, {}]".format(len(REJECTED), len(df.index), 100 * len(REJECTED)/len(df.index), CTFFIT_MIN, CTFFIT_MAX, dZ_MIN, dZ_MAX)
     action_sidebar[1].object = text
     
-    sidebar_text = "  {} processed \n    {} accepted ({:.1f}%)\n    {} rejected ({:.1f}%)".format(len(df.index), len(ACCEPTED), 100 * len(ACCEPTED)/len(df.index), len(REJECTED), 100 * len(REJECTED)/len(df.index))
+    sidebar_text = "{} processed <br>  {} accepted ({:.1f}%)<br>  {} rejected ({:.1f}%)".format(len(df.index), len(ACCEPTED), 100 * len(ACCEPTED)/len(df.index), len(REJECTED), 100 * len(REJECTED)/len(df.index))
     text_sidebar[0].object = sidebar_text
 
     return 
