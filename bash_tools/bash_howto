@@ -339,6 +339,8 @@ then
        --save_movies : if you plan to do Bayesian polishing, you may want the raw movies 
        --gpu <n> : if you need to process in the background, select a specific GPU ID to run on
 
+ 4) When finished, terminate the script with: Ctrl + C
+
 ========================================
       EPU curator setup:
 ----------------------------------------
@@ -350,6 +352,8 @@ then
       $ panel serve $(which EPU_curate_otf.py)
  4) Open the panel instance in a local browser via: 
       http://localhost:5006/EPU_curate_otf
+ 
+ 5) When finished, terminate the script with: Ctrl + C
 
  NOTE: For remote access to the browser address, you need to be on the UHN VPN and set up an SSH port tunnel via:
       $ ssh -N -L localhost:5006:localhost:5006 remote@10.182.211.5
