@@ -2,7 +2,7 @@
 
 """
 TO DO:
-    - In the main plot window, add a text widget that updates the # micrographs processed and how many are out of thresholds
+    - Update text_sidebar test on start up in case there is data loaded, i.e. not only run on Refresh 
 """
 
 ## Author : A. Keszei 

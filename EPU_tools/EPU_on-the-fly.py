@@ -401,7 +401,7 @@ def usage():
     print(" Usage:")
     print("    $ EPU_on-the-fly.py  <movie_glob_string>  /path/to/EPU/dir  /path/to/atlas  <options> ")
     print(" i.e.:")
-    print("    $ EPU_on-the-fly.py  /mnt/dmp/EPU_session  *Fractions.mrc  /mnt/dmp/Atlases/Sample2/Atlas  --angpix 1.566  --kV 200 --frame_dose 1.5 ")
+    print("    $ EPU_on-the-fly.py  /mnt/dmp/EPU_session  *Fractions.mrc  /mnt/dmp/Atlases/Sample2/Atlas  --angpix 1.566  --kV 200 --frames 26 --total_dose 40 ")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
     print("       --save_movies : also save the movies")
