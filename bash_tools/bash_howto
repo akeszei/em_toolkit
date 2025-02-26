@@ -322,7 +322,40 @@ Topaz denoising:
        -d (n) : choose a specific GPU device to use for denoising
 ========================================"
 fi
+# EPU on-the-fly scripts  
+if [ "$1" = "otf" -o "$1" = "OTF" -o "$1" = "on-the-fly" -o "$1" = "panel" ] ## -o is a logical OR operator in shell script
+then
+   echo "========================================
+EPU on-the-fly setup:
+--------------------------------
+  1) (Optional) Run script in a tmux panel:
+      $ tmux new -s otf 
+  2) Prepare a save directory & make it your current working directory, e.g.:
+      $ mkdir -p path/to/save_dir
+      $ cd path/to/save_dir 
+  3) Launch the on-the-fly script, e.g.:
+      $ EPU_on-the-fly.py  /mnt/dmp/<epu_dir>  *Fractions.mrc  /mnt/dmp/Atlases_.../Sample<n>/Atlas/  --angpix 1.566  --kV 200 --total_dose 40 --frames 26
+   OPTIONS: 
+       --save_movies : if you plan to do Bayesian polishing, you may want the raw movies 
+       --gpu <n> : if you need to process in the background, select a specific GPU ID to run on
 
+========================================
+EPU curator setup:
+--------------------------------
+  1) (Optional) Run script in a tmux panel:
+      $ tmux new -s panel 
+  2) Navigate to the otf working folder (should contain ctf.star), e.g.:
+      $ cd path/to/ctf.star 
+  3) Launch the panel instance 
+      $ panel serve $(which EPU_curate_otf.py)
+  4) Open the panel instance in a local browser via: 
+      http://localhost:5006/EPU_curate_otf
+
+   NOTE: For remote access to the browser address, you need to be on the UHN VPN and set up an SSH port tunnel via:
+      $ ssh -N -L localhost:5006:localhost:5006 remote@tal
+
+========================================"
+fi
 
 
 }
