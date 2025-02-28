@@ -8,7 +8,7 @@
 
 """
 To Do:
-    - Consider adding an atlas image with all marked positions (i.e. squares collected image)?
+    - Fix copying of misc files from EPU dir to the save dir misc folder
 """
 
 
@@ -793,7 +793,7 @@ def copy_misc_files(epu_dir, misc_dir, allowed_extensions = ['.png', '.jpg', '.j
         return 
 
     ## find all misc files in the epu directory 
-    files_and_folders_in_epu_dir = os.listdir()
+    files_and_folders_in_epu_dir = os.listdir(epu_dir)
     for f in files_and_folders_in_epu_dir:
         ## ignore directories 
         if os.path.isfile(f):
