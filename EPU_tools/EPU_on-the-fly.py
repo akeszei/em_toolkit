@@ -8,7 +8,6 @@
 
 """
 To Do:
-    - Fix copying of misc files from EPU dir to the save dir misc folder
 """
 
 
