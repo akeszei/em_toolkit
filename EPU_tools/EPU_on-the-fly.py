@@ -793,14 +793,16 @@ def copy_misc_files(epu_dir, misc_dir, allowed_extensions = ['.png', '.jpg', '.j
 
     ## find all misc files in the epu directory 
     files_and_folders_in_epu_dir = os.listdir(epu_dir)
+
     for f in files_and_folders_in_epu_dir:
+        f_path = os.path.join(epu_dir, f)
         ## ignore directories 
-        if os.path.isfile(f):
+        if os.path.isfile(f_path):
             ## find the extension of the current file
-            extension = os.path.splitext(f)[-1]
+            extension = os.path.splitext(f_path)[-1]
             if extension.lower() in allowed_extensions:
                 ## copy suitable misc files into the target directory 
-                shutil.copy2(f, misc_dir)
+                shutil.copy2(f_path, misc_dir)
 
     return 
 
