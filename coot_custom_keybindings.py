@@ -17,14 +17,14 @@
 
     Custom mapping:
     ======================
-NOTE: The goal of this mapping is to minimize the need to move the mouse away from the structure we are working on by allowing the user to activate the main two buttons for refinement/regularization by 'r' and 't' buttons, while quickly toggling between secondary structure restraints 'q = None', 'w = alpha helix', 'e = beta sheet' [see the active state at the top menu beside the place ligand button]. Other useful functions for rapid refinement include quickly swapping side chains for stubs 'E', area refinement 'R', and fix atom 'F' [note: fix atom gui needs to be open for correct behavior], and flip peptide 'W'
+NOTE: The goal of this mapping is to minimize the need to move the mouse away from the structure we are working on by allowing the user to activate the main two buttons for refinement/regularization by 'r' and 't' buttons, while quickly toggling between secondary structure restraints 'Tab = None', 'q = alpha helix', 'w = beta sheet' [see the active state at the top menu beside the place ligand button]. Other useful functions for rapid refinement include quickly swapping side chains for stubs 'E', area refinement 'R', and fix atom 'F' [note: fix atom gui needs to be open for correct behavior], and flip peptide 'W'
 
     r = Activate real space refinement (click 2 atoms); equivalent to clicking button on gui
     t = Activate regularize zome refinement (click 2 atoms); equivalent to clicking button on gui 
 
-    q = Set secondary structure restraints to 'None'
-    w = Set secondary structure restraints to 'Alpha helix'
-    e = Set secondary structure restraints to 'Beta sheet'
+  Tab = Set secondary structure restraints to 'None'
+    q = Set secondary structure restraints to 'Alpha helix'
+    w = Set secondary structure restraints to 'Beta sheet'
 
     W = Flip peptide
     E = Kill active sidechain (stub)
@@ -35,9 +35,9 @@ NOTE: The goal of this mapping is to minimize the need to move the mouse away fr
 
 ## lower case key binds
 # add_key_binding("Refine Active Residue", "r", lambda: manual_refine_residues(0))
-add_key_binding("Set secondary structure restraints: None", "q", lambda: set_secondary_structure_restraints_type(0))
-add_key_binding("Set secondary structure restraints: Alpha helix", "w", lambda: set_secondary_structure_restraints_type(1))
-add_key_binding("Set secondary structure restraints: Beta strand", "e", lambda: set_secondary_structure_restraints_type(2))
+add_key_binding("Set secondary structure restraints: None", "Tab", lambda: set_secondary_structure_restraints_type(0))
+add_key_binding("Set secondary structure restraints: Alpha helix", "q", lambda: set_secondary_structure_restraints_type(1))
+add_key_binding("Set secondary structure restraints: Beta strand", "w", lambda: set_secondary_structure_restraints_type(2))
 add_key_binding("Real space refine zone", "r", lambda: do_refine(1))
 add_key_binding("Regularize zone", "t", lambda: do_regularize(1))
 
