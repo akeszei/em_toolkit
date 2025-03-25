@@ -109,18 +109,19 @@ def find_star_column(file, column_name, header_start, header_end, DEBUG = True) 
                     return column_num
 
 def get_star_data(line, column, DEBUG = False):
-    """ For a given .STAR file line entry, extract the data at the given column index.
-        If the column does not exist (e.g. for a header line read in), return 'False'
-		---------------------------------------------------------------
-		PARAMETERS
-		---------------------------------------------------------------
-			line = str(); line from file containing data columns
-			column = int(); index of column from which to find data
-			DEBUG = bool(); print on cmd line function process
-		---------------------------------------------------------------
-		RETURNS
-		---------------------------------------------------------------
-			column_value = str() or bool(); returns the value in star column index as a string, or False if no column exists
+    """ 
+    For a given .STAR file line entry, extract the data at the given column index.
+    If the column does not exist (e.g. for a header line read in), return 'False'
+    ### PARAMETERS
+    ```
+        line = str() # line from file containing data columns
+        column = int() # index of column from which to find data
+        DEBUG = bool() # print on cmd line function process
+    ```
+    ### RETURNS
+    ```
+        column_value = str() or bool() # returns the value in star column index as a string, or False if no column exists
+    ```
     """
     # break an input line into a list data type for column-by-column indexing
     line_to_list = line.split()
