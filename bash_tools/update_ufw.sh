@@ -26,7 +26,7 @@ read -ep "${magenta}Full path to IP address file: ${default_color}" -i "/home/ad
 ## Sanity check the file exists 
 if [ -f "$FILE" ]; then
     # echo " File found: $FILE"
-    continue  
+    :  
 else 
     echo " !! ERROR !! Input ip table file not found at path: $FILE"
     exit 1
@@ -47,6 +47,7 @@ do
     ## filter the line into an array based on space delimitation
     read -a ip_entry <<< "$line"
 
+
     ## sanity check the array length is 2, otherwise print a warning and skip the entry
     if [ "${#ip_entry[@]}" -gt 2 ]; then
         echo " !! WARNING !! Entry found, but more than 2 columns were detected:"
@@ -59,10 +60,18 @@ do
         ## for readability, rename the array entries based on their expected value types 
         ip_addr=${ip_entry[0]}
         comment=${ip_entry[1]}
-        ## run the assignment protocol for each ip address to the firewall 
-        #echo "CMD =" ufw allow proto tcp from $ip_addr to any port 22,39000 comment \'$comment\'
-        ufw allow proto tcp from $ip_addr to any port 22,39000 comment "$comment"
-        #echo " Parsed entry:   $ip_addr   $comment"
+        ## extract the first character of the line to check if it is a comment character (#)
+        first_char=${ip_addr:0:1}
+        if [[ "$first_char" == "#" ]]; then 
+            # echo " This line is commented: ", $ip_entry
+            :
+        else
+            ## run the assignment protocol for each ip address to the firewall 
+            #echo "CMD =" ufw allow proto tcp from $ip_addr to any port 22,39000 comment \'$comment\'
+            ufw allow proto tcp from $ip_addr to any port 22,39000 comment "$comment"
+            # echo " Parsed entry:   $ip_addr   $comment"
+        fi
+
     fi
 done
 
