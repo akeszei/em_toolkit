@@ -28,6 +28,7 @@ def usage():
     print(" Options (default in brackets): ")
     print("                   --lt (n) : Find micrographs with particle counts less than the value n")
     print("                   --gt (n) : Find micrographs with particle counts greater than the value n")
+    print("             --bin_size (n) : Plot histogram with a bin size of n particles")
     print("   --o (threshold_mics.txt) : Change the output file name from default")
     print("===================================================================================================")
     sys.exit()
@@ -41,6 +42,7 @@ def parse_cmdline(cmd_line):
     ## parse any flags and set defaults 
     LESS_THAN = None
     GREATER_THAN = None
+    BIN_SIZE = 10
     out_fname = 'threshold_mics.txt' # set default 
     for i in range(len(cmd_line)):
         if cmd_line[i] == '--lt':
@@ -58,6 +60,14 @@ def parse_cmdline(cmd_line):
             except:
                 print(" Could not parse --gt entry or none given, provide an integer value")
                 usage()
+
+        if cmd_line[i] == '--bin_size':
+            try:
+                BIN_SIZE = int(cmd_line[i+1])
+                print(" Use a bin size of %s particles" % BIN_SIZE)
+            except:
+                print(" Could not parse --bin_size entry or none given, using default size of %s particles" % BIN_SIZE)
+                
 
         if cmd_line[i] == '--o':
             try:
@@ -79,7 +89,7 @@ def parse_cmdline(cmd_line):
         print(" ERROR :: No .STAR file was detected as input!")
         usage()
 
-    return star_file, LESS_THAN, GREATER_THAN, out_fname
+    return star_file, LESS_THAN, GREATER_THAN, out_fname, BIN_SIZE
 
 def header_length(file):
     """ For an input .STAR file, define the length of the header and
@@ -182,7 +192,7 @@ def write_thresholded_mics(list_of_mics, out_fname):
             f.write("%s\n" % mic)
     return 
 
-def plot_hist(particles_per_micrograph, LESS_THAN = None, GREATER_THAN = None, DEBUG = DEBUG):
+def plot_hist(particles_per_micrograph, BIN_SIZE = 10, LESS_THAN = None, GREATER_THAN = None, DEBUG = DEBUG):
     """
     PARAMETERS 
         particles_per_micrograph = dictionary of the form, {  mic_name : #_particles, ... }
@@ -194,7 +204,7 @@ def plot_hist(particles_per_micrograph, LESS_THAN = None, GREATER_THAN = None, D
     min_value = min(particles_per_micrograph.values())
     max_value = max(particles_per_micrograph.values())
     # bin_size = int((max_value - min_value)/40)
-    bin_size = 10
+    bin_size = BIN_SIZE
     all_values = list(particles_per_micrograph.values())
 
     bins = make_bins(min_value, max_value, bin_size)
@@ -322,22 +332,39 @@ def plot_data(data, lower_threshold = None, upper_threshold = None):
 
 def find_mics_less_than(particles_per_mic, threshold):
     mics_less_than = []
+    total_particles = 0
+    particles_from_less_than = 0
     for mic in particles_per_mic:
         particle_num = particles_per_mic[mic]
+        total_particles += particle_num
         if particle_num < threshold:
             mics_less_than.append(mic)
+            particles_from_less_than += particle_num
 
-    print(" %s micrographs were found to have particle counts less than %s" % (len(mics_less_than), threshold))
+    percent_lt = 100 * (len(mics_less_than) / len(particles_per_mic))
+    percent_particles_from_lt = 100 * (particles_from_less_than / total_particles)
+
+    print(" %s / %s micrographs (%.1f %%), corresponding to %s particles (%.1f %% of total particles) were found to have particle counts less than %s" % (len(mics_less_than), len(particles_per_mic), percent_lt, particles_from_less_than, percent_particles_from_lt, threshold))
     return mics_less_than
 
 def find_mics_greater_than(particles_per_mic, threshold):
     mics_greater_than = []
+    total_particles = 0
+    particles_from_greater_than = 0
+
     for mic in particles_per_mic:
         particle_num = particles_per_mic[mic]
+        total_particles += particle_num
         if particle_num > threshold:
             mics_greater_than.append(mic)
+            particles_from_greater_than += particle_num
 
-    print(" %s micrographs were found to have particle counts greater than %s" % (len(mics_greater_than), threshold))
+
+    percent_gt = 100 * (len(mics_greater_than) / len(particles_per_mic))
+    percent_particles_from_gt = 100 * (particles_from_greater_than / total_particles)
+
+    # print(" %s micrographs were found to have particle counts greater than %s" % (len(mics_greater_than), threshold))
+    print(" %s / %s micrographs (%.1f %%), corresponding to %s particles (%.1f %% of total particles) were found to come from micrographs with particle counts greater than %s" % (len(mics_greater_than), len(particles_per_mic), percent_gt, particles_from_greater_than, percent_particles_from_gt, threshold))
     return mics_greater_than
 
 #endregion
@@ -353,7 +380,7 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
     from matplotlib import rcParams # update the condition for autolayout to ensure proper figure formatting
 
-    star_file, LESS_THAN, GREATER_THAN, out_fname = parse_cmdline(sys.argv)
+    star_file, LESS_THAN, GREATER_THAN, out_fname, BIN_SIZE = parse_cmdline(sys.argv)
 
     print("... running")
     print(" .STAR file = %s" % star_file)
@@ -389,7 +416,7 @@ if __name__ == "__main__":
     
     # if LESS_THAN == None and GREATER_THAN == None:
     #     plot_hist(particle_data)
-    plot_hist(particle_data, LESS_THAN, GREATER_THAN)
+    plot_hist(particle_data, BIN_SIZE=BIN_SIZE, LESS_THAN=LESS_THAN, GREATER_THAN=GREATER_THAN)
 
 
     print("... job completed.")
