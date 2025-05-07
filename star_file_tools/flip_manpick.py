@@ -200,11 +200,11 @@ def write_manpick_files(data_dict, FLIPX, FLIPY, x_len, y_len):
         with open('%s' % (out_fname), 'a' ) as f :                
             for (X_coord, Y_coord) in data_dict[mic] :
                 if FLIPX:
-                    X_coord = x_len - X_coord
+                    X_coord = x_len - 1 - X_coord
                     if X_coord < 0:
                         print(" WARNING :: Flipped X coordinate is negative!")
                 if FLIPY: 
-                    Y_coord = y_len - Y_coord
+                    Y_coord = y_len -1 -Y_coord
                     if Y_coord < 0:
                         print(" WARNING :: Flipped Y coordinate is negative!")
 
