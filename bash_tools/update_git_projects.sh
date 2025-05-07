@@ -51,6 +51,7 @@ chmod +x em_toolkit/star_file_tools/remove_mics_from_star.py
 chmod +x em_toolkit/star_file_tools/select_into_manpick.py
 chmod +x em_toolkit/star_file_tools/merge_star_coordinates.py
 chmod +x em_toolkit/star_file_tools/plot_fsc.py
+chmod +x em_toolkit/star_file_tools/flip_manpick.py
 chmod +x em_toolkit/star_file_tools/get_mics_from_star.py
 chmod +x em_toolkit/star_file_tools/cryolo2manpick.py
 chmod +x em_toolkit/star_file_tools/curate_star_by_picks.py
@@ -105,6 +106,7 @@ ln -s ../em_toolkit/star_file_tools/remove_mics_from_star.py bin/
 ln -s ../em_toolkit/star_file_tools/select_into_manpick.py bin/
 ln -s ../em_toolkit/star_file_tools/merge_star_coordinates.py bin/
 ln -s ../em_toolkit/star_file_tools/plot_fsc.py bin/
+ln -s ../em_toolkit/star_file_tools/flip_manpick.py bin/
 ln -s ../em_toolkit/star_file_tools/get_mics_from_star.py bin/
 ln -s ../em_toolkit/star_file_tools/cryolo2manpick.py bin/
 ln -s ../em_toolkit/star_file_tools/curate_star_by_picks.py bin/
