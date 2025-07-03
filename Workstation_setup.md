@@ -200,7 +200,12 @@ IP addresses can be mapped to hostnames via editing `/etc/hosts`, e.g.:
 ```sh
 $ sudo gedit /etc/hosts 
 ## Add a line for the host at the end of the file, e.g.:
-## 10.182.211.5     tal  # Glacios workstation 
+aa.bbb.xxx.y     tal  # Glacios workstation 
+```
+For Windows systems you'll want to find and edit the file at: `C:\Windows\System32\drivers\etc\hosts` with the new entry, e.g.:
+```
+## Add line at end of file, e.g.:
+aa.bbb.xxx.y    hostname          # comment
 ```
 
 
