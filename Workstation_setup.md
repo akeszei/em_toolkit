@@ -61,6 +61,17 @@ Prepare a `remote` user account, from which external users can login and run com
 
 While editing accounts, it is useful to add both `administrator` and `remote` to a common group (e.g. `users`) to simplify permission structures later. 
 
+In mint you can use the system guis to adjust group participation. For Ubuntu use the command line:
+
+Add user to a group via:
+```
+    $ sudo usermod -a -G <grp> <usr>
+```
+
+Check users in a group via:
+```
+    $ getent group | grep <grp> 
+```
 
 ## Install CUDA drivers & toolkit 
 There are multiple ways to install CUDA drivers. This method follows the runfile method outlined by [nVidia docs](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#runfile-overview), which installs the toolkit in a controlled location on disk for easier compiling of programs that need it. Below are steps that were taken for CUDA version 11.6.
@@ -136,7 +147,7 @@ If done correctly, then a fresh terminal window should show a return for:
 Add/remove packages as desired. This is a list of the usual suspects I use:
 
 ```sh
-$ sudo apt install gedit git gh tmux cmake fonts-inconsolata fonts-roboto ttf-mscorefonts-installer okular evince imagemagick gnuplot xorg openssh-server build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev python3-pip python3-setuptools libx11-dev tk8.6-dev csh python3-tk python3-pil.imagetk yakuake tree gimp openconnect network-manager-openconnect perl-tk
+$ sudo apt install gedit git gh tmux cmake fonts-inconsolata fonts-roboto ttf-mscorefonts-installer okular evince imagemagick gnuplot xorg openssh-server build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev python3-pip python3-setuptools libx11-dev tk8.6-dev csh python3-tk python3-pil.imagetk yakuake tree gimp openconnect network-manager-openconnect perl-tk curl
 ```
 
 ## Authorize github account, if using for push/pulling 
@@ -164,10 +175,15 @@ Check that `pip` is also set up for this python version by checking its callback
 ```sh
     $ pip -V ## look for (python 3.x) in callback 
 ```
-### Install common python modules to root account 
-Using the root account to install a module makes it available for all users, preventing the need to install it in multiple locations: 
+### Install common python modules 
+Consider installing common modules for each user using pip: 
 ```
-    $ sudo pip install matplotlib mrcfile numpy scipy opencv-python tifffile 
+    $ pip install matplotlib mrcfile numpy scipy opencv-python tifffile 
+```
+You may want to add the install path of each script to `.bashrc` if you get a warning on install:
+```
+    ## Add locally installed modules from pip to PATH
+    export PATH=$PATH:/home/administrator/.local/bin 
 ```
 
 ## Set up RSA keys & (if possible) SSH handshake the servers
@@ -301,8 +317,7 @@ Notes to follow
 Notes to follow
 
 ### CrYOLO
-Notes to follow
-
+Updated as of 2025-07. On the remote user, follow the [with CUDA 11](https://cryolo.readthedocs.io/en/stable/installation.html) installation steps using conda to install (even if you are running CUDA 12 drivers).
 
 ### Phenix
 Download or transfer a phenix installation zip and unpackage it in a temporary directory:
@@ -317,13 +332,13 @@ To install:
 % ./install --prefix=<directory>  [will make <directory>/phenix-<version> and install there]
 
 ### Miniconda 
-Get the [Linux 64-bit installer](https://docs.conda.io/en/latest/miniconda.html). Run the installer:
+Follow the [Linux 64-bit x86 termianl installer steps](https://www.anaconda.com/docs/getting-started/miniconda/install#linux-terminal-installer) using `wget` as describe in the docs. Run the installer:
 ```sh
     $ bash ./Miniconda3-latest-Linux-x86_64.sh
 ```
 When installer is complete, set it to initialize Miniconda3 before closing it. Then reopen a new terminal and set it not to auto-mount on startup via:
 ```sh
-$ conda config --set auto_activate_base false
+$ conda config --set auto_activate_base False
 ```
 You will need to run this command on each account you wish to prevent auto-activation.
 
@@ -356,11 +371,13 @@ Follow instructions at its [git page](https://github.com/3dem/relion) to compile
   $ sudo apt install cmake git build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev libpng-dev ghostscript libxft-dev
   $ git clone https://github.com/3dem/relion.git
   ## I suggest making this a subfolder in case you need other versions
-  $ mv relion relion_v4.0 
+  $ mv relion relion_v5.0 
   $ mkdir relion 
-  $ mv relion_v4.0 relion
-  $ cd relion/relion_v4.0
-  $ git checkout master # or ver4.0
+  $ mv relion_v5.0 relion
+  $ cd relion/relion_v5.0
+  $ git checkout ver5.0
+  $ git pull
+  $ conda env create -f environment.yml
   $ mkdir build
   $ cd build
   $ cmake ..
@@ -380,6 +397,9 @@ In our case we succeeded by installing older versions and swapping the symlink a
   ## /usr/bin/gcc -> /usr/bin/gcc-10
   ## /usr/bin/g++ -> /usr/bin/g++-10
 ```
+
+In another case we had compilation errors related to unfound CUDA library `nvToolsExt.h`, due to a change in how the latest toolkit packages the libraries using the package manager installation method. This could be solved by locating the library and updating the path in the source code for the offending file, e.g.:
+
 
 ## Install `cryoSPARC` 
 There are excellent notes for installing at their [web page](https://guide.cryosparc.com/setup-configuration-and-management/how-to-download-install-and-configure). The key steps are outlined below.  
