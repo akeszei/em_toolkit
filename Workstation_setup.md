@@ -79,7 +79,7 @@ There are multiple ways to install CUDA drivers. This method follows the runfile
 ### Download runfile 
 CUDA 11.6 was targeted for install due to issues with higher versions that were not interrogated further. The runfile can be downloaded from [nVidia archives](https://developer.nvidia.com/cuda-11-6-0-download-archive). 
 
-For Linux 21.1 select: `Linux` > `x86_64` > `Ubuntu` > `20.04` > `runfile (local)`
+For Linux 21.1 select: `Linux` > `x86_64` > `Ubuntu` > `24.04` > `runfile (local)`
 
 Use the given string (below) to download the driver, but do not run it until following the subsequent steps.
 ```
@@ -143,11 +143,35 @@ If done correctly, then a fresh terminal window should show a return for:
     $ nvcc -V
 ```
 
+Older toolkits can be installed via their runfiles in a similar way. Just be sure to uncheck all other options except the toolkit and enter Options to uncheck 'Create Symbolic Link'. For some CUDA versions you need to downgrade temporarily to an older GCC G++ version (i.e. CUDA11 is built on GCC version 10). Install these via: 
+```sh
+sudo apt install gcc-10 g++-10
+```
+Can use `update-alternatives` to switch between versions safely:
+```
+## add the default and alternatives
+$ sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 # higher number is top priority/default
+$ sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 90
+## check your results 
+$ sudo update-alternatives --list gcc
+/usr/bin/gcc-10
+/usr/bin/gcc-13
+
+## Do same with g++
+$ sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/gcc-13 100 
+$ sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 90
+
+## Then configure to use the older gcc for the open terminal: 
+$ sudo update-alternatives --config gcc ## follow prompts
+$ sudo update-alternatives --config g++ ## follow prompts 
+```
+
+
 ## Install usual programs from aptitude
 Add/remove packages as desired. This is a list of the usual suspects I use:
 
 ```sh
-$ sudo apt install gedit git gh tmux cmake fonts-inconsolata fonts-roboto ttf-mscorefonts-installer okular evince imagemagick gnuplot xorg openssh-server build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev python3-pip python3-setuptools libx11-dev tk8.6-dev csh python3-tk python3-pil.imagetk yakuake tree gimp openconnect network-manager-openconnect perl-tk curl
+$ sudo apt install gedit git gh tmux cmake fonts-inconsolata fonts-roboto ttf-mscorefonts-installer okular evince imagemagick gnuplot xorg openssh-server build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev python3-pip python3-setuptools libx11-dev tk8.6-dev csh python3-tk python3-pil.imagetk yakuake tree gimp openconnect network-manager-openconnect perl-tk curl pipx
 ```
 
 ## Authorize github account, if using for push/pulling 
@@ -171,6 +195,9 @@ As of the time of writing these notes, aptitude installed python as `python3`. F
 ```
     $ sudo ln -s /usr/bin/python3 /usr/bin/python 
 ```
+## UPDATE: Use apt
+# sudo apt install python3-matplotlib python3-mrcfile python3-scipy python3-numpy python3-opencv python3-tifffile
+
 Check that `pip` is also set up for this python version by checking its callback with:
 ```sh
     $ pip -V ## look for (python 3.x) in callback 
