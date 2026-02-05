@@ -191,18 +191,24 @@ $ git push # send the changes to the server
 
 
 ## Set up base python environment 
+*UPDATE: Use apt to manage python and packages*
+
+```
+sudo apt install python3-matplotlib python3-mrcfile python3-scipy python3-numpy python3-opencv python3-tifffile
+```
+
 As of the time of writing these notes, aptitude installed python as `python3`. For simplicity, make this version the base version for the 'native' user environment by creating a symlink to this one at `/usr/bin` via:
 ```
     $ sudo ln -s /usr/bin/python3 /usr/bin/python 
 ```
-## UPDATE: Use apt
-# sudo apt install python3-matplotlib python3-mrcfile python3-scipy python3-numpy python3-opencv python3-tifffile
+
+*!!! pip is now replaced by apt and pipx depending on the package, more notes to follow. The steps below may be outdated:*
 
 Check that `pip` is also set up for this python version by checking its callback with:
 ```sh
     $ pip -V ## look for (python 3.x) in callback 
 ```
-### Install common python modules 
+### OUTDATED: Install common python modules 
 Consider installing common modules for each user using pip: 
 ```
     $ pip install matplotlib mrcfile numpy scipy opencv-python tifffile 
@@ -359,11 +365,11 @@ To install:
 % ./install --prefix=<directory>  [will make <directory>/phenix-<version> and install there]
 
 ### Miniconda 
-Follow the [Linux 64-bit x86 termianl installer steps](https://www.anaconda.com/docs/getting-started/miniconda/install#linux-terminal-installer) using `wget` as describe in the docs. Run the installer:
+Follow the [Linux 64-bit x86 terminal installer steps](https://www.anaconda.com/docs/getting-started/miniconda/install#macos-linux-installation) using `wget` as describe in the docs. Run the installer:
 ```sh
     $ bash ./Miniconda3-latest-Linux-x86_64.sh
 ```
-When installer is complete, set it to initialize Miniconda3 before closing it. Then reopen a new terminal and set it not to auto-mount on startup via:
+When installer is complete, set it to **initialize** Miniconda3 before closing it. Then reopen a new terminal and set it not to auto-mount on startup via:
 ```sh
 $ conda config --set auto_activate_base False
 ```
@@ -393,7 +399,7 @@ Notes are taken directly from [ubuntu docs](https://ubuntu.com/tutorials/setup-z
 ```
 
 ## Install `relion` 
-Follow instructions at its [git page](https://github.com/3dem/relion) to compile the program. 
+Follow instructions at its [git page](https://github.com/3dem/relion) to compile the program as the admin user. 
 ```sh
   $ sudo apt install cmake git build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev libpng-dev ghostscript libxft-dev
   $ git clone https://github.com/3dem/relion.git
@@ -404,12 +410,21 @@ Follow instructions at its [git page](https://github.com/3dem/relion) to compile
   $ cd relion/relion_v5.0
   $ git checkout ver5.0
   $ git pull
-  $ conda env create -f environment.yml
+  $ conda env create -f environment.yml ## if using Blackwell devices (50x0 or newer) use 'environment_blackwell.yml'
   $ mkdir build
   $ cd build
-  $ cmake ..
+  $ cmake .. -DCUDA_ARCH=120 ## change this number to the correct cuda compute value for your card * 10
   $ make
 ```
+### Troubleshooting FLTK download
+On some networks you cannot download from MRC FTP server. You may get around this by downloading the compressed source from another network that is less closed. For example, on Powershell you might run:
+
+```
+wget ftp://ftp.mrc-lmb.cam.ac.uk/pub/scheres/fltk-1.3.5-source.tar.gz -OutFile C:\Users\keszeial\Downloads\fltk-1.3.5-source.tar.gz
+```
+Then use a thumb drive to place the compressed source into the external folder; i.e.: `relion/external/fltk/fltk-1.3.5-source.tar.gz`.
+
+### Troubleshooting gcc/g++ compilers
 There can be some issues building with newer `gcc`, `g++` compilers, e.g.:
 ```
 ...
@@ -417,14 +432,14 @@ CMake Error at relion_gpu_util_generated_cuda_projector_plan.cu.o.Release.cmake:
   Error generating file
 ...
 ``` 
-In our case we succeeded by installing older versions and swapping the symlink at `/usr/bin` for the older version:
+In our case we succeeded by swapping to gcc-10 and g++-10 using `update-alternatives --config` options. See above notes in a previous step. Alternatively manually install older versions and swapping the symlink at `/usr/bin` temporarily:
 ```sh
   $ sudo apt install gcc-10 g++-10
   ## Update the softlinks to point to them, i.e.
   ## /usr/bin/gcc -> /usr/bin/gcc-10
   ## /usr/bin/g++ -> /usr/bin/g++-10
 ```
-
+### Toubleshooting unfound CUDA library
 In another case we had compilation errors related to unfound CUDA library `nvToolsExt.h`, due to a change in how the latest toolkit packages the libraries using the package manager installation method. This could be solved by locating the library and updating the path in the source code for the offending file, e.g.:
 
 
