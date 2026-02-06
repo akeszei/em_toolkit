@@ -11,7 +11,7 @@
 #############################
 #region :: GLOBAL FLAGS
 #############################
-DEBUG = True
+DEBUG = False
 #endregion
 
 #############################
@@ -20,15 +20,18 @@ DEBUG = True
 def usage():
     print("===================================================================================================")
     print(" Usage:")
-    print("    $ EPU_active_copy.py  /path/to/EPU  /target/save/dir")
+    print("    $ EPU_active_copy.py  /path/to/EPU  /target/root/save/dir")
     print(" Will actively mirror the EPU directory in the target directory, e.g.: /target/dir/EPU, every")
     print(" 5 minutes (unless changed). Kill the script with Ctrl + C.")
+    print(" e.g.")
+    print("     $ EPU_active_copy.py /mnt/dmp/EPU_session1 /my_hdd/em/")
+    print("             ... will save whole folder such as: /my_hdd/em/EPU_session1")
     print(" Use the reorganize option to copy only the important data, e.g.:")
     print("    $ EPU_active_copy.py  /mnt/dmp/EPU_project  /mount/remote/HDD/  --reorganize")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
     # print("           --j (2) : Attempt multiprocessing over given cores (remember speed is limited by HDD!)")
-    print("  --movies (*Fractions.mrc) : Change the glob string that identifies movie files uniquely")
+    print("  --movies (*EER.eer) : Change the glob string that identifies movie files uniquely")
     # print("                              if possible, also copy .JPGs for manual curation later")
     print("               --reorganize : Copy EPU project into a simpler directory structure (will also retain")
     print("                              all files placed in a directory named 'Screening' or 'Misc' ")
@@ -80,7 +83,7 @@ def copy_project(source, dest, glob_string = '**', DRY_RUN = False, DEBUG = Fals
     skipped_files = 0
     movies_skipped = 0
     total_movies = 0 
-    movie_string = "Fractions.mrc"
+    movie_string = "EER.eer"
 
     for source_file in glob.glob(os.path.join(source, glob_string), recursive = True):
         if DEBUG: print(" 1. Discovered file at source :: ", source_file)
@@ -246,7 +249,7 @@ def copy_reorganized(source, dest, glob_string, DRY_RUN = False):
         A function to copy an EPU project into a simpler structure while preserving important metadata relationships.
             EPU_project_dir/ (dest)
             ├── Atlas  :: any files relating the grid atlas (i.e.'Atlas*mrc')  
-            ├── Movies :: all files matching movie_string (i.e. *Fractions.mrc)
+            ├── Movies :: all files matching movie_string (i.e. *EER.eer)
             ├── Xml    :: .xml files for every acquisition containing all relevant microscope metadata for that image
             ├── Jpg    :: .jpg files for every acquisition in case the user wants to quickly check the datset by eye
             └── Other  :: any files found in the root project folder or folders named 'Screening' or 'Misc'    
@@ -373,7 +376,7 @@ class PARAMETERS():
         self.DRY_RUN = False
         self.seconds_delay = 300
         self.REORGANIZE = False
-        self.glob_string = "*Fractions.mrc"
+        self.glob_string = "*EER.eer"
         self.source = None 
         self.dest = None
 
@@ -387,8 +390,9 @@ class PARAMETERS():
 
     def parse_flags(self, cmdline):
         ## sanity check there are even enough commands to run a plausible copy command
-        min_cmds = 4
+        min_cmds = 3
         if len(cmdline) < min_cmds:
+            print("Too few commands to script execute properly")
             usage()
         
         ## check if the help flag was called in any position
@@ -495,7 +499,7 @@ if __name__ == '__main__':
             if PARAMS.REORGANIZE:
                 copy_reorganized(PARAMS.source, PARAMS.dest, PARAMS.glob_string, DRY_RUN= PARAMS.DRY_RUN)
             else:
-                copy_project(PARAMS.source, PARAMS.dest, DRY_RUN= PARAMS.DRY_RUN)
+                copy_project(PARAMS.source, PARAMS.dest, DRY_RUN= PARAMS.DRY_RUN, DEBUG=DEBUG)
             end_time = time.time()
             total_time_taken = end_time - start_time
             print(" ... copy runtime = %.2f sec" % total_time_taken)
@@ -513,7 +517,7 @@ if __name__ == '__main__':
                 if PARAMS.REORGANIZE:
                     copy_reorganized(PARAMS.source, PARAMS.dest, PARAMS.glob_string, DRY_RUN= PARAMS.DRY_RUN)
                 else:
-                    copy_project(PARAMS.source, PARAMS.dest, DRY_RUN= PARAMS.DRY_RUN)
+                    copy_project(PARAMS.source, PARAMS.dest, DRY_RUN= PARAMS.DRY_RUN, DEBUG=DEBUG)
                 end_time = time.time()
                 total_time_taken = end_time - start_time
                 print(" ... copy runtime = %.2f sec" % total_time_taken)
