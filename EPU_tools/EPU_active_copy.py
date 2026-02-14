@@ -2,11 +2,12 @@
 
 """
     A simple copy script to loop infinitely while collecting data from an EPU session and 
-    transfer files to an attached harddisk.  
+    transfering files to an attached harddisk.  
 """
 
 ## 2024-05-06 A.Keszei: Start script 
 ## 2024-06-13: Updated for speed (remove full similarity check on large movie files), adjusted flags, moved cmd line parsing to PARAMETERS object & added reorganize behavior
+## 2026-02-14: Update usage text for easier interpretation of flags 
 
 #############################
 #region :: GLOBAL FLAGS
@@ -19,30 +20,33 @@ DEBUG = False
 #############################
 def usage():
     print("===================================================================================================")
+    print(" Mirror an active EPU directory to a target location every 5 minutes, updating only files")
+    print(" that have changed or have not yet been copied. Terminate the script with Ctrl + C.")
     print(" Usage:")
-    print("    $ EPU_active_copy.py  /path/to/EPU  /target/root/save/dir")
-    print(" Will actively mirror the EPU directory in the target directory, e.g.: /target/dir/EPU, every")
-    print(" 5 minutes (unless changed). Kill the script with Ctrl + C.")
-    print(" e.g.")
-    print("     $ EPU_active_copy.py /mnt/dmp/EPU_session1 /my_hdd/em/")
-    print("             ... will save whole folder such as: /my_hdd/em/EPU_session1")
-    print(" Use the reorganize option to copy only the important data, e.g.:")
-    print("    $ EPU_active_copy.py  /mnt/dmp/EPU_project  /mount/remote/HDD/  --reorganize")
+    print("    $ EPU_active_copy.py  /path/to/EPU_session  /target/dir/")
+    print("            ... the resulting mirrored EPU session will be saved at: /target/dir/EPU_session")
+    print(" ")
     print(" -----------------------------------------------------------------------------------------------")
     print(" Options (default in brackets): ")
     # print("           --j (2) : Attempt multiprocessing over given cores (remember speed is limited by HDD!)")
     print("  --movies (*EER.eer) : Change the glob string that identifies movie files uniquely")
     # print("                              if possible, also copy .JPGs for manual curation later")
-    print("               --reorganize : Copy EPU project into a simpler directory structure (will also retain")
-    print("                              all files placed in a directory named 'Screening' or 'Misc' ")
-    print("                  --dry-run : Give an example of what the copy command will do without copying")
-    print("                  --n (300) : Delay time in seconds between copy loops; -1 or 0 == dont loop")
+    print("            --dry-run : Give an example of what the copy command will do without copying")
+    print("            --n (300) : Delay time in seconds between copy loops; -1 or 0 == dont loop")
+    print("         --reorganize : Copy EPU project into a simpler directory structure, keeping only movies")
+    print("                        metadata files and any screening notes in 'Screening' or 'Misc' folders: ")
+    print("                              EPU_project_dir/ ")
+    print("                              ├── Atlas  :: any files relating the grid atlas (i.e.'Atlas*mrc')")  
+    print("                              ├── Movies :: all files matching movie_string (i.e. *EER.eer)")
+    print("                              ├── Xml    :: .xml files for every acquisition ")
+    print("                              ├── Jpg    :: .jpg files for every acquisition ")
+    print("                              └── Other  :: any files found in the root project folder or 'Screening' or 'Misc'")
     print("===================================================================================================")
     sys.exit()
 
 def copytree(src, dst, symlinks = False, ignore = None, DRY_RUN = False):
-    """ Not used, but kept for reference. 
-        A reference function from: https://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth
+    """ Not used, but serves as a reference function (see stackoverflow 1868714 for discussion).
+        This is the essence of the copy loop used in python with only base features.
     """
     # print(" copy tree :: %s -> %s" % (src,dst))
     if not os.path.exists(dst):
@@ -76,20 +80,28 @@ def copytree(src, dst, symlinks = False, ignore = None, DRY_RUN = False):
             else:
                 shutil.copy2(s, d)
 
-def copy_project(source, dest, glob_string = '**', DRY_RUN = False, DEBUG = False):
+def copy_project(source, dest, movie_string, glob_string = '**', DRY_RUN = False, DEBUG = False):
+    """
+        This is the base copying function used to mirror an EPU folder into another location without making any changes. 
+    """
     ## get the name of the root folder we want to copy 
     root_dir_name = os.path.basename(os.path.normpath(source))
+    ## prepare the metrics for the user to evaluate at the end of each loop
     total_files = 0
     skipped_files = 0
     movies_skipped = 0
     total_movies = 0 
-    movie_string = "EER.eer"
+    ## strip out any asterixs from the input movie string if they exist 
+    movie_string = movie_string.replace("*", "")
 
+    ## glob all files in the source directory and deal with each in turn
     for source_file in glob.glob(os.path.join(source, glob_string), recursive = True):
+        ## discover each file sequentially and reset metrics 
         if DEBUG: print(" 1. Discovered file at source :: ", source_file)
         IS_MOVIE = False
         initial_time = time.time()
         source_file_basename = source_file[len(source):]
+        ## generate the output file we expect to make
         dest_file = os.path.join(dest, os.path.join(root_dir_name, source_file_basename))
 
         ## treat files and directories differently 
@@ -111,12 +123,14 @@ def copy_project(source, dest, glob_string = '**', DRY_RUN = False, DEBUG = Fals
 
             total_files += 1
 
-            ## treat movies separately from regular files to avoid sluggish filecmp.cmp check for large file 
+            ## determine if the file is a movie (i.e. expected large file size) 
             if len(source_file_basename) > len(movie_string):
+                ## use string matching to determine if we have a movie 
                 if source_file_basename[-len(movie_string):] == movie_string:
                     IS_MOVIE = True
                     total_movies += 1
 
+            ## if the target file we wish to make does not exist copy the source file to the target location
             if not os.path.exists(dest_file):
                 dest_path = os.path.dirname(dest_file)
                 if DRY_RUN:
@@ -128,6 +142,8 @@ def copy_project(source, dest, glob_string = '**', DRY_RUN = False, DEBUG = Fals
                     print(" copy :: %s -> %s (%.2f sec)" % (source_file, dest_path, total_time_taken))
             
             else:
+                ## if the target exists, we should figure out if we should copy over the existing file at the destination...
+
                 ## treat movies separately from regular files to avoid sluggish filecmp.cmp check for large file 
                 if IS_MOVIE:
                     ## only compare file size for movies, not time/changes 
@@ -149,7 +165,6 @@ def copy_project(source, dest, glob_string = '**', DRY_RUN = False, DEBUG = Fals
                         if DEBUG: print(" ... file exists already: %s" % dest_file)
                         continue 
 
-
                 ## for all non-movies, do a regular (slower) shallow check 
                 elif not filecmp.cmp(source_file, dest_file, shallow=True):
                     if DEBUG: print(" 2. Comparison of file from source and dest complete ::")
@@ -166,6 +181,7 @@ def copy_project(source, dest, glob_string = '**', DRY_RUN = False, DEBUG = Fals
                     if DEBUG: print(" ... file exists already: %s" % dest_file)
                     continue 
 
+    ## report a summary of all actions taken this loop 
     print_stats(total_files, movie_string, total_movies, skipped_files, movies_skipped, DRY_RUN)
     return 
 
@@ -369,14 +385,14 @@ def copy_reorganized(source, dest, glob_string, DRY_RUN = False):
 
 class PARAMETERS():
     """
-        Use this object to capture all flags and parameter settings from the command line
+        Use this object to capture all flags and parameter settings from the command line and format them for use by the main script functions.
     """
     def __init__(self, cmdline = None):
         ## set the default parameters 
         self.DRY_RUN = False
         self.seconds_delay = 300
         self.REORGANIZE = False
-        self.glob_string = "*EER.eer"
+        self.movie_glob_string = "*EER.eer"
         self.source = None 
         self.dest = None
 
@@ -416,13 +432,13 @@ class PARAMETERS():
 
             if cmdline[i] in ['--movies']:
                 try:
-                    glob_string = str(cmdline[i+1])
-                    if '*' not in glob_string:
-                        print(" Unexpected glob pattern given for --movie flag, using default: %s" % self.glob_string)
+                    movie_glob_string = str(cmdline[i+1])
+                    if '*' not in movie_glob_string:
+                        print(" Unexpected glob pattern given for --movie flag, using default: %s" % self.movie_glob_string)
                     else:
-                        self.glob_string = glob_string
+                        self.movie_glob_string = movie_glob_string
                 except:
-                    print(" No explicit glob pattern given for --movie flag, using default: %s" % self.glob_string)
+                    print(" No explicit glob pattern given for --movie flag, using default: %s" % self.movie_glob_string)
 
         return 
 
@@ -472,7 +488,7 @@ class PARAMETERS():
         print("  DRY_RUN = %s" % self.DRY_RUN)
         print("  seconds delay = %s" % self.seconds_delay)
         print("  REORGANIZE output dir = %s" % self.REORGANIZE)
-        print("  movie glob string = '%s'" % self.glob_string)
+        print("  movie glob string = '%s'" % self.movie_glob_string)
         print("=============================")
 
         return ''
@@ -497,9 +513,9 @@ if __name__ == '__main__':
         try:
             start_time = time.time()
             if PARAMS.REORGANIZE:
-                copy_reorganized(PARAMS.source, PARAMS.dest, PARAMS.glob_string, DRY_RUN= PARAMS.DRY_RUN)
+                copy_reorganized(PARAMS.source, PARAMS.dest, PARAMS.movie_glob_string, DRY_RUN = PARAMS.DRY_RUN)
             else:
-                copy_project(PARAMS.source, PARAMS.dest, DRY_RUN= PARAMS.DRY_RUN, DEBUG=DEBUG)
+                copy_project(PARAMS.source, PARAMS.dest, PARAMS.movie_glob_string, DRY_RUN= PARAMS.DRY_RUN, DEBUG=DEBUG)
             end_time = time.time()
             total_time_taken = end_time - start_time
             print(" ... copy runtime = %.2f sec" % total_time_taken)
@@ -510,14 +526,14 @@ if __name__ == '__main__':
 
             sys.exit()
     else:
-        ## tuck the command into a loop
+        ## tuck the command into an infinite loop 
         while True:
             try:
                 start_time = time.time()
                 if PARAMS.REORGANIZE:
-                    copy_reorganized(PARAMS.source, PARAMS.dest, PARAMS.glob_string, DRY_RUN= PARAMS.DRY_RUN)
+                    copy_reorganized(PARAMS.source, PARAMS.dest, PARAMS.movie_glob_string, DRY_RUN= PARAMS.DRY_RUN)
                 else:
-                    copy_project(PARAMS.source, PARAMS.dest, DRY_RUN= PARAMS.DRY_RUN, DEBUG=DEBUG)
+                    copy_project(PARAMS.source, PARAMS.dest, PARAMS.movie_glob_string, DRY_RUN= PARAMS.DRY_RUN, DEBUG=DEBUG)
                 end_time = time.time()
                 total_time_taken = end_time - start_time
                 print(" ... copy runtime = %.2f sec" % total_time_taken)
