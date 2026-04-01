@@ -17,7 +17,7 @@
 #############################
 #region     FLAGS
 #############################
-DEBUG = False
+DEBUG = True
 
 #endregion
 
@@ -32,6 +32,9 @@ def usage():
     print("       ...")
     print(" Usage:")
     print("    $ remap_optics_groups.py  particles.star  shiftgroups.txt  ")
+    print(" Options:")
+    print("    --movies :: if toggled, will assume file is from Import job for movies  ")
+
     print("================================================================================================================")
     sys.exit()
 
@@ -56,7 +59,12 @@ def parse_cmdline(cmdline):
         if len(cmd) > len('.star'):
             if cmd[-len('.star'):].lower() == '.star':
                 params.assign_starfile(cmd)
-        
+
+        ## check if this is for movies 
+        if cmd == '--movies':
+            params.set_is_movies(True)
+
+
         ## look for a .txt file 
         if len(cmd) > len('.txt'):
             if cmd[-len('.txt'):].lower() == '.txt':
@@ -127,11 +135,14 @@ def remap_optics_group(file, column_micName, column_opticsGroup, header_size, op
         print("...")
         print( "{:,}".format(counter) + " particle optical groups were updated")
 
-def update_optics_table(file, out_file, optics_list):
+def update_optics_table(file, out_file, optics_list, is_movie = False):
     ## Get landmarks for optics data table so we can copy only this region 
     OPTICS_TABLE_START, OPTICS_HEADER_START, OPTICS_DATA_START, OPTICS_DATA_END = star_handler.get_table_position(file, 'data_optics', DEBUG = DEBUG)
     ## Get the particle data dimensions from input file (so we can faithfully copy the space between tables actually)
-    PARTICLE_TABLE_START, PARTICLE_HEADER_START, PARTICLE_START, PARTICLE_END = star_handler.get_table_position(file, 'data_particles', DEBUG = DEBUG)
+    if is_movie:
+        PARTICLE_TABLE_START, PARTICLE_HEADER_START, PARTICLE_START, PARTICLE_END = star_handler.get_table_position(file, 'data_movies', DEBUG = DEBUG)
+    else:
+        PARTICLE_TABLE_START, PARTICLE_HEADER_START, PARTICLE_START, PARTICLE_END = star_handler.get_table_position(file, 'data_particles', DEBUG = DEBUG)
 
     
     ## Find columns for the relevant optics headers we need to change  
@@ -245,11 +256,87 @@ def update_particles(file, out_file, optics_list, mic_to_optics_dict):
 
     return 
 
+def update_movies(file, out_file, optics_list, mic_to_optics_dict):
+    ## Get the new optics table dimensions 
+    OPTICS_TABLE_START, OPTICS_HEADER_START, OPTICS_DATA_START, OPTICS_DATA_END = star_handler.get_table_position(out_file, 'data_optics', DEBUG = DEBUG)
+    ## Get the movie data dimensions from input file 
+    PARTICLE_TABLE_START, PARTICLE_HEADER_START, PARTICLE_DATA_START, PARTICLE_DATA_END = star_handler.get_table_position(file, 'data_movies', DEBUG = DEBUG)
+
+    ## Find columns for the relevant particle data entries we need to read or change  
+    COLUMN_rlnMicrographMovieName = star_handler.find_star_column(file, '_rlnMicrographMovieName', PARTICLE_HEADER_START, PARTICLE_DATA_START, DEBUG = DEBUG)
+    COLUMN_rlnOpticsGroup = star_handler.find_star_column(file, '_rlnOpticsGroup', PARTICLE_HEADER_START, PARTICLE_DATA_START, DEBUG = DEBUG)
+
+
+    skipped_particles_count = 0
+    updated_particles_count = 0
+    with open(out_file, 'a') as s :
+ 
+        with open(file, 'r') as f :
+            line_num = 0
+            for line in f :
+                line_num += 1
+
+                ## copy the particle header faithfully into the new file 
+                if PARTICLE_DATA_START > line_num >= PARTICLE_TABLE_START : 
+                    s.write(line)
+                    # print(" ..> ", line_num, line)
+                
+                if PARTICLE_DATA_START <= line_num <= PARTICLE_DATA_END:
+                    # print(" ..> ", line)
+                    particle_data = line.split()
+                    particle_micrograph_basename = os.path.splitext(os.path.basename(particle_data[COLUMN_rlnMicrographMovieName - 1]))[0]
+
+                    ## check if micrograph is found in the input remapping dictionary
+                    MATCH_FOUND = False
+                    for mic in list(mic_to_optics_dict): ## allow for fuzzy matching by using the keys are a list of strings we can compare against item-by-item 
+                        ## in case there is something like _Fractions on one string and not the other, check only a string of similar length 
+                        if len(particle_micrograph_basename) > len(mic):
+                            particle_micrograph_basename = particle_micrograph_basename[:len(mic)]
+                        if particle_micrograph_basename in mic: 
+                            ## get the new optics group assignment for the discovered micrograph based on the input file 
+                            updated_optics_group = mic_to_optics_dict[mic]
+                            ## find the corresponding index for that optics group 
+                            optics_index = optics_list.index(updated_optics_group) + 1 
+                            ## update the optics group entry in the data line 
+                            particle_data[COLUMN_rlnOpticsGroup - 1] = str(optics_index)
+                            ## prepare the output string 
+                            formatted_string = ''
+                            for n in particle_data:
+                                n += " " ## add a leading space in case the string is longer than the arbiray format delimiter 
+                                formatted_string += '{:11}'.format(n)
+                            ## write the new particle line in the output file 
+                            s.write(formatted_string + "\n")
+                            updated_particles_count += 1
+                            print(f"\r Processing particle #%s" % updated_particles_count, end="")
+
+                            MATCH_FOUND = True
+                            break
+
+                    if not MATCH_FOUND:
+                        print(" !! WARNING :: Particle entry contains micrograph not present in remapping file (%s) -> %s, skipping ..." % (file, particle_micrograph_basename))
+                        print(" Example comparison: ")
+                        print("           Particle mic basename = ", particle_micrograph_basename)
+                        print("    Example mic from optics file = ", list(mic_to_optics_dict)[0])
+                        skipped_particles_count += 1
+    print("")
+    print("=====================================")
+    print(" COMPLETE ")
+    print("-------------------------------------")
+    print("      %s particles updated " % updated_particles_count)
+    if skipped_particles_count > 0:
+        print("      %s particles skipped" % skipped_particles_count)
+    print("-------------------------------------")
+    print("  updated file written: %s" % out_file)
+    print("=====================================")
+
+    return 
+
 class PARAMETERS():
     def __init__(self):
         self.optics_remap_file = ''
         self.star_file = ''
         self.output_star_file = ''
+        self.is_movies = False
 
         return
     
@@ -292,6 +379,14 @@ class PARAMETERS():
         self.output_star_file = new_full_output_name
         return 
     
+    def set_is_movies(self, val):
+        if isinstance(val, bool):
+            self.is_movies = val
+        else:
+            print(" Boolean must be supplied to the set_is_movies function! Value given:", val)
+            exit()
+        return 
+
     def __str__(self):
         print("=============================")
         print("  PARAMETERS")
@@ -299,6 +394,7 @@ class PARAMETERS():
         print("   optics input file = %s" % self.optics_remap_file)
         print("   input star file = %s" % self.star_file)
         print("   output star file name = %s " % self.output_star_file)
+        print("   is_movies = %s" % self.is_movies)
         print("=============================")
         return ''
 #endregion
@@ -320,8 +416,25 @@ if __name__ == "__main__":
     ## e.g. { 'mic_name' : 'optics_code', ... } 
     mics_to_optics_dict, optics_group_list = parse_optics_remap_file(params.optics_remap_file)
 
-    update_optics_table(params.star_file, params.output_star_file, optics_group_list)
+    if DEBUG:
+        print("===========================")
+        print("  Mapped optics groups examples from file: mic > grp")
+        print("---------------------------")
+        count = 0
+        for k in mics_to_optics_dict:
+            print( " %s > %s" % (k, mics_to_optics_dict[k]))
+            count +=1 
+            if count > 3:
+                print(" ...")
+                break 
+        print("---------------------------")
 
-    update_particles(params.star_file, params.output_star_file, optics_group_list, mics_to_optics_dict)
+
+    update_optics_table(params.star_file, params.output_star_file, optics_group_list, is_movie=params.is_movies)
+
+    if params.is_movies:
+        update_movies(params.star_file, params.output_star_file, optics_group_list, mics_to_optics_dict)
+    else:
+        update_particles(params.star_file, params.output_star_file, optics_group_list, mics_to_optics_dict)
 
 #endregion
