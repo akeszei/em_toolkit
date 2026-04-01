@@ -95,9 +95,9 @@ def plot_points(points, clustering):
     # label_colors = [cmap(norm(l)) for l in clustering]
 
     ## Set the color into 4 discrete steps to better see how clustering treats different tilts within a hole  
-    cmap = cm.tab10
+    cmap = cm.tab20
     norm = Normalize(vmin=0, vmax=4)
-    label_colors = [cmap(norm(l%4)) for l in clustering]
+    label_colors = [cmap((l%20)) for l in clustering]
 
     plt.scatter(x, y, c=label_colors, alpha=1)
     plt.show()
@@ -178,7 +178,7 @@ if __name__ == "__main__":
 
     dist_matrix = pdist([[x, y] for x,y,z in shifts]) ## drop the third element of the input list dynamically to prepare input into pdist function which requires only a list of [ [x,y], ... ]
     linkage_matrix = ward(dist_matrix)
-    cluster_matrix = fcluster(linkage_matrix, t = 0.04, criterion='distance') ## still need to figure out best threshold value, based on initial check most tilts are separated by ~ 0.05 or more units 
+    cluster_matrix = fcluster(linkage_matrix, t = 1.2, criterion='distance') ## still need to figure out best threshold value, based on initial check most tilts are separated by ~ 0.05 or more units 
 
     plot_points(shifts, cluster_matrix)
     # exit()
