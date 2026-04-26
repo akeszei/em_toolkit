@@ -122,7 +122,7 @@ def write_tilt_data(tilt_data):
         for tilt in tilt_data:
             for img in tilt_data[tilt]:
                 counter += 1
-                f.write("%s  %s\n" % (tilt, img))
+                f.write("%s  %s\n" % (img, tilt))
 
     print(" >> %s entries written into '%s'" % (counter, file))
 
