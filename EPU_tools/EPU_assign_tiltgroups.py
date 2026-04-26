@@ -2,9 +2,9 @@
 
 """
     Sort EPU data into tilt groups using code groups in the filename, e.g.:
-        FoilHole_<x>_Data_<tiltgroup>_<x>_<y>_<z>_Fractions.mrc
+        FoilHole_<x>_Data_<y>_<tiltgroup>_<d>_<t>_EER.eer
     The data will be printed out into a file of the form:
-        tilt_1  FoilHole_<x>_Data_<tiltgroup>_<x>_<y>_<z>_Fractions.mrc
+        tilt_1  FoilHole_<x>_Data_<y>_<tiltgroup>_<d>_<t>_EER.eer
         ...
     This file can then be used to remap optics groups in RELION.
 """
@@ -36,12 +36,25 @@ def get_all_mrc_files():
     allFiles = os.listdir()
     mrcFiles = []
     for file in allFiles:
-        if os.path.splitext(file)[1] == ".mrc":
+        if os.path.splitext(file)[1].lower() == ".mrc":
             counter += 1
             mrcFiles.append(file)
 
     print(" %s .mrc files found in directory" % counter)
     return mrcFiles
+
+
+def get_all_eer_files():
+    counter = 0
+    allFiles = os.listdir()
+    eerFiles = []
+    for file in allFiles:
+        if os.path.splitext(file)[1].lower() == ".eer":
+            counter += 1
+            eerFiles.append(file)
+
+    print(" %s .eer files found in directory" % counter)
+    return eerFiles
 
 
 def find_all_tiltgroups(fileList):
@@ -50,8 +63,12 @@ def find_all_tiltgroups(fileList):
     """
     tilt_ids = []
     for file in fileList:
-        filename_to_list = file.split("_")
-        tilt_id = filename_to_list[3]
+        filename_to_list = file.split("_") ## REF: https://forum.scilifelab.se/t/creating-optics-groups-from-epu-afis-data-and-more/122/7
+                                           ## FoilHole_<x>_Data_<y>_<tiltgroup>_<d>_<t>_EER.eer
+                                           ## Look for the second entry after 'Data'
+        idx_position_of_data = filename_to_list.index('Data')
+        relative_idx_position_from_data_to_tiltgrp = 2
+        tilt_id = filename_to_list[idx_position_of_data + relative_idx_position_from_data_to_tiltgrp]
         if not tilt_id in tilt_ids:
             tilt_ids.append(tilt_id)
     print(" %s tilt groups found in dataset" % len(tilt_ids))
@@ -60,10 +77,10 @@ def find_all_tiltgroups(fileList):
 
 def classify_images_into_tiltgroups(tiltgroupList, fileList):
     """ Create a dictionary for each tilt group, e.g.
-            {   "tilt_1" : [ "img1.mrc", ... ] ,
-                "tilt_2" : [ "img2.mrc", ... ] ,
+            {   "tilt_1" : [ "img1", ... ] ,
+                "tilt_2" : [ "img2", ... ] ,
                 ...
-                "tilt_n" : [ "img3.mrc", ... ] ,
+                "tilt_n" : [ "img3", ... ] ,
             }
     """
     classified_dictionary = {}
@@ -112,10 +129,13 @@ if __name__ == "__main__":
     if (check_for_help_flag(cmdline)):
         usage()
 
-    mrcFiles = get_all_mrc_files() ## ["name_1.mrc", "name_2.mrc", ... "name_n.mrc"]
+    ## try getting eer files first, if that fails try getting mrc next 
+    imgFiles = get_all_eer_files()
+    if len(imgFiles) == 0:
+        imgFiles = get_all_mrc_files() ## ["name_1.mrc", "name_2.mrc", ... "name_n.mrc"]
 
-    tiltgroups = find_all_tiltgroups(mrcFiles)
+    tiltgroups = find_all_tiltgroups(imgFiles)
 
-    tilt_data = classify_images_into_tiltgroups(tiltgroups, mrcFiles)
+    tilt_data = classify_images_into_tiltgroups(tiltgroups, imgFiles)
 
     write_tilt_data(tilt_data)
