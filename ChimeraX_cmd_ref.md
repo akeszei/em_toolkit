@@ -3,6 +3,18 @@
 # UCSF ChimeraX quick reference  
 Common commands used for structural analysis are shown here for easy reference.
 
+### Quick reference for viewing 3D classes
+```
+cd /path/to/dir ## set working dir
+open *glob* ## opens files alpha numerically
+tile col <n> spacingFactor 1.5 ## open files with space between them
+camera ortho ## view series without off-axis distortion 
+preset 1 ## set backgroudn white with slihouettes 
+vol all step <x> level <y>
+```
+
+
+
 ### Basic commands
 Re-initialize scene rotations & translations:
 ```
