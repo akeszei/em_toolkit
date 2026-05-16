@@ -57,6 +57,11 @@ RELION_PARTICLE_HEADERS = (
     # "_rlnAnglePsi",
     # "_rlnOriginX",
     # "_rlnOriginY",
+    ## Particle coordinate values 
+    "_rlnCoordinateX",
+    "_rlnCoordinateY",
+    "_rlnMicrographName",
+
 )
 
 # CS_PARTICLE_HEADERS = [
@@ -94,6 +99,9 @@ PARTICLE_DATA_STRUCTURE = (
     'phase_shift',
     'origin_shift_x',
     'origin_shift_y',
+    'coordinate_x',
+    'coordinate_y',
+    'img_name'
 )
 
 MRC_MODES = {   0  : 'int8', ## see: https://mrcfile.readthedocs.io/en/stable/usage_guide.html#data-types
