@@ -585,6 +585,13 @@ $ pip install .
 
 ## Install `NAMD` and accompanying simulation software 
 
+### Installing `MotionCor3`
+Try pointing to CUDA 12 libraries to solve nvToolsExt errors:
+```
+$ make exe -f makefile11 CUDAHOME=/usr/local/cuda-12.8 
+```
+For -fPIE errors not yet clear to how to solve on mint
+
 ### Installing `NAMD`
 NAMD can be installed easily by requesting the CUDA enabled binaries from their [website](https://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=NAMD) (at the time of writing it was the `Linux-x86_64-multicore-CUDA` version).
 
