@@ -143,6 +143,22 @@ class Filament:
         orth_v = np.array([-v[1], v[0]]) 
         return orth_v
 
+def in_range(v, x, y):
+    """
+    PARAMETERS
+        v = coordinate position 
+        x = maximum value in first coordinate 
+        y = maximum value in second coordinate 
+    """
+
+    ## check the coord is in bounds of the image
+    if 0 > v[0] > x:
+        return False 
+    elif 0 > v[1] > y:
+        return False 
+    else:
+        return True
+
 def get_filaments(star_file, params):
     filaments = []
 
@@ -179,6 +195,9 @@ def get_subfilament_coordinates(f, params):
         p = list() of particle coordinates that make up the subfilament array 
     """
     p = list()
+    dims = params.mrc_dimensions() # [max_x, max_y]
+    max_x = dims[0]
+    max_y = dims[1]
 
     ## first find out how many steps we need to take along the filament based on how finely we want to sample it
     steps = int(f.norm() / params.pixel_distance())
@@ -195,10 +214,12 @@ def get_subfilament_coordinates(f, params):
         filament_shift = unit_vec * step_size * i
         shift_origin = f.start()
         v = filament_shift + shift_origin
-        ## append the the main filament coordinates to the data list
-        count += 1 
-        print(f"\r Processing coordinate #%s" % count, end="")
-        p.append(v.astype(int))
+        v = v.astype(int)
+        if in_range(v, max_x, max_y):
+            ## append the the main filament coordinates to the data list
+            count += 1 
+            print(f"\r Processing coordinate #%s" % count, end="")
+            p.append(v.astype(int))
 
         ## at each step, also plot along the orthogonal directions until we reach the filament radius 
         orthogonal_steps = int( ( f.diameter / 2) / step_size )
@@ -208,9 +229,15 @@ def get_subfilament_coordinates(f, params):
             ## calculate the upper and lower orthogonal points
             v_ortho_plus = v + ortho_vec * step_size * j
             v_ortho_minus = v + ortho_vec * step_size * j * -1 
-            p.append(v_ortho_plus.astype(int))
-            p.append(v_ortho_minus.astype(int))
-            count += 2
+
+            if in_range(v_ortho_plus):
+                p.append(v_ortho_plus.astype(int))
+                count += 1
+            if in_range(v_ortho_minus):
+
+                p.append(v_ortho_minus.astype(int))
+                count += 1
+
             print(f"\r Processing coordinate #%s" % count, end="")
 
     print("")
@@ -267,8 +294,6 @@ if __name__ == "__main__":
     params = Parameters()
 
     params.parse_cmdline(sys.argv)
-
-    dims = params.mrc_dimensions()
 
     star_fname = params.input_starfile_path
 
