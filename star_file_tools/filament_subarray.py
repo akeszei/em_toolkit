@@ -287,7 +287,7 @@ if __name__ == "__main__":
             coordinates.append(c)
 
     ## Can sanity check results by plotting the filament axis and the array of points around it 
-    plot_points(filaments, coordinates)
+    # plot_points(filaments, coordinates)
 
     ## print out the new .star file with the array of coordinates 
     write_manpick_file(star_fname, coordinates)
