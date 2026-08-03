@@ -2,9 +2,10 @@
 
 ## Author : A. Keszei 
 
-## 2024-07-25: Initial script started
-## 2024-10-11: The logfile needs to be re-written every time the program restarts... it should find the micrographs, then check for the corresponding text file in the ctf directory and corresponding jpg and fix all mismatches. Then it should re-build the logfile.   
+## 2026-06-23: Re-write script for .EER processing using relion motion correction (i.e. to avoid licensing issues for industry users)
 ## 2025-01-15: Focus on correct parsing of working directory to allow easy user determination of what squares micrograhs are coming from after-the-fact 
+## 2024-10-11: The logfile needs to be re-written every time the program restarts... it should find the micrographs, then check for the corresponding text file in the ctf directory and corresponding jpg and fix all mismatches. Then it should re-build the logfile.   
+## 2024-07-25: Initial script started
 
 """
 To Do:
@@ -34,7 +35,7 @@ class PARAMETERS():
         ## initialize the object with a commandline input that we can parse 
         ## default parameters on the object 
         self.angpix = False 
-        self.movie_glob = "*Fractions.mrc"
+        self.movie_glob = "*EER.eer"
         self.misc_dir = "misc"
         self.jpg_dir = "jpg"
         self.mrc_dir = "micrographs"
@@ -50,6 +51,7 @@ class PARAMETERS():
         self.atlas_dir = False    
         self.epu_dir = False
         self.gpu_id = 0
+        self.moviefile = 'movies.star'
 
 
         self.parse_cmdline(cmdline)
@@ -664,6 +666,78 @@ def run_motioncor2(movie, out_micrograph, pixel_size = False, frame_dose = False
         sys.exit()
     return
 
+def run_relioncorr(tmp_star, out_dir, pixel_size = False, frame_dose = False, kV = False, gain = False, gpu_id = False, DRY_RUN = False):
+
+    """
+    Example commandline executable for relion motion correction:
+        `which relion_run_motioncorr_mpi` --i input/movies.star --o mics/ --first_frame_sum 1 --last_frame_sum -1 --use_own --j 10 --float16 --bin_factor 1 --bfactor
+    150 --dose_per_frame 1 --preexposure 0 --patch_x 10 --patch_y 10 --eer_grouping 34 --gainref gain.gain --gain_rot 0 --gain_flip 0 --dose_weighting  --grouping
+    _for_ps 4
+    """
+
+    # ## sanity check the motion correct micrograph does not already exist 
+    # if os.path.isfile(out_micrograph):
+    #     mrc_size_bytes = os.stat(out_micrograph).st_size
+    #     mrc_size_mb = mrc_size_bytes / (1024*1024)
+        
+    #     ## make sure is at least greater than 30 Mb large
+    #     if mrc_size_mb > 30:
+    #         # print(" Motion corrected micrograph already exists (%.1f Mbs)" % (mrc_size_mb))    
+    #         return 
+
+    # out_micrograph_DW = False
+
+    ## Prepare the command line executable 
+    command = "`which relion_run_motioncorr_mpi` --i %s --o %s "  % (tmp_star, out_dir)
+    if gain != False:
+        command += "--gainref %s --gain_rot 0 --gain_flip 0" % gain
+    command += "--first_frame_sum 1 --last_frame_sum -1 --use_own --j 10 --float16 --bin_factor 1 --bfactor 150 --dose_per_frame 1 --preexposure 0 --patch_x 10 --patch_y 10 --grouping_for_ps 4 --dose_weighting "
+    ## add option to include dose weighting 
+    # if pixel_size != False and frame_dose != False and kV != False:
+    #     command += "-PixSize %s -FmDose %s -kV %s " % (pixel_size, frame_dose, kV)
+    #     out_micrograph_DW = os.path.splitext(out_micrograph)[0] + "_DW.mrc"
+    ## Turn off the output of a restricted dose range sum that falls between an accumulated dose range of (x, y), where `-SumRange x y' is the value, i.e. can try limiting sum between 3 and 35 electron per square angstroms ... 
+    # x = 0
+    # y = 0
+    # command += "-SumRange %s %s " % (x, y)
+
+    # ## Set default GPU behavior 
+    # command += "-Gpu %s " % (gpu_id)
+
+    if DRY_RUN:
+        print(" Motion correction commmand: ")
+        print("     $", command)
+        return 
+
+    try:
+
+        process = Popen(command, shell=True, stdout=PIPE)
+        process.wait()
+        # print(process.returncode) ## 0 == finished correctly, 1 == error
+
+    #     ## Clean up the output directory to remove the non-doseweighted image 
+    #     if out_micrograph_DW != False:
+    #         ## to save space, delete the non-doseweighted file 
+    #         if os.path.exists(out_micrograph_DW):
+    #             if os.path.exists(out_micrograph):
+    #                 os.remove(out_micrograph)
+    #                 ## after deleting the old non-doseweighted image, rename the doseweighted one over the original
+    #                 os.rename(out_micrograph_DW, out_micrograph)
+
+    #     ## update the pixel size in the header of the output file 
+    #     with mrcfile.open(out_micrograph, mode = 'r+') as mrc:
+    #         mrc.voxel_size = pixel_size
+    #         mrc.update_header_from_data()
+    #         mrc.update_header_stats()
+
+    except KeyboardInterrupt:
+        # ## clean up potential partial file:
+        # potential_partial_file = out_micrograph
+        # if os.path.isfile(potential_partial_file):
+        #     os.remove(potential_partial_file)
+        sys.exit()
+    return
+
 def write_jpg(input_mrc, output_jpg, bin = 4, DRY_RUN = False):
     ## sanity check the jpg does not already exist 
     if os.path.isfile(output_jpg):
@@ -1131,6 +1205,63 @@ def remove_path(file_w_path):
     globals()['os'] = __import__('os')
     file_wo_path = os.path.basename(file_w_path)
     return file_wo_path
+
+def write_temporary_movie_starfile(movie, temp_file='temp.star', angpix = 0.872, kV = 200, Cs = 2.7, amplitude_contrast = 0.1):
+
+    """
+    Example movie.star file:    
+        # version 50001
+
+        data_optics
+
+        loop_ 
+        _rlnOpticsGroupName #1 
+        _rlnOpticsGroup #2 
+        _rlnMicrographOriginalPixelSize #3 
+        _rlnVoltage #4 
+        _rlnSphericalAberration #5 
+        _rlnAmplitudeContrast #6 
+        opticsGroup1            1     0.872000   200.000000     2.700000     0.100000 
+        
+
+        # version 50001
+
+        data_movies
+
+        loop_ 
+        _rlnMicrographMovieName #1 
+        _rlnOpticsGroup #2 
+    """
+
+    ## create an empty file with the target name (erase previous file if present)
+    f = open(temp_file, 'w+')
+    f.write("\n")
+    f.write("# version 50001\n")
+    f.write("\n")
+    f.write("data_optics\n")
+    f.write("\n")
+    f.write("loop_\n")
+    f.write("_rlnOpticsGroupName #1\n")
+    f.write("_rlnOpticsGroup #2\n")
+    f.write("_rlnMicrographOriginalPixelSize #3\n")
+    f.write("_rlnVoltage #4\n")
+    f.write("_rlnSphericalAberration #5\n")
+    f.write("_rlnAmplitudeContrast #6\n")
+    f.write("%s   %s   %s   %s   %s   %s \n" % ("opticsGroup1", 1, angpix, kV, Cs, amplitude_contrast))
+    f.write("\n")
+    f.write("\n")
+    f.write("# version 50001\n")
+    f.write("\n")
+    f.write("data_movies\n")
+    f.write("\n")
+    f.write("loop_\n")
+    f.write("_rlnMicrographMovieName #1\n")
+    f.write("_rlnOpticsGroup #2\n")
+    f.write("%s   %s \n" % (movie, 1))
+    f.close()
+
+    return 
+
 #endregion
 
 
@@ -1166,112 +1297,21 @@ if __name__ == "__main__":
     print("  Processing :: ", end = "")
     print("\r", end="")
     # print(h_sub_bar)
+
+
     for i in range(len(movies_discovered)):
         movie = movies_discovered[i]
+        ## write out an input star file for input into relion motion correction 
+        print(" Write temporary movies.star file for input to relion motion corr")
+        write_temporary_movie_starfile(movie)
+        DRY_RUN = False
+        run_relioncorr("temp.star", PARAMS.mrc_dir, pixel_size = PARAMS.angpix, kV = PARAMS.kV, frame_dose = PARAMS.frame_dose, gpu_id = PARAMS.gpu_id, DRY_RUN = DRY_RUN)
+        sys.exit()
+
         processing_pipeline(movie, i, PARAMS)
-        # step_string = "  Processing movie #%s :: " % (i + 1)
-        # print(step_string, end = "")
-        # print("\r", end="")
 
-        # ## 1. Check if we want to save the full movie
-        # print(" " * len(step_string), end = "")
-        # print("\r", end="")
-        # step_string = "  Processing movie #%s :: saving movie" % (i + 1)
-        # print(step_string, end = "")
-        # print("\r", end="")
-        # save_movie(movie, PARAMS.movie_save_string(movie), DRY_RUN = DRY_RUN)
-
-        # ## 2. Motion correct the movie to a single .MRC
-        # print(" " * len(step_string), end = "")
-        # print("\r", end="")
-        # step_string = "  Processing movie #%s :: running motion correction" % (i + 1)
-        # print(step_string, end = "")
-        # print("\r", end="")
-        # run_motioncor2(movie, PARAMS.mrc_save_string(movie), pixel_size = PARAMS.angpix, kV = PARAMS.kV, frame_dose = PARAMS.frame_dose, DRY_RUN = DRY_RUN)
-
-        # ## 3. Write out a compressed .JPG file for analysis later 
-        # print(" " * len(step_string), end = "")
-        # print("\r", end="")
-        # step_string = "  Processing movie #%s :: writing jpgs" % (i + 1)
-        # print(step_string, end = "")
-        # print("\r", end="")
-        # write_jpg(PARAMS.mrc_save_string(movie), PARAMS.jpg_save_string(movie), DRY_RUN = DRY_RUN)
-
-        # ## 4. If not yet, write out a GridSquare image for the corresponding micrograph
-        # write_gridsquare_jpg(movie, PARAMS.jpg_dir)
-
-        # ## 5. If atlas directory was provided, write out the main atlas of the grid
-        # if PARAMS.atlas_dir != False:
-        #     write_atlas_jpg(PARAMS.atlas_dir, PARAMS.jpg_dir)
-
-        # ## 6. If atlas directory was provided, write out the marked location of the GridSquare on the atlas 
-        # if PARAMS.atlas_dir != False:
-        #     markup_gridsquare_on_atlas_jpg(movie, PARAMS.atlas_dir, PARAMS.jpg_dir, DRY_RUN = DRY_RUN)
-
-        # ## 7. Calculate CTF estimate of micrograph
-        # print(" " * len(step_string), end = "")
-        # print("\r", end="")
-        # step_string = "  Processing movie #%s :: running CTFFIND4" % (i + 1)
-        # print(step_string, end = "")
-        # print("\r", end="")
-        # dZ, ctf_fit, micrograph_name = run_ctffind(PARAMS.mrc_save_string(movie), PARAMS.ctf_dir, PARAMS.angpix, PARAMS.kV, PARAMS.logfile, CTF_DATA)
-
-        # print(" " * len(step_string), end = "")
-        # print("\r", end="")
-        # step_string = "  Processing movie #%s :: running CTFFIND4 (dZ = %s, ctf_fit = %s)" % ((i + 1), dZ, ctf_fit)
-        # print(step_string, end = "")
-        # print("\r", end="")
-
-        # print()
 
     print(h_bar)
-
-
-    # angpix, movie_glob, epu_dir, atlas_dir, jpg_dir, mrc_dir, ctf_dir, save_movies, movie_dir, seconds_delay, kV, frame_dose, logfile = parse_cmdline(sys.argv)
-
-    # ## if saving movies, start by saving them to the target directory  
-    # if save_movies:
-    #     ## find the movies that do not have a corresponding file in the save directory 
-    #     movies_to_save = get_all_movies_to_save(movie_dir, movies_discovered)
-    #     ## save the movies not present in the save directory 
-    #     for i in range(len(movies_to_save)):
-    #         print(" ... saving movie #%s: %s -> %s/" % (i + 1, movies_to_save[i], movie_dir), end='\r')
-
-    #         save_movie(movies_to_save[i], movie_dir)
-
-    #     ## report the number of movies saved on completion 
-    #     print(" ")
-    #     print(" %s movies were saved in %s/" % (len(movies_to_save), movie_dir))
-
-    # ## get all motion corrected micrographs
-    # micrographs_corrected = get_all_micrographs_corrected(mrc_dir, movie_glob)
-
-    # ## find which movies have not been corrected yet 
-    # movies_not_yet_corrected = get_all_movies_not_yet_corrected(movies_discovered, micrographs_corrected)
-
-    # ## iterate across all movies to be corrected 
-    # for i in range(len(movies_not_yet_corrected)):
-    #     print(" ")
-    #     print(" ... motion correcting movie #%s: %s -> %s/" % (i + 1, movies_not_yet_corrected[i], mrc_dir), end='\r')
-    #     corrected_micrograph = run_motioncor2(movies_not_yet_corrected[i], mrc_dir, pixel_size = angpix, kV = kV, frame_dose = frame_dose)
-    #     write_jpg(corrected_micrograph, jpg_dir)
-
-    #     ## while motion correcting, run the CTF estimation step immediately after so we can some quick feedback on quality during the run 
-    #     print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, corrected_micrograph, ctf_dir), end='\r')
-    #     dZ, ctf_fit, mic_name = run_ctffind(corrected_micrograph, ctf_dir, angpix, kV)
-    #     write_logfile(logfile, i, dZ, ctf_fit, mic_name)
-
-
-    # ## find which micrographs (prior to the initial correction step) have not had CTF estimates calculated 
-    # micrographs_ctf = micrographs_not_yet_CTF_estimated(ctf_dir, micrographs_corrected)
-
-    # ## iterate across all micrographs to be CTF estimated
-    # for i in range(len(micrographs_ctf)): 
-    #     # print(" ... CTF estimating micrograph #%s: %s -> %s/" % (i + 1, micrographs_ctf[i], ctf_dir), end='\r')
-    #     dZ, ctf_fit, mic_name = run_ctffind(micrographs_ctf[i], ctf_dir, angpix, kV)
-    #     write_logfile(logfile, dZ, ctf_fit, mic_name)
-
-    # print(" ")
 
     ## run infinite loop after initial pass 
     while True:
