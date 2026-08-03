@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
@@ -150,11 +152,10 @@ def in_range(v, x, y):
         x = maximum value in first coordinate 
         y = maximum value in second coordinate 
     """
-
     ## check the coord is in bounds of the image
-    if 0 > v[0] > x:
+    if 0 > v[0] or v[0] > x:
         return False 
-    elif 0 > v[1] > y:
+    elif 0 > v[1] or v[1] > y:
         return False 
     else:
         return True
@@ -214,11 +215,10 @@ def get_subfilament_coordinates(f, params):
         filament_shift = unit_vec * step_size * i
         shift_origin = f.start()
         v = filament_shift + shift_origin
-        v = v.astype(int)
-        if in_range(v, max_x, max_y):
+        if in_range(v.astype(int), max_x, max_y):
             ## append the the main filament coordinates to the data list
             count += 1 
-            print(f"\r Processing coordinate #%s" % count, end="")
+            # print(f"\r Processing coordinate #%s" % count, end="")
             p.append(v.astype(int))
 
         ## at each step, also plot along the orthogonal directions until we reach the filament radius 
@@ -229,18 +229,17 @@ def get_subfilament_coordinates(f, params):
             ## calculate the upper and lower orthogonal points
             v_ortho_plus = v + ortho_vec * step_size * j
             v_ortho_minus = v + ortho_vec * step_size * j * -1 
-
-            if in_range(v_ortho_plus):
+            if in_range(v_ortho_plus.astype(int), max_x, max_y):
                 p.append(v_ortho_plus.astype(int))
                 count += 1
-            if in_range(v_ortho_minus):
+            if in_range(v_ortho_minus.astype(int), max_x, max_y):
 
                 p.append(v_ortho_minus.astype(int))
                 count += 1
 
-            print(f"\r Processing coordinate #%s" % count, end="")
+            # print(f"\r Processing coordinate #%s" % count, end="")
 
-    print("")
+    # print("")
     return p
 
 def plot_points(filaments, coords):
