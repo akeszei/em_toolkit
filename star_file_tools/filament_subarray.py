@@ -14,7 +14,7 @@ class Parameters:
     mrc_angpix: float = 2.0 # Angstroms / pixel 
     distance_between_picks: float = 80 # Angstroms 
     input_starfile_path: str = ""
-    filament_diameter_px: int = 1132
+    filament_diameter_px: int = -1 #  
 
     def mrc_dimensions(self):
         return [self.mrc_dimension_x, self.mrc_dimension_y]
@@ -165,13 +165,16 @@ def get_filaments(star_file, params):
 
     star_df = starfile.read(star_fname)
 
+    print(" COLUMNS = ", star_df.columns)
     ## sanity check we have enough points to complete all filaments
     if len(star_df) % 2 != 0:
         print(" WARNING : There is an odd number of coordinates, meaning we have an incomplete filament in this file:", star_fname)
         print("           Final coordinate will be ignored.")
 
     for row in star_df.itertuples():
-        # print(row.Index, row.rlnCoordinateX)
+        print(row.Index, row.rlnCoordinateX)
+
+
         # determine if this point is the start of a filament
         if row.Index % 2 == 0:
             print(" filament start = ", row.rlnCoordinateX, row.rlnCoordinateY)
@@ -179,7 +182,25 @@ def get_filaments(star_file, params):
         else:
             print(" filament end = ", row.rlnCoordinateX, row.rlnCoordinateY)
             FILAMENT_END = [row.rlnCoordinateX, row.rlnCoordinateY]
-            new_filament = Filament(start_pixel_x=FILAMENT_START[0], start_pixel_y=FILAMENT_START[1], end_pixel_x=FILAMENT_END[0], end_pixel_y=FILAMENT_END[1], diameter=params.filament_diameter_px)
+
+            ## make it so the input diameter value is used over all inputs, otherwise check for star file column, else use default value
+            current_diameter_px = 1150
+            if params.filament_diameter_px > 0:
+                ## user input a value supercedes all
+                current_diameter_px = params.filament_diameter_px 
+            elif 'filamentDiameterAngstroms' in star_df.columns:
+                ## try reading a value from the star file itself
+                try:
+                    current_diameter_ang = int(row.filamentDiameterAngstroms)
+                    current_diameter_px = int(current_diameter_ang / params.mrc_angpix)
+                    print(" Read diameter value from star file: %s Ang -> %s px" % (current_diameter_ang, current_diameter_px))
+                except:
+                    print(" Could not parse column value for _filamentDiameterAngstroms as float() ")
+            else:
+                ## use a default value and warn the user
+                print(" No filament diameter was given on the command line, nor read from the star file (_filamentDiameterAngstroms); use a default value of 1150px")
+
+            new_filament = Filament(start_pixel_x=FILAMENT_START[0], start_pixel_y=FILAMENT_START[1], end_pixel_x=FILAMENT_END[0], end_pixel_y=FILAMENT_END[1], diameter=current_diameter_px)
             # new_filament.set_start_coords(FILAMENT_START)
             # new_filament.set_end_coords(FILAMENT_END)
             filaments.append(new_filament)
@@ -311,7 +332,7 @@ if __name__ == "__main__":
             coordinates.append(c)
 
     ## Can sanity check results by plotting the filament axis and the array of points around it 
-    # plot_points(filaments, coordinates)
+    plot_points(filaments, coordinates)
 
-    ## print out the new .star file with the array of coordinates 
-    write_manpick_file(star_fname, coordinates)
+    # ## print out the new .star file with the array of coordinates 
+    # write_manpick_file(star_fname, coordinates)
