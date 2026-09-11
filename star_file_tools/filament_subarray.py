@@ -15,6 +15,7 @@ class Parameters:
     distance_between_picks: float = 80 # Angstroms 
     input_starfile_path: str = ""
     filament_diameter_px: int = -1 #  
+    plot_points: bool = False 
 
     def mrc_dimensions(self):
         return [self.mrc_dimension_x, self.mrc_dimension_y]
@@ -49,9 +50,10 @@ class Parameters:
         print("    $ cd new_dir")
         print("    $ for m in ../*manualpick.star; do filament_subarray.py  $m  --angpix 2  --spacing 160 --diameter 2250  ")
         print(" Options:")
-        print("    --angpix (2) :: pixel size of the raw micrograph  ")
-        print("    --spacing (80) :: spacing (in Angstroms) between coordinates ")
+        print("         --angpix (2) :: pixel size of the raw micrograph  ")
+        print("       --spacing (80) :: spacing (in Angstroms) between coordinates ")
         print("    --diameter (2250) :: diameter of the filament (in Angstroms) that we need to sample ")
+        print("               --plot :: show a plot of points created for each micrograph")
         print("================================================================================================================")
         sys.exit()
         return 
@@ -84,6 +86,10 @@ class Parameters:
                 except:
                     print(" ERROR :: Could not assign angpix value given ")
 
+            ## parse the input angpix  
+            if cmd == '--plot':
+                self.plot_points = True
+                print(" Assigned angpix value = ", self.plot_points)
 
         ## only run the next flags after we have assigned an angpix value   
         for i in range(len(cmdline)):
@@ -332,7 +338,8 @@ if __name__ == "__main__":
             coordinates.append(c)
 
     ## Can sanity check results by plotting the filament axis and the array of points around it 
-    plot_points(filaments, coordinates)
+    if params.plot_points:
+        plot_points(filaments, coordinates)
 
-    # ## print out the new .star file with the array of coordinates 
-    # write_manpick_file(star_fname, coordinates)
+    ## print out the new .star file with the array of coordinates 
+    write_manpick_file(star_fname, coordinates)
