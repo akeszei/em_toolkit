@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Author: Landon J. gets
+# Author: Landon J. Getz
 # Date: 28-09-2026
 #
 # warp_etomo_patches.sh — initial tomograms with WarpTools + IMOD patch tracking
