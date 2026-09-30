@@ -592,6 +592,26 @@ $ make exe -f makefile11 CUDAHOME=/usr/local/cuda-12.8
 ```
 For -fPIE errors not yet clear to how to solve on mint
 
+### Installing `IMOD`
+Download IMOD installer [script](https://bio3d.colorado.edu/imod/download.html#Ubuntu) and unpack it:
+
+```sh
+sh imod_5.1.12_RHEL8-64_CUDA12.0.sh -extract
+## it will create IMODtempDir with tarball inside
+cd IMODtempDir
+## unpack the tar 
+tar -xzf imod_5.1.12_RHEL8-64_CUDA12.0.tar.gz
+## move the program to the desired location, they suggest /usr/local/
+sudo mv imod_5.1.12 /usr/local/
+## they suggest making a symlink there 
+sudo rm /usr/local/IMOD # remove old one if it exists 
+sudo ln -s /usr/local/imod_5.1.12 /usr/local/IMOD 
+
+## add the startup scripts to their recommended spot
+cp IMOD/IMOD-linux.* /etc/profile.d
+```
+
+
 ### Installing `NAMD`
 NAMD can be installed easily by requesting the CUDA enabled binaries from their [website](https://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=NAMD) (at the time of writing it was the `Linux-x86_64-multicore-CUDA` version).
 
