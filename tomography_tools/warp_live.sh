@@ -269,8 +269,6 @@ warp_ts_import(){
         --output $WARP_TOMOSTAR_FOLDER_NAME 
 
     echo " Manually edit tomostar file to remove bad frames later"
-
-
 }
 
 ## Usage:
@@ -289,7 +287,7 @@ warp_etomo_patches(){
 }
 
 ## Usage:
-##    warp_check_hand 
+##    warp_check_hand WIP
 warp_check_hand(){
     ## WIP ;; will need to fix paths and global variable callouts 
     # positive -> 'no flip' (Warp's default on import, so nothing to do).
@@ -317,6 +315,33 @@ warp_check_hand(){
 		echo "No flip needed; keeping Warp's default handedness."
 	fi
 	echo "FLIP_HAND=$FLIP_HAND${corr:+  (correlation $corr${weak:-})}" >>warp_tiltseries/pipeline_decisions.txt
+}
+
+
+## Usage:
+##    warp_ts_ctf WIP 
+warp_ts_ctf(){
+
+    max_ctf=6 # max Ang fit to consider for estimation
+    max_dZ=8
+
+
+	WarpTools ts_ctf \
+		--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
+		--range_high $max_ctf \
+        --defocus_max $max_dZ \
+		--perdevice $WARP_WORKERS_PER_GPU
+
+}
+
+## Usage:
+##    warp_ts_reconstruct WIP
+warp_ts_reconstruct(){
+
+	WarpTools ts_reconstruct \
+		--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
+		--angpix "$REC_ANGPIX" \
+        --perdevice $WARP_WORKERS_PER_GPU
 }
 
 #endregion
@@ -380,7 +405,7 @@ while sleep $DELAY; do
 		if [ ${#corrected_avg_mrc_files[@]} -ne ${#movies_in_mdoc[@]} ]; then
             voltage_float=$(awk '/Voltage/ {print $3; exit}' $mdoc)
             voltage_int=$(awk -v num="$voltage_float" 'BEGIN {printf "%.0f\n", num}')
-            warp_motion_and_ctf $voltage_int
+            # warp_motion_and_ctf $voltage_int
         else
             echo "   .. warp motion correction and ctf already finished, skipping step."
         fi
@@ -404,8 +429,6 @@ while sleep $DELAY; do
         ## step 7 :: reconstruct tomogram
         ## no logic needed... reconstruction cant yet exist if we are in this loop! 
         #warp_ts_reconstruct
-
-        exit 0
 
 
 	done
