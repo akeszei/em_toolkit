@@ -4,7 +4,21 @@
 ##     cd /path/to/tomo5_session
 ##     warp_live.sh
 
-TESTING=1
+#region GLOBAL VARS
+MIN_TILTS=10 # consider any mdoc with fewer than this many tilts to not be a viable tomographic dataset
+DELAY=1 # seconds delay between loops
+PROCESSING_FOLDER_NAME="warp_live"
+FRAMES_FOLDER_NAME="frames"
+MDOC_FOLDER_NAME="mdoc"
+WARP_TILTSERIES_FOLDER_NAME="warp_tiltseries"
+WARP_TILTSERIES_SETTINGS_NAME="warp_tiltseries.settings"
+WARP_TOMOSTAR_FOLDER_NAME="tomostar"
+WARP_FRAMESERIES_FOLDER_NAME="warp_frameseries"
+WARP_FRAMESERIES_SETTINGS_NAME="warp_frameseries.settings"
+EER_NGROUP=3
+MOVIE_EXTENSION="*.eer"
+TOMO_THICKNESS_ANG=3000 # 300nm
+#endregion
 
 set -uo pipefail #note cannot use -e option as it will terminate whole script when a function return is not 0
 shopt -s nullglob extglob
@@ -109,9 +123,9 @@ create_dir(){
 create_warp_workspace(){
     mdoc=$1
     tomo_name=${mdoc%.*}
-    workspace_dir_name="warp_live"
-    frames_dir_name="frames"
-    mdoc_dir_name="mdoc"
+    workspace_dir_name=$PROCESSING_FOLDER_NAME
+    frames_dir_name=$FRAMES_FOLDER_NAME
+    mdoc_dir_name=$MDOC_FOLDER_NAME
     gain_file=$(find_gain)
 
     
@@ -119,11 +133,11 @@ create_warp_workspace(){
     local movie_arr
     mapfile -t movie_arr < <(awk '/SubFramePath/ {print $3}' $mdoc)
  
-    if (( ${#movie_arr[@]} < 10 )); then
-        echo "$mdoc points to too few tilt movies (${#movie_arr[@]}), skipping..."
+    if (( ${#movie_arr[@]} < $MIN_TILTS )); then
+        echo " >> $mdoc points to too few tilt movies (${#movie_arr[@]}), skipping..."
         return 1
     else
-        echo "$mdoc points to ${#movie_arr[@]} tilt movies"
+        echo " >> $mdoc points to ${#movie_arr[@]} tilt movies"
         
     fi
         
@@ -142,7 +156,11 @@ create_warp_workspace(){
     ## create the directory structure
     create_dir $workspace_dir_name/$tomo_name/$frames_dir_name
     create_dir $workspace_dir_name/$tomo_name/$mdoc_dir_name
-    
+    create_dir $workspace_dir_name/$tomo_name/$WARP_TILTSERIES_FOLDER_NAME
+    create_dir $workspace_dir_name/$tomo_name/$WARP_FRAMESERIES_FOLDER_NAME
+    create_dir $workspace_dir_name/$tomo_name/$WARP_TOMOSTAR_FOLDER_NAME
+
+
     ## create relative symlinks to the mdoc, gain, and movies
     ln -sfn ../../../$mdoc $workspace_dir_name/$tomo_name/$mdoc_dir_name
     ln -sfn ../../../$gain_file $workspace_dir_name/$tomo_name/$frames_dir_name
@@ -155,40 +173,144 @@ create_warp_workspace(){
 
 #region WARP FUNCTIONS
 
+## Usage:
+##    warp_settings  tomo_name  angpix  tilt_dose  gain_file_name  tomo_dims
+warp_settings(){
+    # for questions related to inputs try: WarpTools create_settings --help
+    tomo_name=$1
+    angpix=$2
+    tilt_dose=$3 # dose per Ang**2 for each tilt
+    gain_file=$4
+    tomo_dim=$5
+    dose_per_virtual_frame=$(awk "BEGIN {print $tilt_dose / $EER_NGROUP}")  
+
+    echo "   .. motion correction will integrate $dose_per_virtual_frame e/A**2 per step. Adjust EER_NGROUP global to change this value."  
+
+    echo "   .. running WarpTools create_settings"
+
+
+    WarpTools create_settings \
+    --output $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_FRAMESERIES_SETTINGS_NAME \
+    --folder_data $FRAMES_FOLDER_NAME \
+    --folder_processing $WARP_FRAMESERIES_FOLDER_NAME \
+    --extension "$MOVIE_EXTENSION" \
+    --eer_ngroups $EER_NGROUP  \
+    --angpix $angpix \
+    --gain_path $FRAMES_FOLDER_NAME/$gain_file \
+    --exposure $tilt_dose > /dev/null
+
+    WarpTools create_settings \
+    --output $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
+    --folder_processing $WARP_TILTSERIES_FOLDER_NAME \
+    --folder_data $WARP_TOMOSTAR_FOLDER_NAME \
+    --extension "*.tomostar" \
+    --angpix $angpix \
+    --exposure $tilt_dose \
+    --tomo_dimensions $tomo_dim > /dev/null
+
+}
+
+## Usage:
+##    warp_motion_and_ctf  voltage  <vars>
+warp_motion_and_ctf(){
+    echo "   .. running WarpTools fs_motion_and_ctf"
+
+    voltage=$1
+    if [ "$voltage" -eq 200 ]; then
+        amplitude_contrast=0.09
+    else
+        amplitude_contrast=0.07 
+    fi
+
+    m_grid="2x2x3" # motion correction patch & depth size 
+    c_grid="4x4x1" # ctf estimation patch & depth size
+    max_ctf=7 # max Ang fit to consider for estimation
+    max_dZ=8
+    thumbnail_size=512
+    threads_per_gpu=2 # divide GPU ram by 16, use that integer 
+    spherical_aberration=2.7 # mm
+
+
+    WarpTools fs_motion_and_ctf \
+        --settings warp_frameseries.settings \
+        --m_grid $m_grid \
+        --c_grid $c_grid \
+        --c_voltage $voltage \
+        --c_amplitude $amplitude_contrast \
+        --c_cs $spherical_aberration \
+        --c_range_max $max_ctf \
+        --c_use_sum \
+        --c_defocus_max $max_dZ \
+        --out_average_halves \
+        --out_thumbnails $thumbnail_size \
+        --perdevice $threads_per_gpu \
+        --out_averages  
+
+}
+
 
 #endregion
 
 #region RUN BLOCK
 
-################### TESTING
-## use a testing global for laptop testing functions remove this flag later 
-if (( TESTING )); then
-## 4. run warp through all tomograms, skipping those withoutputs 
-
-while sleep 1; do 
-	echo " ... running warp across all tomograms "
-
-done
-
-exit 0
-
-fi
-################### TESTING OVER 
-
-
-## 1. sanity check folder has a .dm file 
+## 1. sanity check the working folder has a .dm file 
 is_tomo5_dir
 
-## 2. get only the regular .mdoc file for each tomogram 
-mdocs=(!(*_override).mdoc)
+## 2. begin loop 
+while sleep $DELAY; do 
 
-## 3. iterate over the list of mdocs, preparing the workspace for each 
-for i in "${!mdocs[@]}"; do
-    counter=$((i+1))
-    echo " ... preparing $counter of ${#mdocs[@]} workspaces"  
-    create_warp_workspace ${mdocs[$i]}
+	## 3. update available .mdoc files, ignoring override mdocs  
+	mdocs=(!(*_override).mdoc)
+
+	## 4. iterate over the list of mdocs 
+	for i in "${!mdocs[@]}"; do
+		counter=$((i+1))
+    	mdoc=${mdocs[$i]}
+		tomo_name=${mdoc%.*}
+        gain_file=$(find_gain)
+
+        echo 
+		echo "... reading $counter of ${#mdocs[@]} mdoc files"
+
+		## 5. check if a reconstruction exists for this mdoc, skip rest of pipeline if so
+		reconstruction_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/reconstruction/${tomo_name}*.mrc)
+		if (( ${#reconstruction_files[@]} )); then
+			echo " ... reconstruction exists for ${tomo_name}, skipping."
+			continue 
+		fi
+
+		## 6. if no reconstruction, re-run setup in all cases 
+		create_warp_workspace $mdoc
+        exit_code=$?
+        ## skip subsequent steps if the above function returns a failure code 
+        if [ $exit_code -ne 0 ]; then
+            # echo "   .. error creating warp workspace, skipping $mdoc" 
+            continue 
+        fi
+
+		## 7. run warp processing pipeline steps
+		setting_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/*.settings)
+		if [ ${#setting_files[@]} -ne 2 ]; then
+            angpix=$(awk '/PixelSpacing/ {print $3; exit}' $mdoc)
+            tilt_dose=$(awk '/ExposureDose/ {print $3; exit}' $mdoc)
+            movie_x=$(awk '/ImageSize/ {print $3; exit}' $mdoc)
+            movie_y=$(awk '/ImageSize/ {print $4; exit}' $mdoc)
+            tomo_thickness_px=$(awk -v t="$TOMO_THICKNESS_ANG" -v p="$angpix" 'BEGIN{printf "%d", t/p}')
+            tomo_dims="${movie_x}x${movie_y}x${tomo_thickness_px}"
+            warp_settings  $tomo_name $angpix  $tilt_dose $gain_file $tomo_dims
+		fi
+
+
+        voltage_float=$(awk '/Voltage/ {print $3; exit}' $mdoc)
+        voltage_int=$(awk -v num="$voltage_float" 'BEGIN {printf "%.0f\n", num}')
+        warp_motion_and_ctf $voltage_int
+
+        exit 0
+
+
+	done
+
 done
-
 
 exit 0
 
