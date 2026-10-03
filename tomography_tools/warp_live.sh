@@ -20,6 +20,7 @@ MOVIE_EXTENSION="*.eer"
 TOMO_THICKNESS_ANG=3000 # 300nm
 MIN_INTENSITY=0.2 # for ts_import step 
 ETOMO_PATCH_SIZE_ANG=2000
+WARP_WORKERS_PER_GPU=1 # increase to 2 for larger gpus 
 #endregion
 
 set -uo pipefail #note cannot use -e option as it will terminate whole script when a function return is not 0
@@ -229,12 +230,12 @@ warp_motion_and_ctf(){
     max_ctf=7 # max Ang fit to consider for estimation
     max_dZ=8
     thumbnail_size=512
-    threads_per_gpu=2 # divide GPU ram by 16, use that integer 
+    threads_per_gpu=$WARP_WORKERS_PER_GPU # divide GPU ram by 16, use that integer 
     spherical_aberration=2.7 # mm
 
 
     WarpTools fs_motion_and_ctf \
-        --settings warp_frameseries.settings \
+        --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_FRAMESERIES_SETTINGS_NAME \
         --m_grid $m_grid \
         --c_grid $c_grid \
         --c_voltage $voltage \
@@ -260,7 +261,7 @@ warp_ts_import(){
     #tilt_dose=3 # dose per Ang**2 for each tilt
 
     WarpTools ts_import \
-        --mdocs $mdoc \
+        --mdocs $PROCESSING_FOLDER_NAME/$tomo_name/$MDOC_FOLDER_NAME/$mdoc \
         --frameseries $WARP_FRAMESERIES_FOLDER_NAME \
         --tilt_exposure $tilt_dose \
         --min_intensity $MIN_INTENSITY \
@@ -277,7 +278,7 @@ warp_ts_import(){
 warp_etomo_patches(){
     set_angpix=8 # downsample to this target angpix, or set to full res
     patch_size_ang=$ETOMO_PATCH_SIZE_ANG # Ang size for each patch, patches are arranged with 80% overlap 
-    threads_per_gpu=2 # divide GPU ram by 16, use that integer
+    threads_per_gpu=$WARP_WORKERS_PER_GPU # divide GPU ram by 16, use that integer
 
     WarpTools ts_etomo_patches \
         --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
@@ -369,6 +370,8 @@ while sleep $DELAY; do
             tomo_thickness_px=$(awk -v t="$TOMO_THICKNESS_ANG" -v p="$angpix" 'BEGIN{printf "%d", t/p}')
             tomo_dims="${movie_x}x${movie_y}x${tomo_thickness_px}"
             warp_settings  $tomo_name $angpix  $tilt_dose $gain_file $tomo_dims
+        else
+            echo "   .. warp settings already present, skipping step."
 		fi
 
         ## step 2 :: motion correction & ctf estimation 
@@ -378,15 +381,17 @@ while sleep $DELAY; do
             voltage_float=$(awk '/Voltage/ {print $3; exit}' $mdoc)
             voltage_int=$(awk -v num="$voltage_float" 'BEGIN {printf "%.0f\n", num}')
             warp_motion_and_ctf $voltage_int
+        else
+            echo "   .. warp motion correction and ctf already finished, skipping step."
         fi
 
         ## step 3 :: import mdoc and create tomostar
         ## logic to check if tomostar already exists to skip this step 
-        warp_ts_import $mdoc
+        #warp_ts_import $mdoc
 
         ## step 4 :: etomo patch alignment 
         ## logic needed to check if patches completed already to skip this step 
-        warp_etomo_patches 
+        #warp_etomo_patches 
 
         ## step 5 :: check handedness 
         ## logic to check if log file exists already 
