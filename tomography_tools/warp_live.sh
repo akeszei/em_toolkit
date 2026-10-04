@@ -402,7 +402,7 @@ while sleep $DELAY; do
 		## 5. check if a reconstruction exists for this mdoc, skip rest of pipeline if so
         expected_final_output_file=$PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png
         if [[ -f "$expected_final_output_file" ]]; then
-            echo "   .. tomogram already processed by pipeline, skipping."
+            echo " >> $mdoc already processed by pipeline, skipping."
             continue
         fi
 
