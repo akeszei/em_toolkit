@@ -20,11 +20,16 @@ MOVIE_EXTENSION="*.eer"
 TOMO_THICKNESS_ANG=3000 # 300nm
 MIN_INTENSITY=0.2 # for ts_import step 
 ETOMO_PATCH_SIZE_ANG=2000
-WARP_WORKERS_PER_GPU=1 # increase to 2 for larger gpus 
+WARP_WORKERS_PER_GPU=2 # increase to 2 for larger gpus 
+DEFOCUS_HAND_CHECK_LOG_NAME="defocus_hand_check.log"
+RESOLUTION_RECONSTRUCTION=8 # ang to use for reconstruction & alignments
 #endregion
 
 set -uo pipefail #note cannot use -e option as it will terminate whole script when a function return is not 0
 shopt -s nullglob extglob
+## Set a trap to terminate running loops (SIGINT) and processes (SIGTERM) with control+C
+trap "echo -e; echo -e '${red}Script terminated by user.${default}'; exit;" SIGINT SIGTERM
+
 
 #region ORGANIZE FUNCTIONS
 
@@ -101,10 +106,10 @@ find_gain(){
 ##    create_dir /path/to/new/dir
 create_dir(){
    if [ -d $1 ]; then
-      echo "   .. output directory ($1) already exists. Skipping mkdir function."
+    #   echo "   .. output directory ($1) already exists. Skipping mkdir function."
       return 1
    else 
-      echo "   .. creating directory: $1"
+    #   echo "   .. creating directory: $1"
       mkdir -p $1 
       return 0
    fi
@@ -171,6 +176,19 @@ create_warp_workspace(){
         ln -sfn ../../../$m $workspace_dir_name/$tomo_name/$frames_dir_name
     done
 }
+
+check_for_dependencies(){
+    if ! command -v WarpTools >/dev/null 2>&1; then
+        echo " !! Could not find WarpTools ... check you are in the warp conda environment"
+        exit 1
+    fi
+
+    if ! command -v etomo >/dev/null 2>&1; then
+        echo " !! Could not find etomo ... check you have sourced imod startup scripts"
+        exit 1
+    fi
+
+}
 #endregion
 
 
@@ -199,7 +217,7 @@ warp_settings(){
     --extension "$MOVIE_EXTENSION" \
     --eer_ngroups $EER_NGROUP  \
     --angpix $angpix \
-    --gain_path $FRAMES_FOLDER_NAME/$gain_file \
+    --gain_path $PROCESSING_FOLDER_NAME/$tomo_name/$FRAMES_FOLDER_NAME/$gain_file \
     --exposure $tilt_dose > /dev/null
 
     WarpTools create_settings \
@@ -247,7 +265,7 @@ warp_motion_and_ctf(){
         --out_thumbnails $thumbnail_size \
         --perdevice $threads_per_gpu \
         --out_average_halves \
-        --out_averages  
+        --out_averages > /dev/null
 
 }
 
@@ -261,12 +279,12 @@ warp_ts_import(){
     #tilt_dose=3 # dose per Ang**2 for each tilt
 
     WarpTools ts_import \
-        --mdocs $PROCESSING_FOLDER_NAME/$tomo_name/$MDOC_FOLDER_NAME/$mdoc \
-        --frameseries $WARP_FRAMESERIES_FOLDER_NAME \
+        --mdocs $PROCESSING_FOLDER_NAME/$tomo_name/$MDOC_FOLDER_NAME \
+        --frameseries $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_FRAMESERIES_FOLDER_NAME \
         --tilt_exposure $tilt_dose \
         --min_intensity $MIN_INTENSITY \
         --dont_invert \
-        --output $WARP_TOMOSTAR_FOLDER_NAME 
+        --output $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TOMOSTAR_FOLDER_NAME >> /dev/null
 
     echo " Manually edit tomostar file to remove bad frames later"
 }
@@ -274,7 +292,9 @@ warp_ts_import(){
 ## Usage:
 ## warp_etomo_patches  
 warp_etomo_patches(){
-    set_angpix=8 # downsample to this target angpix, or set to full res
+    echo "   .. running WarpTools ts_etomo_patches"
+
+    set_angpix=$RESOLUTION_RECONSTRUCTION # downsample to this target angpix, or set to full res
     patch_size_ang=$ETOMO_PATCH_SIZE_ANG # Ang size for each patch, patches are arranged with 80% overlap 
     threads_per_gpu=$WARP_WORKERS_PER_GPU # divide GPU ram by 16, use that integer
 
@@ -282,65 +302,66 @@ warp_etomo_patches(){
         --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
         --angpix $set_angpix \
         --patch_size $patch_size_ang \
-        --perdevice $threads_per_gpu
+        --perdevice $threads_per_gpu > /dev/null
 
 }
 
 ## Usage:
-##    warp_check_hand WIP
+##    warp_check_hand
 warp_check_hand(){
-    ## WIP ;; will need to fix paths and global variable callouts 
-    # positive -> 'no flip' (Warp's default on import, so nothing to do).
-	hand_log=warp_tiltseries/defocus_hand_check.log
-	if [[ -z ${FLIP_HAND:-} ]]; then
-		WarpTools ts_defocus_hand --settings warp_tiltseries.settings --check | tee "$hand_log"
-		corr=$(grep -oP 'Average correlation:\s*\K-?[0-9.]+' "$hand_log" | tail -1 || true)
-		[[ -n $corr ]] || {
-			echo "ERROR: couldn't read correlation from $hand_log" >&2
-			exit 1
-		}
-		if awk -v c="$corr" -v m="${HAND_MIN:-0.3}" 'BEGIN{exit !((c<0?-c:c) < m)}'; then
-			echo "WARNING: handedness correlation $corr is weak (|c| < ${HAND_MIN:-0.3}); following its sign anyway." >&2
-			echo "         Worth confirming on another tomogram. Override with FLIP_HAND=0/1 START_AT=6." >&2
-			weak=" (weak)"
-		fi
-		FLIP_HAND=$(awk -v c="$corr" 'BEGIN{print (c<0)?1:0}')
-		echo "Handedness correlation $corr -> FLIP_HAND=$FLIP_HAND"
-	else
-		echo "Handedness forced by environment: FLIP_HAND=$FLIP_HAND"
+    echo "   .. running WarpTools ts_defocus_hand"
+
+    defocus_hand_log_fpath=$PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_FOLDER_NAME/$DEFOCUS_HAND_CHECK_LOG_NAME
+    WarpTools ts_defocus_hand \
+    --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
+    --check >> $defocus_hand_log_fpath > /dev/null
+
+    average_correlation=$(awk '/Average correlation:/ {print $3; exit}' $defocus_hand_log_fpath)
+
+    FLIP_HAND=$(awk -v num="$average_correlation" 'BEGIN { print (num < 0) ? "true" : "false" }')
+
+    echo "   .. handedness correlation = $average_correlation -> FLIP_HAND = $FLIP_HAND"
+
+	if [[ $FLIP_HAND == 'true' ]]; then
+		WarpTools ts_defocus_hand --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME --set_flip > /dev/null
 	fi
-	if [[ $FLIP_HAND == 1 ]]; then
-		WarpTools ts_defocus_hand --settings warp_tiltseries.settings --set_flip
-	else
-		echo "No flip needed; keeping Warp's default handedness."
-	fi
-	echo "FLIP_HAND=$FLIP_HAND${corr:+  (correlation $corr${weak:-})}" >>warp_tiltseries/pipeline_decisions.txt
+
 }
 
-
 ## Usage:
-##    warp_ts_ctf WIP 
+##    warp_ts_ctf  voltage 
 warp_ts_ctf(){
+    echo "   .. running WarpTools ts_ctf"
 
+    voltage=$1
+    if [ "$voltage" -eq 200 ]; then
+        amplitude_contrast=0.09
+    else
+        amplitude_contrast=0.07 
+    fi
+    spherical_aberration=2.7 # mm
     max_ctf=6 # max Ang fit to consider for estimation
     max_dZ=8
-
 
 	WarpTools ts_ctf \
 		--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
 		--range_high $max_ctf \
         --defocus_max $max_dZ \
-		--perdevice $WARP_WORKERS_PER_GPU
+        --cs $spherical_aberration \
+        --voltage $voltage \
+        --amplitude $amplitude_contrast \
+		--perdevice $WARP_WORKERS_PER_GPU > /dev/null
 
 }
 
 ## Usage:
-##    warp_ts_reconstruct WIP
+##    warp_ts_reconstruct
 warp_ts_reconstruct(){
+    echo "   .. running WarpTools ts_reconstruct"
 
 	WarpTools ts_reconstruct \
 		--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
-		--angpix "$REC_ANGPIX" \
+		--angpix $RESOLUTION_RECONSTRUCTION \
         --perdevice $WARP_WORKERS_PER_GPU
 }
 
@@ -348,8 +369,10 @@ warp_ts_reconstruct(){
 
 #region RUN BLOCK
 
-## 1. sanity check the working folder has a .dm file 
+## 1. sanity check the working folder has a .dm file & we have the necessary programs  
 is_tomo5_dir
+
+check_for_dependencies
 
 ## 2. begin loop 
 while sleep $DELAY; do 
@@ -405,36 +428,55 @@ while sleep $DELAY; do
 		if [ ${#corrected_avg_mrc_files[@]} -ne ${#movies_in_mdoc[@]} ]; then
             voltage_float=$(awk '/Voltage/ {print $3; exit}' $mdoc)
             voltage_int=$(awk -v num="$voltage_float" 'BEGIN {printf "%.0f\n", num}')
-            # warp_motion_and_ctf $voltage_int
+            warp_motion_and_ctf $voltage_int
         else
             echo "   .. warp motion correction and ctf already finished, skipping step."
         fi
 
         ## step 3 :: import mdoc and create tomostar
-        ## logic to check if tomostar already exists to skip this step 
-        #warp_ts_import $mdoc
+        tomostar_file=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TOMOSTAR_FOLDER_NAME}/*.tomostar)
+		if [ ${#corrected_avg_mrc_files[@]} -lt 1 ]; then
+            warp_ts_import $mdoc
+        else
+            echo "   .. warp tomostar already present, skipping step."
+        fi
 
         ## step 4 :: etomo patch alignment 
-        ## logic needed to check if patches completed already to skip this step 
-        #warp_etomo_patches 
+        etomo_xf_file=${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/tiltstack/${tomo_name}/${tomo_name}.xf # 2d transforms to center tilts along y-axis aligned tilt axis
+        etomo_tlt_file=${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/tiltstack/${tomo_name}/${tomo_name}.tlt # refined tilt angles for each tilt image 
+        if [[ ! -f "$etomo_xf_file" && ! -f "$etomo_tlt_file" ]]; then
+            warp_etomo_patches 
+        else
+            echo "   .. etomo alignment files already present, skipping patch motion."
+        fi 
 
         ## step 5 :: check handedness 
-        ## logic to check if log file exists already 
-        #warp_check_hand
+        dZ_hand_file=${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/$DEFOCUS_HAND_CHECK_LOG_NAME
+        if [[ ! -f "$dZ_hand_file" ]]; then
+            warp_check_hand
+        else
+            echo "   .. defocus hand check already performed, skipping."
+        fi
 
         ## step 6 :: refine tilt series ctf
-        ## not sure how to check this...?
-        #warp_ts_ctf
+        ctf_refine_file=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/ctf_tiltseries.settings)
+        if [[ ! -f "$ctf_refine_file" ]]; then
+            voltage_float=$(awk '/Voltage/ {print $3; exit}' $mdoc)
+            voltage_int=$(awk -v num="$voltage_float" 'BEGIN {printf "%.0f\n", num}')
+            warp_ts_ctf $voltage_int
+        else
+            echo "   .. ctf refinement already performed, skipping."
+        fi
 
         ## step 7 :: reconstruct tomogram
         ## no logic needed... reconstruction cant yet exist if we are in this loop! 
-        #warp_ts_reconstruct
+        warp_ts_reconstruct
 
-
+        ## step 8 :: write a png for quick review of the tomogram based on integrated slices through the middle parts of the tomogram along the Z axis 
+        ## add folder tomo_slices_png to organize step
+        ## populate it with tomos via mrcs_slices.py 
 	done
 
 done
-
-exit 0
 
 #endregion 
