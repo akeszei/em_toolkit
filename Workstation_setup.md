@@ -592,6 +592,16 @@ $ make exe -f makefile11 CUDAHOME=/usr/local/cuda-12.8
 ```
 For -fPIE errors not yet clear to how to solve on mint
 
+
+### Installing `WARP`
+See docs of linux [install](https://github.com/warpem/warp#linux). Easiest done in a conda environment:
+
+```sh
+$ conda create -n warp warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge
+$ conda activate warp  # Activate the environment whenever you want to use Warp
+(warp) $ WarpTools version # will print version and error due to missing command word
+```
+
 ### Installing `IMOD`
 Download IMOD installer [script](https://bio3d.colorado.edu/imod/download.html#Ubuntu) and unpack it:
 
@@ -608,7 +618,7 @@ sudo rm /usr/local/IMOD # remove old one if it exists
 sudo ln -s /usr/local/imod_5.1.12 /usr/local/IMOD 
 
 ## add the startup scripts to their recommended spot
-cp IMOD/IMOD-linux.* /etc/profile.d
+cp /usr/local/IMOD/IMOD-linux.* /etc/profile.d
 ```
 
 

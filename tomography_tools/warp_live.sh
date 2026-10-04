@@ -23,12 +23,13 @@ ETOMO_PATCH_SIZE_ANG=2000
 WARP_WORKERS_PER_GPU=2 # increase to 2 for larger gpus 
 DEFOCUS_HAND_CHECK_LOG_NAME="defocus_hand_check.log"
 RESOLUTION_RECONSTRUCTION=8 # ang to use for reconstruction & alignments
+MRCS_SLICES_OUTPUT_FOLDER="tomo_slices_png"
 #endregion
 
 set -uo pipefail #note cannot use -e option as it will terminate whole script when a function return is not 0
 shopt -s nullglob extglob
 ## Set a trap to terminate running loops (SIGINT) and processes (SIGTERM) with control+C
-trap "echo -e; echo -e '${red}Script terminated by user.${default}'; exit;" SIGINT SIGTERM
+trap "echo -e; echo -e 'Script terminated by user.'; exit;" SIGINT SIGTERM
 
 
 #region ORGANIZE FUNCTIONS
@@ -122,9 +123,13 @@ create_dir(){
 ##    tomo1...eer
 ##    tomo1...mdoc
 ##       └── warp_live/ 
+##                  └── tomo_slices_png/ ## folder for mrcs_slices.py output of all tomograms for quick review   
 ##                  └── tomo1.../  
 ##                          └── frames/ ## eer & gain symlinks here 
 ##                          └── mdoc/ ## mdoc file symlink here 
+##                          └── warp_rameseries/ ## motion correction files
+##                          └── warp_tiltseries/ ## tilt series files including etomo and reconstruction
+##                          └── tomostar/ ## final tilt series data for reconstruction
 ##
 ## Usage: 
 ##    create_warp_workspace <fname>.mdoc 
@@ -167,6 +172,7 @@ create_warp_workspace(){
     create_dir $workspace_dir_name/$tomo_name/$WARP_TILTSERIES_FOLDER_NAME
     create_dir $workspace_dir_name/$tomo_name/$WARP_FRAMESERIES_FOLDER_NAME
     create_dir $workspace_dir_name/$tomo_name/$WARP_TOMOSTAR_FOLDER_NAME
+    create_dir $workspace_dir_name/$MRCS_SLICES_OUTPUT_FOLDER
 
 
     ## create relative symlinks to the mdoc, gain, and movies
@@ -276,13 +282,14 @@ warp_ts_import(){
     mdoc=$1
 
     tilt_dose=$(awk '/ExposureDose/ {print $3; exit}' $mdoc)
-    #tilt_dose=3 # dose per Ang**2 for each tilt
+    tilt_axis=$(awk '/RotationAngle/ {print $3; exit}' $mdoc)
 
     WarpTools ts_import \
         --mdocs $PROCESSING_FOLDER_NAME/$tomo_name/$MDOC_FOLDER_NAME \
         --frameseries $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_FRAMESERIES_FOLDER_NAME \
         --tilt_exposure $tilt_dose \
         --min_intensity $MIN_INTENSITY \
+        --override_axis $tilt_axis \    
         --dont_invert \
         --output $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TOMOSTAR_FOLDER_NAME >> /dev/null
 
@@ -298,6 +305,8 @@ warp_etomo_patches(){
     patch_size_ang=$ETOMO_PATCH_SIZE_ANG # Ang size for each patch, patches are arranged with 80% overlap 
     threads_per_gpu=$WARP_WORKERS_PER_GPU # divide GPU ram by 16, use that integer
 
+
+    # --initial_axis "$AXIS" not yet sure if this is required... run pipeline again  
     WarpTools ts_etomo_patches \
         --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
         --angpix $set_angpix \
@@ -391,11 +400,12 @@ while sleep $DELAY; do
 		echo "... reading $counter of ${#mdocs[@]} mdoc files"
 
 		## 5. check if a reconstruction exists for this mdoc, skip rest of pipeline if so
-		reconstruction_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/reconstruction/${tomo_name}*.mrc)
-		if (( ${#reconstruction_files[@]} )); then
-			echo " ... reconstruction exists for ${tomo_name}, skipping."
-			continue 
-		fi
+        expected_final_output_file=$PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png
+        if [[ -f "$expected_final_output_file" ]]; then
+            echo "   .. tomogram already processed by pipeline, skipping."
+            continue
+        fi
+
 
 		## 6. if no reconstruction, re-run setup in all cases 
 		create_warp_workspace $mdoc
@@ -434,8 +444,9 @@ while sleep $DELAY; do
         fi
 
         ## step 3 :: import mdoc and create tomostar
-        tomostar_file=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TOMOSTAR_FOLDER_NAME}/*.tomostar)
-		if [ ${#corrected_avg_mrc_files[@]} -lt 1 ]; then
+        tomostar_file=${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TOMOSTAR_FOLDER_NAME}/${tomo_name}.tomostar
+        if [[ ! -f "$tomostar_file" ]]; then
+		# if [ ${#corrected_avg_mrc_files[@]} -lt 1 ]; then
             warp_ts_import $mdoc
         else
             echo "   .. warp tomostar already present, skipping step."
@@ -469,12 +480,20 @@ while sleep $DELAY; do
         fi
 
         ## step 7 :: reconstruct tomogram
-        ## no logic needed... reconstruction cant yet exist if we are in this loop! 
-        warp_ts_reconstruct
+		reconstruction_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/reconstruction/${tomo_name}*.mrc)
+		if [ ${#reconstruction_files[@]} -lt 1 ]; then
+            warp_ts_reconstruct
+        else
+            echo "   .. reconstruction already exists for this tomogram, skipping."
+        fi
 
         ## step 8 :: write a png for quick review of the tomogram based on integrated slices through the middle parts of the tomogram along the Z axis 
-        ## add folder tomo_slices_png to organize step
-        ## populate it with tomos via mrcs_slices.py 
+        tomogram_mrc=${reconstruction_files[0]}
+        mrcs_slices.py  "${reconstruction_files[0]}"  $PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png \
+        --scale 0.5 \
+        --set_slice 20,80,12 >> /dev/null
+        echo "   .. written tomo slices png -> $PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png"
+
 	done
 
 done
