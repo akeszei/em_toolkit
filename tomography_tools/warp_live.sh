@@ -6,7 +6,7 @@
 
 #region GLOBAL VARS
 MIN_TILTS=10 # consider any mdoc with fewer than this many tilts to not be a viable tomographic dataset
-DELAY=1 # seconds delay between loops
+DELAY=100 # seconds delay between loops
 PROCESSING_FOLDER_NAME="warp_live"
 FRAMES_FOLDER_NAME="frames"
 MDOC_FOLDER_NAME="mdoc"
@@ -289,11 +289,11 @@ warp_ts_import(){
         --frameseries $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_FRAMESERIES_FOLDER_NAME \
         --tilt_exposure $tilt_dose \
         --min_intensity $MIN_INTENSITY \
-        --override_axis $tilt_axis \    
+        --override_axis $tilt_axis \
         --dont_invert \
         --output $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TOMOSTAR_FOLDER_NAME >> /dev/null
 
-    echo " Manually edit tomostar file to remove bad frames later"
+    #echo " Manually edit tomostar file to remove bad frames later"
 }
 
 ## Usage:
@@ -384,7 +384,7 @@ is_tomo5_dir
 check_for_dependencies
 
 ## 2. begin loop 
-while sleep $DELAY; do 
+while true; do 
 
 	## 3. update available .mdoc files, ignoring override mdocs  
 	mdocs=(!(*_override).mdoc)
@@ -488,14 +488,17 @@ while sleep $DELAY; do
         fi
 
         ## step 8 :: write a png for quick review of the tomogram based on integrated slices through the middle parts of the tomogram along the Z axis 
-        tomogram_mrc=${reconstruction_files[0]}
-        mrcs_slices.py  "${reconstruction_files[0]}"  $PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png \
-        --scale 0.5 \
-        --set_slice 20,80,12 >> /dev/null
-        echo "   .. written tomo slices png -> $PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png"
+        if [ ${#reconstruction_files[@]} -ge 1 ]; then
+            tomogram_mrc=${reconstruction_files[0]}
+            mrcs_slices.py  "${reconstruction_files[0]}"  $PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png \
+            --scale 0.5 \
+            --set_slice 20,80,12 >> /dev/null
+            echo "   .. written tomo slices png -> $PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png"
+        fi
 
 	done
 
+    sleep $DELAY
 done
 
 #endregion 
