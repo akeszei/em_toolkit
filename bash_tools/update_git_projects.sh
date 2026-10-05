@@ -1,24 +1,22 @@
-## Sanity check the script is run with root priviledge
-if ! [ $(id -u) = 0 ]; then
-    echo " !! ERROR !! Script must be run with elevated priviledges (add sudo)"
-    exit 1
-fi
+#!/usr/bin/env bash
+
+# ## Sanity check the script is run with root priviledge
+# if ! [ $(id -u) = 0 ]; then
+#     echo " !! ERROR !! Script must be run with elevated priviledges (add sudo)"
+#     exit 1
+# fi
 
 ## Remove all projects
 if [ -d "em_dataset_curator" ]; then
-    rm -r em_dataset_curator
+    rm -rf em_dataset_curator
 fi
 
 if [ -d "em_image_conversion" ]; then
-    rm -r em_image_conversion
+    rm -rf em_image_conversion
 fi
 
 if [ -d "em_toolkit" ]; then
-    rm -r em_toolkit
-fi
-
-if [ -d "bash_toolkit" ]; then
-    rm -r bash_toolkit
+    rm -rf em_toolkit
 fi
 
 
@@ -76,6 +74,9 @@ chmod +x em_toolkit/bash_tools/update_ufw.sh
 chmod +x em_toolkit/topaz_tools/topaz_viewer.py
 chmod +x em_toolkit/topaz_tools/coord2star.py
 chmod +x em_toolkit/topaz_tools/topaz_preproc_mrc.py
+chmod +x em_toolkit/tomography_tools/tomo_picker.py
+chmod +x em_toolkit/tomography_tools/warp_live.sh
+
 
 ## Add link for each executable into a common binaries folder for loading onto $PATH
 if [ -d "bin" ]; then
@@ -122,3 +123,5 @@ ln -s ../em_toolkit/EPU_tools/EPU_curate_otf.py bin/
 ln -s ../em_toolkit/topaz_tools/topaz_viewer.py bin/
 ln -s ../em_toolkit/topaz_tools/coord2star.py bin/
 ln -s ../em_toolkit/topaz_tools/topaz_preproc_mrc.py bin/
+ln -s ../em_toolkit/tomography_tools/tomo_picker.py bin/
+ln -s ../em_toolkit/tomography_tools/warp_live.sh bin/
