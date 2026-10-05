@@ -32,6 +32,80 @@ shopt -s nullglob extglob
 trap "echo -e; echo -e 'Script terminated by user.'; exit;" SIGINT SIGTERM
 
 
+#region GENERAL FUNCTIONS
+
+## Usage:
+## countdown <seconds>
+countdown() {
+    local seconds=$1
+    while [ "$seconds" -gt 0 ]; do
+        printf "\r  ... waiting: %2d seconds     " "$seconds"
+        sleep 1
+        : $((seconds--))
+    done
+    printf "\r\e[K\n"
+}
+
+
+## Usage:
+## is_integer <value>
+is_integer(){
+    # Check if an argument was actually passed
+    if [ -z "$1" ]; then
+        return 1
+    fi
+
+    # Regex breakdown:
+    # ^-?    -> Optional negative sign at the start
+    # [0-9]+ -> One or more digits
+    # $      -> End of the string
+    if [[ "$1" =~ ^-?[0-9]+$ ]]; then
+        return 0 # True: It is a valid integer
+    else
+        return 1 # False: It is a string or empty
+    fi
+}
+
+## Usage:
+## is_float <value>
+is_float(){
+    # Check if an argument was actually passed
+    if [ -z "$1" ]; then
+        return 1
+    fi
+
+    # Regex breakdown:
+    # ^-?    -> Optional negative sign at the start
+    # [0-9]+ -> One or more digits
+    # $      -> End of the string
+    if [[ "$1" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then
+        return 0 # True: It is a valid float
+    else
+        return 1 # False: It is a string or empty
+    fi
+
+}
+
+usage(){
+    echo " Usage:"
+    echo "     $ cd /path/to/Tomo5/folder"
+    echo "     $ warp_live.sh "
+    echo "--------------------------------------------------"
+    echo "  Options:"
+    echo "                     --help, -h :   Display this help message and exit "
+    echo "          --min_tilts, -mt (10) :   "
+    echo "              --delay, -d (100) :  seconds "
+    echo "         --eer_ngroup, -eng (3) :   "
+    echo "       --tomo_z_ang, -tz (3000) : Angstroms  "
+    echo "           --min_int, -mi (0.2) :   "
+    echo "      --patch_size, -eps (2000) : Angstroms  "
+    echo "    --workers_per_gpu, -wpg (2) :   "
+    echo "     --reconstruct_res, -rr (8) :   "
+
+    exit 0
+}
+#endregion
+
 #region ORGANIZE FUNCTIONS
 
 ## Usage:
@@ -196,7 +270,6 @@ check_for_dependencies(){
 
 }
 #endregion
-
 
 #region WARP FUNCTIONS
 
@@ -371,14 +444,105 @@ warp_ts_reconstruct(){
 	WarpTools ts_reconstruct \
 		--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
 		--angpix $RESOLUTION_RECONSTRUCTION \
-        --perdevice $WARP_WORKERS_PER_GPU
+        --perdevice $WARP_WORKERS_PER_GPU > /dev/null
 }
 
 #endregion
 
 #region RUN BLOCK
 
+## 0. parse command line options 
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --min_tilts|-mt)
+            if is_integer "$2"; then
+                MIN_TILTS="$2"
+            else
+                echo "Error: --min_tilts|-mt requires a valid integer, got '$2'" >&2
+                usage
+            fi
+            shift 2 # Move past the flag and its value
+            ;;
+        --delay|-d)
+            if is_integer "$2"; then
+                DELAY="$2"
+            else 
+                echo "Error: --delay|-d requires a valid integer, got '$2'" >&2
+                usage
+            fi
+            shift 2 
+            ;;
+        --eer_ngroup|-eng)
+            if is_integer "$2"; then
+                EER_NGROUP="$2"
+            else 
+                echo "Error: --eer_ngroup|-eng requires a valid integer, got '$2'" >&2
+                usage
+            fi
+            shift 2 
+            ;;
+        --tomo_z_ang|-tz)
+            if is_integer "$2"; then
+                TOMO_THICKNESS_ANG="$2"
+            else 
+                echo "Error: --tomo_z_ang|-tz requires a valid integer, got '$2'" >&2
+                usage
+            fi
+            shift 2 
+            ;;
+        --min_int|-mi)
+            if is_float "$2"; then
+                MIN_INTENSITY="$2"
+            else 
+                echo "Error: --min_int|-mi requires a valid integer, got '$2'" >&2
+                usage
+            fi
+            shift 2 
+            ;;
+        --patch_size|-eps)
+            if is_integer "$2"; then
+                ETOMO_PATCH_SIZE_ANG="$2"
+            else 
+                echo "Error: --patch_size|-eps requires a valid integer, got '$2'" >&2
+                usage
+            fi
+            shift 2 
+            ;;
+        --workers_per_gpu|-wpg)
+            if is_integer "$2"; then
+                WARP_WORKERS_PER_GPU="$2"
+            else 
+                echo "Error: --workers_per_gpu|-wpg requires a valid integer, got '$2'" >&2
+                usage
+            fi
+            shift 2 
+            ;;
+        --reconstruct_res|-rr)
+            if is_float "$2"; then
+                RESOLUTION_RECONSTRUCTION="$2"
+            else 
+                echo "Error: --reconstruct_res|-rr requires a valid integer, got '$2'" >&2
+                usage
+            fi
+            shift 2 
+            ;;
+        # -t|--toggle)
+        #     toggle=1
+              ## example of toggle type flag 
+        #     shift 1 # Move past the standalone flag
+        #     ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage
+            ;;
+    esac
+done
+
 ## 1. sanity check the working folder has a .dm file & we have the necessary programs  
+
 is_tomo5_dir
 
 check_for_dependencies
@@ -498,7 +662,11 @@ while true; do
 
 	done
 
-    sleep $DELAY
+    countdown $DELAY
+    echo "============================="
+    echo " Re-running pipeline"
+    echo "-----------------------------"
+
 done
 
 #endregion 
