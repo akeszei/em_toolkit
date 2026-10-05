@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+## Author: Alexander Keszei (refactored from scripts initially written by Landon Getz)
+## 2026-10-05: Version 1 finished 
+
 ## Dependencies:
 ## 1. run in warp conda environment (need WarpTools)
 ## 2. imod needs to be installed and on path (e.g. etomo should be visible)
