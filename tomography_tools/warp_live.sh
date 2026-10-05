@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 
+## Dependencies:
+## 1. run in warp conda environment (need WarpTools)
+## 2. imod needs to be installed and on path (e.g. etomo should be visible)
+## 3. mrcs_slices.py should be installed and on path (e.g. mrcs_sclies.py -h returns no error)
+
 ## Usage:
 ##     cd /path/to/tomo5_session
 ##     warp_live.sh
+## See usage() function below for details, or execute with -h option for a list on the terminal 
 
 #region GLOBAL VARS
 MIN_TILTS=10 # consider any mdoc with fewer than this many tilts to not be a viable tomographic dataset
@@ -24,6 +30,7 @@ WARP_WORKERS_PER_GPU=2 # increase to 2 for larger gpus
 DEFOCUS_HAND_CHECK_LOG_NAME="defocus_hand_check.log"
 RESOLUTION_RECONSTRUCTION=8 # ang to use for reconstruction & alignments
 MRCS_SLICES_OUTPUT_FOLDER="tomo_slices_png"
+GPU_LIST="" # requires space delimited list, e.g. 0 1 2 3...
 #endregion
 
 set -uo pipefail #note cannot use -e option as it will terminate whole script when a function return is not 0
@@ -35,8 +42,22 @@ trap "echo -e; echo -e 'Script terminated by user.'; exit;" SIGINT SIGTERM
 #region GENERAL FUNCTIONS
 
 ## Usage:
+## get_gpus 
+## Description:
+## Set the global GPU_LIST to all GPUs by creating a string of their index, e.g. ("0 1 2") based on what is found by nvidia-smi 
+get_gpus(){
+    local gpu_arr
+    gpu_arr=()
+    for m in $(nvidia-smi --query-gpu=index --format=csv,noheader); do
+        gpu_arr+=($m)
+    done
+    ## set the global to the result with space delimitation
+    GPU_LIST="${gpu_arr[@]}"
+}
+
+## Usage:
 ## countdown <seconds>
-countdown() {
+countdown(){
     local seconds=$1
     while [ "$seconds" -gt 0 ]; do
         printf "\r  ... waiting: %2d seconds     " "$seconds"
@@ -45,7 +66,6 @@ countdown() {
     done
     printf "\r\e[K\n"
 }
-
 
 ## Usage:
 ## is_integer <value>
@@ -92,15 +112,16 @@ usage(){
     echo "     $ warp_live.sh "
     echo "--------------------------------------------------"
     echo "  Options:"
-    echo "                     --help, -h :   Display this help message and exit "
-    echo "          --min_tilts, -mt (10) :   "
-    echo "              --delay, -d (100) :  seconds "
-    echo "         --eer_ngroup, -eng (3) :   "
-    echo "       --tomo_z_ang, -tz (3000) : Angstroms  "
-    echo "           --min_int, -mi (0.2) :   "
-    echo "      --patch_size, -eps (2000) : Angstroms  "
-    echo "    --workers_per_gpu, -wpg (2) :   "
-    echo "     --reconstruct_res, -rr (8) :   "
+    echo "                      --help, -h : Display this help message and exit "
+    echo "           --min_tilts, -mt (10) : Minimum # of tilts needed to be present to in mdoc to run processing on"
+    echo "               --delay, -d (100) : Seconds to pause in between re-running pipeline "
+    echo "          --eer_ngroup, -eng (3) : Set eer_ngroup value for WarpTools create_settings "
+    echo "        --tomo_z_ang, -tz (3000) : Desired thickness in Angstroms of final tomogram "
+    echo "            --min_int, -mi (0.2) : Minimum average intensity relative to the zero tilt for tilted images to be kept for processing "
+    echo "       --patch_size, -eps (2000) : Patch size in Angstroms for etomo patch tracking step "
+    echo "                    --gpu, -g () : Choose specific GPUs to run on (e.g. 0,1 will use dev 0 & 1 only)"  
+    echo "     --workers_per_gpu, -wpg (2) : Number of threads to run on each GPU; recommend to provide 16GB per thread"
+    echo "    --reconstruct_res, -rr (8.0) : Max Angstrom resolution to use for patch alignment and tomogram reconstruction "
 
     exit 0
 }
@@ -343,6 +364,7 @@ warp_motion_and_ctf(){
         --c_defocus_max $max_dZ \
         --out_thumbnails $thumbnail_size \
         --perdevice $threads_per_gpu \
+        --device_list $GPU_LIST \
         --out_average_halves \
         --out_averages > /dev/null
 
@@ -384,6 +406,7 @@ warp_etomo_patches(){
         --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
         --angpix $set_angpix \
         --patch_size $patch_size_ang \
+        --device_list $GPU_LIST \
         --perdevice $threads_per_gpu > /dev/null
 
 }
@@ -396,17 +419,24 @@ warp_check_hand(){
     defocus_hand_log_fpath=$PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_FOLDER_NAME/$DEFOCUS_HAND_CHECK_LOG_NAME
     WarpTools ts_defocus_hand \
     --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
-    --check >> $defocus_hand_log_fpath > /dev/null
+    --check > $defocus_hand_log_fpath 
+    #> /dev/null
 
     average_correlation=$(awk '/Average correlation:/ {print $3; exit}' $defocus_hand_log_fpath)
 
-    FLIP_HAND=$(awk -v num="$average_correlation" 'BEGIN { print (num < 0) ? "true" : "false" }')
+    if is_float $average_correlation; then 
 
-    echo "   .. handedness correlation = $average_correlation -> FLIP_HAND = $FLIP_HAND"
+        FLIP_HAND=$(awk -v num="$average_correlation" 'BEGIN { print (num < 0) ? "true" : "false" }')
 
-	if [[ $FLIP_HAND == 'true' ]]; then
-		WarpTools ts_defocus_hand --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME --set_flip > /dev/null
-	fi
+        echo "   .. handedness correlation = $average_correlation -> FLIP_HAND = $FLIP_HAND"
+
+        if [[ $FLIP_HAND == 'true' ]]; then
+            WarpTools ts_defocus_hand --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME --set_flip > /dev/null
+        fi
+
+    else    
+        echo "   .. could not parse average correlation value"
+    fi
 
 }
 
@@ -432,6 +462,7 @@ warp_ts_ctf(){
         --cs $spherical_aberration \
         --voltage $voltage \
         --amplitude $amplitude_contrast \
+        --device_list $GPU_LIST \
 		--perdevice $WARP_WORKERS_PER_GPU > /dev/null
 
 }
@@ -444,6 +475,7 @@ warp_ts_reconstruct(){
 	WarpTools ts_reconstruct \
 		--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
 		--angpix $RESOLUTION_RECONSTRUCTION \
+        --device_list $GPU_LIST \
         --perdevice $WARP_WORKERS_PER_GPU > /dev/null
 }
 
@@ -451,7 +483,9 @@ warp_ts_reconstruct(){
 
 #region RUN BLOCK
 
-## 0. parse command line options 
+## 0. parse command line options & set defaults 
+get_gpus
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --min_tilts|-mt)
@@ -517,6 +551,26 @@ while [[ $# -gt 0 ]]; do
             fi
             shift 2 
             ;;
+        --gpu|-g)
+            GPU_COMMA_DELIMITED="$2"
+            ## recast list to space delimited
+            l=${GPU_COMMA_DELIMITED//,/ }
+            ## map list to array
+            l_arr=($l)                
+            ## iterate over the array to check each entry is an  integer 
+            for val in ${l_arr[@]}; do 
+                if is_integer $val; then 
+                    continue 
+                else 
+                    echo "Error: --gpu|-g list flag requires a comma-separated set of integers, could not parse: '$2'" >&2
+                    usage 
+                fi
+            done
+            ## if no failure, recast space-delimited list to the $GPU global  
+            GPU_LIST=$l
+            shift 2 
+            ;;
+
         --reconstruct_res|-rr)
             if is_float "$2"; then
                 RESOLUTION_RECONSTRUCTION="$2"
@@ -539,6 +593,7 @@ while [[ $# -gt 0 ]]; do
             usage
             ;;
     esac
+    
 done
 
 ## 1. sanity check the working folder has a .dm file & we have the necessary programs  
@@ -563,9 +618,10 @@ while true; do
         echo 
 		echo "... reading $counter of ${#mdocs[@]} mdoc files"
 
-		## 5. check if a reconstruction exists for this mdoc, skip rest of pipeline if so
+		## 5. check if a reconstruction & png output exists for this mdoc, skip rest of /pipeline if so
         expected_final_output_file=$PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png
-        if [[ -f "$expected_final_output_file" ]]; then
+        reconstruction_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/reconstruction/${tomo_name}*.mrc)
+        if [[ -f "$expected_final_output_file" && ${#reconstruction_files[@]} -ge 1 ]]; then
             echo " >> $mdoc already processed by pipeline, skipping."
             continue
         fi
