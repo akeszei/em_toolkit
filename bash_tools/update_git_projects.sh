@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+
+# ## After running this script, e.g. at ~/scripts, add the bin folder to PATH 
+# ## by copying the following if-statement block into your .bashrc: 
+# if [ -d "~/scripts/bin" ]; then
+#     export PATH="$PATH:~/scripts/bin"
+# fi
+
+
 # ## Sanity check the script is run with root priviledge
 # if ! [ $(id -u) = 0 ]; then
 #     echo " !! ERROR !! Script must be run with elevated priviledges (add sudo)"
