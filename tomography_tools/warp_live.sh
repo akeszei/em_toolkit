@@ -116,6 +116,7 @@ usage(){
     echo "--------------------------------------------------"
     echo "  Options:"
     echo "                      --help, -h : Display this help message and exit "
+    echo "     --root_dir, -rd (warp_live) : Change the default root folder to use for all processing" 
     echo "           --min_tilts, -mt (10) : Minimum # of tilts needed to be present to in mdoc to run processing on"
     echo "               --delay, -d (100) : Seconds to pause in between re-running pipeline "
     echo "          --eer_ngroup, -eng (3) : Set eer_ngroup value for WarpTools create_settings "
@@ -491,6 +492,11 @@ get_gpus
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --root_dir|-rd)
+            PROCESSING_FOLDER_NAME="$2"
+            shift 2 # Move past the flag and its value
+            ;;
+
         --min_tilts|-mt)
             if is_integer "$2"; then
                 MIN_TILTS="$2"
