@@ -399,6 +399,7 @@ Notes are taken directly from [ubuntu docs](https://ubuntu.com/tutorials/setup-z
 ```
 
 ## Install `relion` 
+UPDATE NOTE: WIll need to install pyqt in the conda environment if napari does not load claiming xcb lackign 
 Follow instructions at its [git page](https://github.com/3dem/relion) to compile the program as the admin user. 
 ```sh
   $ sudo apt install cmake git build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev libpng-dev ghostscript libxft-dev
@@ -583,17 +584,15 @@ $ pip install .
 ```
 
 
-## Install `NAMD` and accompanying simulation software 
-
-### Installing `MotionCor3`
+## Installing `MotionCor3`
 Try pointing to CUDA 12 libraries to solve nvToolsExt errors:
 ```
 $ make exe -f makefile11 CUDAHOME=/usr/local/cuda-12.8 
 ```
-For -fPIE errors not yet clear to how to solve on mint
+For -fPIE errors not yet clear to how to solve on mint. Double check I dont have to recompile Lib/Utils and MrcFile similar to notes for `AreTomo2` installation.
 
 
-### Installing `WARP`
+## Installing `WARP`
 See docs of linux [install](https://github.com/warpem/warp#linux). Easiest done in a conda environment:
 
 ```sh
@@ -602,7 +601,7 @@ $ conda activate warp  # Activate the environment whenever you want to use Warp
 (warp) $ WarpTools version # will print version and error due to missing command word
 ```
 
-### Installing `IMOD`
+## Installing `IMOD`
 Download IMOD installer [script](https://bio3d.colorado.edu/imod/download.html#Ubuntu) and unpack it:
 
 ```sh
@@ -621,13 +620,25 @@ sudo ln -s /usr/local/imod_5.1.12 /usr/local/IMOD
 cp /usr/local/IMOD/IMOD-linux.* /etc/profile.d
 ```
 
+## Installing `Miss-alignment`
+See docs of for recommended [install](https://github.com/warpem/miss-alignment/tree/main#installation) via conda:
 
-### Installing `NAMD`
+```sh
+$ conda create -n miss-alignment -c conda-forge python=3.12 cuda-toolkit=12.9 -y
+$ conda activate miss-alignment
+$ python -m pip install torch==2.8.0
+$ python -m pip install torch-projectors --index-url https://warpem.github.io/torch-projectors/cu129/simple/
+$ python -m pip install miss-alignment
+$ miss-alignment --help
+```
+
+
+## Installing `NAMD`
 NAMD can be installed easily by requesting the CUDA enabled binaries from their [website](https://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=NAMD) (at the time of writing it was the `Linux-x86_64-multicore-CUDA` version).
 
 On unzipping the software can be used immediately. For system-wide installation put it into the `/programs/` folder and add the binaries to the `$PATH`
 
-### Installing `CPPTRAJ`
+## Installing `CPPTRAJ`
 Pull the latest version from their [github page](https://github.com/Amber-MD/cpptraj). 
 ```
 git clone https://github.com/Amber-MD/cpptraj.git 
@@ -664,3 +675,92 @@ export PATH=$PATH:\
 ## source cpptraj envrionment via its bash script 
 source /programs/cpptraj/cpptraj.sh
 ```
+
+## Notes for setting up remote desktop using `vnc`
+
+### 1. Install `tigervncserver` on server: 
+
+```sh
+$ sudo apt install tigervnc-standalone-server
+```
+
+Set vnc password:
+
+```sh
+$ tigervncpasswd
+## follow prompts, do not set a view-only password
+```
+
+### 2. Confirm configuration & launch
+
+Double check contents of default file: `~/.vnc/xstartup`
+```sh
+#!/bin/sh
+unset SESSION_MANAGER DBUS_SESSION_BUS_ADDRESS
+export XDG_CURRENT_DESKTOP=ubuntu:GNOME
+exec /etc/gdm3/Xsession "env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --session=ubuntu"
+```
+
+Start vnc on the server:
+
+```sh
+$ chmod +x ~/.vnc/xstartup
+$ vncserver :1
+
+## check if server is running:
+$ vncserver -list 
+```
+
+Can close displays via:
+```sh
+$ vncserver -kill :1 
+# assuming you used display :1 above
+```
+
+### 3. Install the viewer on the remote client
+
+```sh 
+$ sudo apt install tigervnc-viewer  
+```
+
+### 4. On remote client set up portforwarding and run the viewer 
+
+Two terminal windows are needed, one will be the client serving the port and data stream:
+```sh
+# Create an SSH tunnel to forward the default vnc port to localhost 
+ssh -L 5901:localhost:5901 username@IP
+```
+The other terminal will read the SSH tunnel back to the default port to the viewer:
+```sh
+#From another terminal window, launcher vncviewer (locally)
+vncviewer localhost:5901
+
+#Enter your password and you should be in!
+```
+
+Its a good idea to adjust the settings on that user to avoid screen locking at this point.
+
+### Troubleshooting
+If a session goes idle to login screen and you find you cannot type, you'll need to unlock it via the user that is port forwarding. In that shell, look for the correct TTY session for the remote vnc viewer:
+```sh
+$ loginctl list-sessions
+$ tty 
+## our port forwarding shell user had TTY pts/1, the vnc user was defacto the other cryosparc_user, which had a pts/0 value. 
+## Use the session ID for the remote user to unlock it via:
+loginctl unlock-session 10916
+## In some cases the loginctl fails to update the vnc display user and you cannot find the correct session ID. Try a number above below the port forwarding user.
+```
+You should see the screen immediately unlock on the vnc screen when this happens. 
+
+Prevent screen lock (vnc had a bug where you cant type a password) on the server side
+```sh
+gsettings set org.gnome.desktop.screensaver lock-enabled false
+gsettings set org.gnome.desktop.screensaver logout-enabled false
+gsettings set org.gnome.desktop.screensaver ubuntu-lock-on-suspend false
+gsettings set org.gnome.desktop.session idle-delay 0
+gsettings set org.gnome.settings-daemon.plugins.power idle-dim false
+
+## can check other options via
+gsettings list-recursively org.gnome.desktop.screensaver
+```
+
