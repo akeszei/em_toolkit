@@ -344,7 +344,11 @@ Follow the [ppa method](https://inkscape.org/release/inkscape-1.2.2/gnulinux/ubu
 Just download the [.deb installer](https://code.visualstudio.com/download) and run it. 
 
 ### Chimera & ChimeraX
-Notes to follow 
+ChimeraX can be installed via a .deb package on their website. Run it with admin priviledges to install. Consider adding the powerful ArtiaX plugin for tomography work via:
+```sh
+(chimeraX command line) toolshed reload all
+(chimeraX command line) toolshed install ArtiaX
+```
 
 ### Pyem
 Notes to follow
@@ -417,6 +421,15 @@ Follow instructions at its [git page](https://github.com/3dem/relion) to compile
   $ cmake .. -DCUDA_ARCH=120 ## change this number to the correct cuda compute value for your card * 10
   $ make
 ```
+
+Install [cryoCARE](https://github.com/EuanPyle/cryoCARE_mpido) as well as a conda env:
+```sh
+$ conda create -n cryocare_11 python=3.8 cudatoolkit=11.0 cudnn=8.0 -c conda-forge
+$ conda activate cryocare_11
+$ pip install tensorflow==2.4
+$ pip install cryoCARE
+```
+
 ### Troubleshooting FLTK download
 On some networks you cannot download from MRC FTP server. You may get around this by downloading the compressed source from another network that is less closed. For example, on Powershell you might run:
 
