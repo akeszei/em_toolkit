@@ -23,7 +23,7 @@ scaling_factor=$(awk "BEGIN {print 1 / $tomo_angpix}")
 relion_star_handler --i DVO14g3_2026-09-25_tomo10_2_manualPicked2.star --o rescaled.star --operate rlnCoordinateX --operate2 rlnCoordinateY --operate3 rlnCoordinateZ --multiply_by $scaling_factor 
 
 ## ArtiaX particle file lacks the necessary rlnTomoName header, add it here 
-relion_star_hand
+relion_star_handler --i rescaled.star --o rescaled.star --add_column rlnTomoName --add_column_value $rln_tomo_name
 
 echo " Finished!"
 echo "    Next: save this particle file as <rlnTomoName>_particles.star in the Picks/jobX/annotations/ folder"
