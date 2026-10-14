@@ -360,6 +360,27 @@ then
 
 ========================================"
 fi
+# vnc 
+if [ "$1" = "vnc" -o "$1" = "vncserver" -o "$1" = "tigervnc" ] 
+then
+   echo "========================================
+Setup the server:
+  $ sudo apt install tigervnc-standalone-server
+  $ tigervncpasswd
+
+Start or stop the server:
+  $ vncserver :1
+  $ vncserver -list
+  $ vncserver -kill :1
+
+Setup the client & run the ssh tunnel:
+  $ sudo apt install tigervnc-viewer
+  $ ssh -L 5901:localhost:5901 username@IP
+
+Start the viewer: 
+  $ vncviewer localhost:5901
+========================================"
+fi
 
 
 }
