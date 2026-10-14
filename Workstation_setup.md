@@ -422,11 +422,11 @@ Follow instructions at its [git page](https://github.com/3dem/relion) to compile
   $ make
 ```
 
-Install [cryoCARE](https://github.com/EuanPyle/cryoCARE_mpido) as well as a conda env:
+Install [cryoCARE](https://github.com/juglab/cryoCARE_pip) as well as a conda env. Note, with 5060 Ti and CUDA 13.1, driver 590+ I had to adjust the installation sequence from the recommended on their git page to one simialr to that suggested by Thorsten Wagner:
 ```sh
-$ conda create -n cryocare_11 python=3.8 cudatoolkit=11.0 cudnn=8.0 -c conda-forge
-$ conda activate cryocare_11
-$ pip install tensorflow==2.4
+$ conda create -n cryocare -c conda-forge -c anaconda python=3.8 cudatoolkit=11.2 cudnn=8.1
+$ conda activate cryocare
+$ pip install tensorflow==2.5
 $ pip install cryoCARE
 ```
 
