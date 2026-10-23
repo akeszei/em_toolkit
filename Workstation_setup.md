@@ -356,6 +356,18 @@ Notes to follow
 ### CrYOLO
 Updated as of 2025-07. On the remote user, follow the [with CUDA 11](https://cryolo.readthedocs.io/en/stable/installation.html) installation steps using conda to install (even if you are running CUDA 12 drivers).
 
+```sh
+(admin user) $ sudo apt install -y libgtk-3-dev pkg-config #needed to build wxPython dependency
+(admin user) $ sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev #needed to build wxMediaCtrl
+$ conda create -n cryolo -c conda-forge -c anaconda pyqt=5 python=3 numpy=1.18.5 libtiff wxPython=4.1.1  adwaita-icon-theme 'setuptools<66'
+$ conda activate cryolo
+(cryolo) $ pip install nvidia-pyindex
+(cryolo) $ conda env config vars set LD_LIBRARY_PATH=
+(cryolo) $ conda deactivate
+$ conda activate cryolo
+(cryolo) $ pip install 'cryolo[c11]==1.8.0'
+```
+
 ### Phenix
 Download or transfer a phenix installation zip and unpackage it in a temporary directory:
 ```sh
@@ -409,16 +421,15 @@ Follow instructions at its [git page](https://github.com/3dem/relion) to compile
   $ sudo apt install cmake git build-essential mpi-default-bin mpi-default-dev libfftw3-dev libtiff-dev libpng-dev ghostscript libxft-dev
   $ git clone https://github.com/3dem/relion.git
   ## I suggest making this a subfolder in case you need other versions
-  $ mv relion relion_v5.0 
-  $ mkdir relion 
-  $ mv relion_v5.0 relion
-  $ cd relion/relion_v5.0
-  $ git checkout ver5.0
+  $ mv relion relion_v5.1 
+  $ cd relion_v5.1
+  $ git checkout ver5.1
   $ git pull
   $ conda env create -f environment.yml ## if using Blackwell devices (50x0 or newer) use 'environment_blackwell.yml'
   $ mkdir build
   $ cd build
-  $ cmake .. -DCUDA_ARCH=120 ## change this number to the correct cuda compute value for your card * 10
+  $ cmake .. -DCUDA_ARCH=89 \   ## change this number to the correct cuda compute value for your card * 10
+  -DPYTHON_EXE_PATH=/path/to/miniconda3/envs/relion-5.1/bin/python  ## point this to the python in the correct conda envrionment
   $ make
 ```
 
@@ -634,7 +645,7 @@ cp /usr/local/IMOD/IMOD-linux.* /etc/profile.d
 ```
 
 ## Installing `Miss-alignment`
-See docs of for recommended [install](https://github.com/warpem/miss-alignment/tree/main#installation) via conda:
+See docs of for recommended [install](https://github.com/warpem/miss-alignment/tree/main#installation) via conda. This was the installation recipe that worked for our Quad-Ada 5000 GPU workstation:
 
 ```sh
 $ conda create -n miss-alignment -c conda-forge python=3.12 cuda-toolkit=12.9 -y
@@ -643,6 +654,18 @@ $ python -m pip install torch==2.8.0
 $ python -m pip install torch-projectors --index-url https://warpem.github.io/torch-projectors/cu129/simple/
 $ python -m pip install miss-alignment
 $ miss-alignment --help
+```
+
+
+## Installing `IsoNet2`
+See docs of for recommended [install](https://github.com/IsoNet-cryoET/IsoNet2) non-GUI installation and dependencies. Here are notes for our Ada 5000 quad GPU workstation:
+
+```sh
+$ git clone https://github.com/IsoNet-cryoET/IsoNet2
+$ nano isonet2_environment.yml
+## edit the yml file to rename the environment to something smaller, e.g. isonet2
+$ nano install.sh
+## denoise step getting xcb error trying currently: conda install conda-forge::libxcb 
 ```
 
 

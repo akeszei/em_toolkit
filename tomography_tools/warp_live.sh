@@ -720,7 +720,7 @@ while true; do
         if [ ${#reconstruction_files[@]} -ge 1 ]; then
             tomogram_mrc=${reconstruction_files[0]}
             mrcs_slices.py  "${reconstruction_files[0]}"  $PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png \
-            --scale 0.5 \
+            --scale 1 \
             --set_slice 20,80,12 >> /dev/null
             echo "   .. written tomo slices png -> $PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png"
         fi
