@@ -86,7 +86,7 @@ class Parameters:
                 except:
                     print(" ERROR :: Could not assign angpix value given ")
 
-            ## parse the input angpix  
+            ## parse the input flag  
             if cmd == '--plot':
                 self.plot_points = True
                 print(" Assigned angpix value = ", self.plot_points)

@@ -31,7 +31,8 @@ class Parameters:
 
     def usage(self):
         print("================================================================================================================")
-        print(" Read a warp tiltseries XML file and import the refined values into an exising RELION tilt_series star file:")
+        print(" Read a warp tiltseries XML file and import the refined values (e.g. after miss-alignment) into an exising ")
+        print(" RELION tilt_series star file:")
         print(" Usage:")
         print("    $ update_relion_ts_star_from_warp_xml.py  /path/to/tilt_series/<tomo>.star  /path/to/warp_tiltseries/<tomo>xml")
         # print(" Options:")
@@ -122,7 +123,7 @@ class TiltSeriesData:
     VERBOSE: bool = True
 
     def parse_warp_xml(self, xml_fpath):
-        if self.VERBOSE: print(" parse xml file:, ", xml_fpath)
+        # if self.VERBOSE: print(" parse xml file: ", xml_fpath)
         xml_tree = parse_xml(xml_fpath)
 
         for elem in xml_tree.iter():
@@ -149,7 +150,7 @@ class TiltSeriesData:
         return 
 
     def parse_relion5_star(self, star_fpath):
-        if self.VERBOSE: print(" parse star file:, ", star_fpath)
+        # if self.VERBOSE: print(" parse star file:, ", star_fpath)
 
         df = starfile.read(star_fpath)
 
@@ -252,4 +253,5 @@ if __name__ == "__main__":
     relion_star["rlnTomoYShiftAngst"] = ts_warp.y_shift
     relion_star["rlnTomoZRot"] = ts_warp.z_rot
     starfile.write(relion_star, params.input_starfile_path)
-
+    print("                 backup file written: ", os.path.join(root, backup_fname))
+    print("        updated alignment written to: ", params.input_starfile_path)

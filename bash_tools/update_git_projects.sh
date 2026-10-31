@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
 
-
-# ## After running this script, e.g. at ~/scripts, add the bin folder to PATH 
-# ## by copying the following if-statement block into your .bashrc: 
-# if [ -d "~/scripts/bin" ]; then
-#     export PATH="$PATH:~/scripts/bin"
-# fi
-
-
 # ## Sanity check the script is run with root priviledge
 # if ! [ $(id -u) = 0 ]; then
 #     echo " !! ERROR !! Script must be run with elevated priviledges (add sudo)"
@@ -45,6 +37,7 @@ chmod +x em_image_conversion/mrcs_viewer.py
 chmod +x em_image_conversion/mrc_viewer.py
 chmod +x em_image_conversion/stack_mrc.py
 chmod +x em_image_conversion/recast_mrc_f16_to_f32.py
+chmod +x em_image_conversion/mrcs_slices.py
 chmod +x em_toolkit/cs_file_tools/get_particle_locations_from_cs.py
 chmod +x em_toolkit/cs_file_tools/read_cs.py
 chmod +x em_toolkit/cs_file_tools/export_cs_particle_stack.py
@@ -103,6 +96,7 @@ ln -s ../em_image_conversion/mrcs_viewer.py bin/
 ln -s ../em_image_conversion/mrc_viewer.py bin/
 ln -s ../em_image_conversion/stack_mrc.py bin/
 ln -s ../em_image_conversion/recast_mrc_f16_to_f32.py bin/
+ln -s ../em_image_conversion/mrcs_slices.py bin/
 ln -s ../em_toolkit/cs_file_tools/get_particle_locations_from_cs.py bin/
 ln -s ../em_toolkit/cs_file_tools/read_cs.py bin/
 ln -s ../em_toolkit/cs_file_tools/export_cs_particle_stack.py bin/

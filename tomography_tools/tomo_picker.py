@@ -58,6 +58,7 @@ def parse_cmdline(cmds):
     sigma = 3
     input_file = None
     threads = 6
+    coord_file = None
 
     ## parse through the commandline entries for specific flags 
     for i in range(len(cmds)):
@@ -77,8 +78,11 @@ def parse_cmdline(cmds):
         if cmd == '--sigma':
             sigma = cast_flag_input_to_type(cmds, i, float())
 
-        if cmd == '--threads':
+        if cmd == '--threads' or cmd == '--j':
             threads = cast_flag_input_to_type(cmds, i, int())
+
+        if cmd == '--star':
+            coord_file = cast_flag_input_to_type(cmds, i, str())
 
 
     ## sanity check necessary inputs are populated 
@@ -87,7 +91,7 @@ def parse_cmdline(cmds):
         usage()
         sys.exit()
 
-    return scale, lowpass, sigma, input_file, threads
+    return scale, lowpass, sigma, input_file, threads, coord_file
 
 def cast_flag_input_to_type(cmdline, flag_index, dtype):
     """
@@ -183,17 +187,22 @@ def usage():
     # print(" Open a stack of MRC/MRCS images and load their processed images into buffer. Use left/right ")
     # print(" up/down arrows to navigate through the stack. You can click on particles of interest and ")
     # print(" use Ctrl + e to extract them into a new .MRCS file useable by downstream programs:")
-    # print("    $ tomo_picker.py  <input>.mrcs")
-    # print("------------------------------------------------------------------------------------------------")
-    # print(" Can set options on loadup to bypass defaults: ")
-    # print("           --scale (0.2) : rescale displayed frame images by a value in range (0,inf)")
-    # print("          --lowpass (-1) : apply a lowpass filter; -1 turns off filtering (faster)")
-    # print("             --sigma (3) : set sigma filter contrast ")
-    # print("           --threads (8) : set number of cores to use (1 = no parallelization) ")
-    # print("------------------------------------------------------------------------------------------------")
-    # print(" Keyboard shortcuts: ")
+    print("    $ tomo_picker.py  <input>.mrcs")
+    print("------------------------------------------------------------------------------------------------")
+    print(" Can set options on loadup to bypass defaults: ")
+    print("           --scale (0.2) : rescale displayed frame images by a value in range (0,inf)")
+    print("          --lowpass (-1) : apply a lowpass filter; -1 turns off filtering (faster)")
+    print("             --sigma (3) : set sigma filter contrast ")
+    print("      --threads, --j (8) : set number of cores to use (1 = no parallelization) ")
+    print("               --star () : give an input .star file with coordinates to load on startup")
+    print("------------------------------------------------------------------------------------------------")
+    print(" Keyboard shortcuts: ")
+    print("   Arrow keys | z,x : Move through z stack")
+    print("           Ctrl + x : Open autopick panel")
+    print("           Ctrl + z : Open settings panel")
+    print("           Ctrl + s : Prompt save coordinates file")
     # print("    Ctrl + e : Save out a '..._extracted.mrcs' file with picked coordinates across the stack")
-    # print("    Ctrl + q : Quit program")
+    print("           Ctrl + q : Quit program")
     print("================================================================================================")
     return 
 
@@ -960,10 +969,11 @@ class MrcData():
         
         if len(tomo_name) == 0:
             tomostar = os.path.splitext(os.path.basename(self.fname))[0] + ".tomostar"
+            tomo_name = os.path.splitext(os.path.basename(self.fname))[0]
         else:
             tomostar = tomo_name + ".tomostar"
 
-        columns = ["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ", "rlnMicrographName" ]
+        columns = ["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ", "rlnMicrographName", "rlnTomoName" ]
         df = pd.DataFrame(columns=columns)
         ## prepare the coordinates as a dataframe, where columns are the datavalues 
         counter = 0
@@ -977,7 +987,8 @@ class MrcData():
                     "rlnCoordinateX" : x, 
                     "rlnCoordinateY" : y, 
                     "rlnCoordinateZ" : z, 
-                    "rlnMicrographName" : tomostar
+                    "rlnMicrographName" : tomostar,
+                    "rlnTomoName" : tomo_name
                 }
 
         # print(df)
@@ -999,27 +1010,37 @@ class MrcData():
         return
 
     def parse_starfile_df(self, df, DEBUG = True):
+        ## clear existing star coordinate data 
+        self.coordinates_raw = {}
+
         if DEBUG: print(" Parse input star dataframe:\n", df )
         ## get the max number of z slices in the data structure 
         max_z = self.z        
 
         ## check we have the expected rlnColumnNames present 
-        expected_columns = {"rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ", "rlnMicrographName" }
+        expected_columns = {"rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ", "rlnMicrographName", "rlnTomoName" }
         if not expected_columns.issubset(df.columns):
             print(" ERROR :: Input star file data lacks expected columns")
             print( expected_columns)
 
         ## iterate through the dictionary to set the coordinates 
+        particle_count = 0
         for index, row in df.iterrows():
-            x = int(row['rlnCoordinateX'] / 10)
-            y = int(row['rlnCoordinateY'] / 10)
-            z = int(row['rlnCoordinateZ'] / 10)
-            
+            x = int(row['rlnCoordinateX'] )
+            y = int(row['rlnCoordinateY'] )
+            z = int(row['rlnCoordinateZ'] )
+            particle_count += 1
             try:
                 tomostar_str = row['rlnMicrographName']
             except:
                 print(" WARNING :: Missing rlnMicrographName column was missing, skipping")
                 tomostar_str = ""
+
+            try:
+                tomo_name_str = row['rlnTomoName']
+            except:
+                print(" WARNING :: Missing rlnTomoName column was missing, skipping")
+                tomo_name_str = ""
 
             ## check if there already exists a list of coordinates for this given slice 
             if str(z) in self.coordinates_raw:
@@ -1027,17 +1048,75 @@ class MrcData():
             ## otherwise initialize the dictionary with the slice 
             else:
                 self.coordinates_raw[str(z)] = [(x, y)]
-        print(self.coordinates_raw)
+
+        if DEBUG:
+            print(" Imported %s coordinates:" % particle_count)
+            counter = 0
+            for z in self.coordinates_raw:
+                if len(self.coordinates_raw[z]) > 1:
+                    counter += 1
+                    print("    ", self.coordinates_raw[z][0])
+                    if counter == 2:
+                        print("    ", self.coordinates_raw[z][0])
+                        print("     ...")
+                        break 
+
+
         ## update the tomostar string
-        print( " WIP add tomo star data ")         
+        print( " WIP add parsing of tomostar and tomoName data into mainUI widgets ")         
         return tomostar_str
 
+    def shift_coordinates_by_axis(self, axis, dist):
+        # print(" shift coords %s px along %s" % (dist, axis))
+
+        ## shift by z
+        if axis == 'z':
+            ## since the data structure has string as its keys, we need to build a new dictionary entirely to shift the coordinates up or down
+            updated_d = {}
+
+            if dist == 'flip':
+                z_max = self.z
+                for z_str in self.coordinates_raw:
+                    z_int = int(z_str)
+                    new_z = z_max - z_int
+                    print(" %s -> %s" % (z_int, new_z))
+                    updated_d[str(new_z)] = self.coordinates_raw[z_str]
+
+            else:
+                for z_str in self.coordinates_raw:
+                    z_int = int(z_str)
+                    new_z = z_int + dist
+                    if 0 > new_z > len(self.coordinates_raw):
+                        continue 
+                    else:
+                        updated_d[str(new_z)] = self.coordinates_raw[z_str]
+
+            self.coordinates_raw = updated_d
+        elif axis == 'x':
+            ## shift x
+            ## x and y data are lists of tuples, so we need to make a fresh list and replace the existing one for each slice 
+            for z in self.coordinates_raw:
+                new_points = []
+                for x,y in self.coordinates_raw[z]:
+                    new_coord = (x + dist, y)
+                    new_points.append(new_coord)
+                self.coordinates_raw[z] = new_points
+        elif axis == 'y':
+            ## shift y
+            for z in self.coordinates_raw:
+                new_points = []
+                for x,y in self.coordinates_raw[z]:
+                    new_coord = (x, y + dist)
+                    new_points.append(new_coord)
+                self.coordinates_raw[z] = new_points
+
+        return 
 
 #endregion
 
 #region Class TK
 class MainUI:
-    def __init__(self, instance, input_scale, input_lowpass, input_sigma, input_file, input_threads):
+    def __init__(self, instance, input_scale, input_lowpass, input_sigma, input_file, input_threads, coord_file):
         self.instance = instance
         instance.title("Tomography picker")
         # instance.geometry("520x500") ## geometry now set by a function 
@@ -1166,6 +1245,8 @@ class MainUI:
         self.instance.bind('<Control-KeyRelease-s>', lambda event: self.write_coordinates())
         self.instance.bind('<Control-x>', lambda event: self.open_panel("AutopickPanel"))
         self.instance.bind('<Control-z>', lambda event: self.open_panel("SettingsPanel"))
+        self.instance.bind('<Control-o>', lambda event: self.load_star_coordinates())
+
 
         self.scale_ENTRY.bind('<Control-KeyRelease-a>', lambda event: self.select_all(self.scale_ENTRY))
         self.scale_ENTRY.bind('<Return>', lambda event: self.scale_updated())
@@ -1188,6 +1269,9 @@ class MainUI:
         self.instance.bind("<Button-5>", self.MouseWheelHandler)
         self.instance.bind("<ButtonPress-2>", self.on_middle_mouse_press)
         self.instance.bind("<ButtonRelease-2>", self.on_middle_mouse_release)
+
+        if not coord_file is None:
+            self.load_star_coordinates(coord_file)
 
         return
 
@@ -1443,12 +1527,19 @@ class MainUI:
                 file_dir, file_name = os.path.split(str(file_w_path))
                 print("File selected: ", file_name)
                 print("Working directory: ", file_dir)
+                self.image_name = file_w_path
                 self.working_dir = file_dir
+                self.save_star_fname = os.path.join(file_dir, os.path.splitext(file_name)[0] + "_CURATED.star") # suggest a full save path
 
                 ## Pack the image data into the MrcData object
                 self.slice_index = 0
                 self.mrcdata = MrcData(self.image_name, self.scale_factor, self.lowpass_threshold, self.sigma_contrast)
                 self.load_img()
+
+                ## check if settings panel is open, we may want to update the text box 
+                if not self.settingsPanel_instance is None:
+                    self.settingsPanel_instance.tomo_name_ENTRY.delete(0, tk.END)
+                    self.settingsPanel_instance.tomo_name_ENTRY.insert(0, "%s" % os.path.splitext(os.path.split(self.image_name)[1])[0])
 
                 ## SET THE SIZE OF THE PROGRAM WINDOW BASED ON THE SIZE OF THE DATA FRAME AND THE SCREEN RESOLUTION
                 self.resize_program_to_fit_screen_or_data()
@@ -1457,16 +1548,20 @@ class MainUI:
                 showerror("Open Source File", "Failed to read file\n'%s'" % file_w_path)
             return
 
-    def load_star_coordinates(self):
+    def load_star_coordinates(self, input_file = None):
         """ Permits the system browser to be launched to select an image
             form a directory. Loads the directory and file into their
             respective variables and returns them
         """
-        # See: https://stackoverflow.com/questions/9239514/filedialog-tkinter-and-opening-files
-        file_w_path = askopenfilename(parent=self.instance, initialdir=".", title='Select file', filetypes=(
-                                            # ("All files", "*.*"),
-                                            ("STAR", "*.star, *.STAR"),
-                                            ))
+        if input_file is None:
+            # See: https://stackoverflow.com/questions/9239514/filedialog-tkinter-and-opening-files
+            file_w_path = askopenfilename(parent=self.instance, initialdir=".", title='Select file', filetypes=(
+                                                # ("All files", "*.*"),
+                                                ("STAR", "*.star, *.STAR"),
+                                                ))
+        else:
+            file_w_path = input_file
+
         if file_w_path:
             try:
                 # extract file information from selection
@@ -1491,7 +1586,6 @@ class MainUI:
             tomostar_str = self.mrcdata.parse_starfile_df(df)
             self.load_img()
             return
-
 
     def next_img(self, direction, DEBUG = False):
         """ Increments the current image index based on the direction given to the function.
@@ -2251,6 +2345,11 @@ class AutopickPanel(MainUI):
         # self.panel.geometry('500x310')
         # self.viewport_frame = viewport_frame =  ttk.Frame(self.panel)
         
+        ## shift the window to pop up just right and a little down of the main window by default 
+        mainUI_x_limit = mainUI.instance.winfo_rootx() + mainUI.instance.winfo_width()
+        mainUI_y = mainUI.instance.winfo_rooty() + 200
+        self.panel.geometry(f"+{mainUI_x_limit}+{mainUI_y}") #= "+%d+%d" % (x,y+height)
+
         ## Parameters 
         self.loaded_template_im_array = None
         self.loaded_template_displayObj = None
@@ -2432,6 +2531,7 @@ class AutopickPanel(MainUI):
             print(" Submitting autopick job with template: ", self.loaded_template_im_array.shape)
             self.clear_picked_coordinates()
             self.mainUI.template_picker(self.loaded_template_im_array, float(self.threshold_slider.get()))
+            self.mainUI.focus_get()
         return
     
     def generate_template_from_picks(self):
@@ -2535,6 +2635,11 @@ class SettingsPanel(MainUI):
         # self.panel.geometry('500x310')
         # self.viewport_frame = viewport_frame =  ttk.Frame(self.panel)
         
+        ## shift the window to pop up just right of the main window by default 
+        mainUI_x_limit = mainUI.instance.winfo_rootx() + mainUI.instance.winfo_width()
+        mainUI_y = mainUI.instance.winfo_rooty() -50 
+        self.panel.geometry(f"+{mainUI_x_limit}+{mainUI_y}") #= "+%d+%d" % (x,y+height)
+
         ## Parameters 
 
         ## Define widgets
@@ -2543,20 +2648,48 @@ class SettingsPanel(MainUI):
         self.tomo_name_ENTRY = tk.Entry(self.panel, width=40, font=("Helvetica", '9'), justify='left')
         self.tomo_name_ENTRY.insert(tk.END, "%s" % os.path.splitext(os.path.split(self.mainUI.image_name)[1])[0])
 
+        self.shift_coords_LABEL = tk.Label(self.panel, text = 'Shift coordinates:', anchor = tk.SW, font = ('Helvetica', '9'))
+        coord_shift_button_size = 6
+        self.shift_z_up_BUTTON = tk.Button(self.panel, text="Z-", font = ('Helvetica', '9'), command = lambda: self.shift_coordinates('z', -1), width=coord_shift_button_size)
+        self.shift_z_down_BUTTON = tk.Button(self.panel, text="Z+", font = ('Helvetica', '9'), command = lambda: self.shift_coordinates('z', 1), width=coord_shift_button_size)
+        self.flip_z_BUTTON = tk.Button(self.panel, text="flipZ", font = ('Helvetica', '9'), command = lambda: self.shift_coordinates('z', 'flip'), width=coord_shift_button_size)
+        self.shift_x_left_BUTTON = tk.Button(self.panel, text="X-", font = ('Helvetica', '9'), command = lambda: self.shift_coordinates('x', -1), width=coord_shift_button_size)
+        self.shift_x_right_BUTTON = tk.Button(self.panel, text="X+", font = ('Helvetica', '9'), command = lambda: self.shift_coordinates('x', 1), width=coord_shift_button_size)
+        self.shift_y_up_BUTTON = tk.Button(self.panel, text="Y-", font = ('Helvetica', '9'), command = lambda: self.shift_coordinates('y', -1), width=coord_shift_button_size)
+        self.shift_y_down_BUTTON = tk.Button(self.panel, text="Y+", font = ('Helvetica', '9'), command = lambda: self.shift_coordinates('y', 1), width=coord_shift_button_size)
 
         ## Pack widgets, dynamic rows to ease adjusting later 
         # row 0
         current_row = 0
-        self.tomo_name_LABEL.grid(column = 0, columnspan=2, row = current_row, pady=1, padx=3, sticky=tk.W)
+        self.tomo_name_LABEL.grid(column = 0, columnspan=3, row = current_row, pady=1, padx=3, sticky=tk.W)
         # row 
         current_row += 1
-        self.tomo_name_ENTRY.grid(column = 0, columnspan=2, row = current_row, pady=1, padx=3)
+        self.tomo_name_ENTRY.grid(column = 0, columnspan=4, row = current_row, pady=1, padx=3)
         # row 
         current_row += 1
         ttk.Separator(self.panel, orient='horizontal').grid(column = 0, row = current_row, columnspan = 6, pady=2, sticky=tk.EW)
         # row 
         current_row +=1 
-        self.write_point_txt_file_BUTTON.grid(column = 0, columnspan=2, row = current_row, pady=2, padx=3, sticky=tk.E)
+        self.write_point_txt_file_BUTTON.grid(column = 0, columnspan=3, row = current_row, pady=2, padx=3, sticky=tk.W)
+        # row 
+        current_row += 1
+        ttk.Separator(self.panel, orient='horizontal').grid(column = 0, row = current_row, columnspan = 6, pady=2, sticky=tk.EW)
+        # row 
+        current_row += 1
+        self.shift_coords_LABEL.grid(column = 0, row = current_row)
+        # row 
+        current_row += 1
+        self.shift_z_up_BUTTON.grid(column = 3, row = current_row)
+        self.shift_y_up_BUTTON.grid(column = 1, row = current_row)
+        # row 
+        current_row += 1
+        self.shift_x_left_BUTTON.grid(column = 0, row = current_row, sticky=tk.E)
+        self.shift_x_right_BUTTON.grid(column = 2, row = current_row, sticky=tk.W)
+        self.flip_z_BUTTON.grid(column=3, row = current_row)
+        # row 
+        current_row += 1
+        self.shift_z_down_BUTTON.grid(column = 3, row = current_row)
+        self.shift_y_down_BUTTON.grid(column = 1, row = current_row)
 
 
         ## Add some hotkeys for ease of use
@@ -2602,15 +2735,23 @@ class SettingsPanel(MainUI):
 
         return 
 
+    def shift_coordinates(self, axis, dist):
+        print(" shift %s by %s" % (axis, dist))
+        self.mainUI.mrcdata.shift_coordinates_by_axis(axis, dist)
+        self.mainUI.draw_image_coordinates()
+        self.mainUI.instance.focus()
+        return 
+
+
 ##########################
 ### RUN BLOCK
 ##########################
 if __name__ == '__main__':
 
-    input_scale, input_lowpass, input_sigma, input_file, input_threads = parse_cmdline(sys.argv)
+    input_scale, input_lowpass, input_sigma, input_file, input_threads, coord_file = parse_cmdline(sys.argv)
 
     usage()
 
     root = tk.Tk()
-    app = MainUI(root, input_scale, input_lowpass, input_sigma, input_file, input_threads)
+    app = MainUI(root, input_scale, input_lowpass, input_sigma, input_file, input_threads, coord_file)
     root.mainloop()
