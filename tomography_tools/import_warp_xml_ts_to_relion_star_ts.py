@@ -30,10 +30,10 @@ class Parameters:
 
     def usage(self):
         print("================================================================================================================")
-        print(" Read a warp tiltseries XML file and import the refined values (e.g. after miss-alignment) into an exising ")
+        print(" Read a warp tiltseries XML file and import the refined values (e.g. after miss-alignment) into an existing ")
         print(" RELION tilt_series star file:")
         print(" Usage:")
-        print("    $ import_warp_xml_ts_to_relion_star_ts.py  /path/to/tilt_series/<tomo>.star  /path/to/warp_tiltseries/<tomo>xml")
+        print("    $ import_warp_xml_ts_to_relion_star_ts.py  /path/to/AlignTiltSeries/job/tilt_series/<tomo>.star  /path/to/warp_tiltseries/<tomo>xml")
         # print(" Options:")
         # print("         --angpix (2) :: pixel size   ")
         # print("               --plot :: show a plot of tilt series from warp & relion")
