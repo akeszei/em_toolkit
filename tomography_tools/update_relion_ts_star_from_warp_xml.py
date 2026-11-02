@@ -28,7 +28,6 @@ class Parameters:
     input_starfile_path: str = ""
     input_xmlfile_path: str = ""
 
-
     def usage(self):
         print("================================================================================================================")
         print(" Read a warp tiltseries XML file and import the refined values (e.g. after miss-alignment) into an exising ")
@@ -114,6 +113,7 @@ class Parameters:
 
 @dataclass
 class TiltSeriesData:
+    fname: str() = ""
     nominal_tilt: list[float] = field(default_factory=list) 
     # dZ: list[float] = field(default_factory=list) ## rlnTomoNominalDefocus (maybe not useful to update this? rather U and V?)
     x_shift: list[float] = field(default_factory=list) ## rlnTomoXShiftAngst | AxisOffsetX
@@ -123,6 +123,7 @@ class TiltSeriesData:
     VERBOSE: bool = True
 
     def parse_warp_xml(self, xml_fpath):
+        self.fname = os.path.basename(xml_fpath)
         # if self.VERBOSE: print(" parse xml file: ", xml_fpath)
         xml_tree = parse_xml(xml_fpath)
 
@@ -143,7 +144,6 @@ class TiltSeriesData:
             if xml_section == 'Angles':
                 self.nominal_tilt = [float(x) for x in elem.text.split()]
 
-
             # if xml_section == 'CTF':
             #     elem.get('')
 
@@ -151,7 +151,7 @@ class TiltSeriesData:
 
     def parse_relion5_star(self, star_fpath):
         # if self.VERBOSE: print(" parse star file:, ", star_fpath)
-
+        self.fname = os.path.basename(star_fpath)
         df = starfile.read(star_fpath)
 
         self.x_shift = df['rlnTomoXShiftAngst'].astype(float).tolist()
@@ -184,7 +184,6 @@ class TiltSeriesData:
         if self.VERBOSE: print(" Updated Y shifts")
         return 
 
-
     def as_df(self):
         """
         Return the tiltseries data as an organized pandas dataframe 
@@ -206,52 +205,60 @@ class TiltSeriesData:
 {self.as_df().to_string(index=False, col_space=15)}
 """
 
-
+    def stats(self):
+        print("=========================================")
+        print(" Information for: %s" % self.fname)
+        print("-----------------------------------------")
+        print("       Tilt span = %s -> %s" % (min(self.nominal_tilt), max(self.nominal_tilt)))
+        print("         # tilts = %s" % len(self.nominal_tilt))
+        print(" Average X shift = %.2f" % (sum(self.x_shift) / len(self.x_shift)) )
+        print(" Average Y shift = %.2f " % (sum(self.y_shift) / len(self.y_shift)))
+        print("   Average Z rot = %.2f" % (sum(self.z_rot) / len(self.z_rot)))
+        return 
 
 if __name__ == "__main__":
     params = Parameters()
     params.parse_cmdline(sys.argv)
     print(params)
 
-    # ## Example: loading star & xml files, then comparing the differences 
-    # ts = TiltSeriesData()
-    # ts.parse_relion5_star(params.input_starfile_path)
-
-    # ts2 = TiltSeriesData()
-    # ts2.parse_warp_xml(params.input_xmlfile_path)
-
-    # print(ts.as_df() - ts2.as_df())
-    # ## end
-
-
-    ## Example: loading star & xml files, then updating the star values from the xml values and writing out a file 
+    ## unpack the data from each file 
     ts_relion = TiltSeriesData()
     ts_relion.parse_relion5_star(params.input_starfile_path)
     ts_warp = TiltSeriesData()
     ts_warp.parse_warp_xml(params.input_xmlfile_path)
 
-    ts_relion.x_shift = ts_warp.x_shift
-    ts_relion.y_shift = ts_warp.y_shift
-    ts_relion.z_rot = ts_warp.z_rot
+    ## send some data about each file to the user via the terminal 
+    ts_relion.stats()
+    ts_warp.stats()
 
-    ## confirm the values are identical by getting a zero table when finding the difference
-    difference_df = ts_relion.as_df() - ts_warp.as_df()
-    difference_score = difference_df.to_numpy().sum()
-    if difference_score > 0:
-        print(" ERROR :: There was a problem remapping the warp data into the relion file, here is the difference dataframe:")
-        print(difference_df)
+    ## warn if one list is shorter than the other, fail if it is the warp list that is shorter since we cannot update all shifts in the relion file in that case 
+    if len(ts_relion.nominal_tilt) < len(ts_warp.nominal_tilt):
+        print(" WARNING :: Input RELION .star file has fewer tilts than the input WARP .xml file. Will update only available tilts.")
+    elif len(ts_relion.nominal_tilt) > len(ts_warp.nominal_tilt):
+        print(" ERROR :: RELION .star file has more tilts then the WARP .xml file. Cannot update tilts for which there is no data. Reconcile missing tilts before continuing.")
         sys.exit()
 
-    ## if the above passes, then we are certain we can replace the values in the original star file 
+    ## run the tilt-by-tilt update 
+    for i in range(len(ts_relion.nominal_tilt)):
+        current_tilt = ts_relion.nominal_tilt[i]
+        j = ts_warp.nominal_tilt.index(current_tilt)
+        # print(" RELION tilt = %s :: x, y, z = %s, %s, %s" % (current_tilt, ts_relion.x_shift[i], ts_relion.y_shift[i], ts_relion.z_rot[i]))
+        # print("   WARP tilt = %s :: x, y, z = %s, %s, %s" % (ts_warp.nominal_tilt[j], ts_warp.x_shift[j], ts_warp.y_shift[j], ts_warp.z_rot[j]))
+        ts_relion.x_shift[i] = ts_warp.x_shift[j]
+        ts_relion.y_shift[i] = ts_warp.y_shift[j]
+        ts_relion.z_rot[i] = ts_warp.z_rot[j]
+
+
     ## copy the original star file as a back up
     root, fname = os.path.split(params.input_starfile_path)
     backup_fname = fname + ".bak"
     shutil.copy(params.input_starfile_path, os.path.join(root, backup_fname))
-    ## overwrite the original star file 
-    relion_star = starfile.read(params.input_starfile_path)
-    relion_star["rlnTomoXShiftAngst"] = ts_warp.x_shift
-    relion_star["rlnTomoYShiftAngst"] = ts_warp.y_shift
-    relion_star["rlnTomoZRot"] = ts_warp.z_rot
-    starfile.write(relion_star, params.input_starfile_path)
-    print("                 backup file written: ", os.path.join(root, backup_fname))
-    print("        updated alignment written to: ", params.input_starfile_path)
+
+    ## replace the original star file 
+    updated_star = starfile.read(params.input_starfile_path)
+    updated_star["rlnTomoXShiftAngst"] = ts_relion.x_shift
+    updated_star["rlnTomoYShiftAngst"] = ts_relion.y_shift
+    updated_star["rlnTomoZRot"] = ts_relion.z_rot
+    starfile.write(updated_star, params.input_starfile_path)
+    print("                 Backup file written: ", os.path.join(root, backup_fname))
+    print("        Updated alignment written to: ", params.input_starfile_path)
