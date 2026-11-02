@@ -78,7 +78,7 @@ chmod +x em_toolkit/topaz_tools/topaz_preproc_mrc.py
 chmod +x em_toolkit/tomography_tools/tiltseries_picker.py
 chmod +x em_toolkit/tomography_tools/tomo_picker.py
 chmod +x em_toolkit/tomography_tools/warp_live.sh
-
+chmod +x em_toolkit/tomography_tools/import_warp_xml_ts_to_relion_star_ts.py
 
 ## Add link for each executable into a common binaries folder for loading onto $PATH
 if [ -d "bin" ]; then
@@ -129,3 +129,4 @@ ln -s ../em_toolkit/topaz_tools/topaz_preproc_mrc.py bin/
 ln -s ../em_toolkit/tomography_tools/tiltseries_picker.py bin/
 ln -s ../em_toolkit/tomography_tools/tomo_picker.py bin/
 ln -s ../em_toolkit/tomography_tools/warp_live.sh bin/
+ln -s ../em_toolkit/tomography_tools/import_warp_xml_ts_to_relion_star_ts.py
