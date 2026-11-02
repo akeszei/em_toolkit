@@ -31,7 +31,7 @@ class Parameters:
     def usage(self):
         print("================================================================================================================")
         print(" Read a warp tiltseries XML file and import the refined values (e.g. after miss-alignment) into an existing ")
-        print(" RELION tilt_series star file:")
+        print(" RELION tilt_series star file. Will automatically write a .bak file of the original star file as well:")
         print(" Usage:")
         print("    $ import_warp_xml_ts_to_relion_star_ts.py  /path/to/AlignTiltSeries/job/tilt_series/<tomo>.star  /path/to/warp_tiltseries/<tomo>xml")
         # print(" Options:")
@@ -249,16 +249,39 @@ if __name__ == "__main__":
         ts_relion.z_rot[i] = ts_warp.z_rot[j]
 
 
-    ## copy the original star file as a back up
+    ## replace the original star file 
+    updated_star_df = starfile.read(params.input_starfile_path)
+    for i in range(len(ts_relion.nominal_tilt)):
+        current_tilt = ts_relion.nominal_tilt[i]
+        ## get index of the tilt column
+        matching_idx = (updated_star_df['rlnTomoNominalStageTiltAngle'] == current_tilt).idxmax()
+        ## use the index to update specific values 
+        updated_star_df.loc[matching_idx, 'rlnTomoXShiftAngst'] = ts_relion.x_shift[i]
+        updated_star_df.loc[matching_idx, 'rlnTomoYShiftAngst'] = ts_relion.y_shift[i]
+        updated_star_df.loc[matching_idx, 'rlnTomoZRot'] = ts_relion.z_rot[i]
+
+    ## NOTE: previously I replaced entire list, above I switched to tilt-by-tilt checking to be certain we are changing the correct row
+    # updated_star["rlnTomoXShiftAngst"] = ts_relion.x_shift
+    # updated_star["rlnTomoYShiftAngst"] = ts_relion.y_shift
+    # updated_star["rlnTomoZRot"] = ts_relion.z_rot
+
+    print("=========================================")
+    print(" FINISHED: ")
+    print("-----------------------------------------")
+
+    ## copy the original star file as a back up if a back up does not yet exist 
     root, fname = os.path.split(params.input_starfile_path)
     backup_fname = fname + ".bak"
-    shutil.copy(params.input_starfile_path, os.path.join(root, backup_fname))
+    if not os.path.isfile(os.path.join(root, backup_fname)):
+        shutil.copy(params.input_starfile_path, os.path.join(root, backup_fname))
+        print("          Backup file written: ", os.path.join(root, backup_fname))
+    else:
+        print("   Backup file already exists: ", os.path.join(root, backup_fname))
 
-    ## replace the original star file 
-    updated_star = starfile.read(params.input_starfile_path)
-    updated_star["rlnTomoXShiftAngst"] = ts_relion.x_shift
-    updated_star["rlnTomoYShiftAngst"] = ts_relion.y_shift
-    updated_star["rlnTomoZRot"] = ts_relion.z_rot
-    starfile.write(updated_star, params.input_starfile_path)
-    print("                 Backup file written: ", os.path.join(root, backup_fname))
-    print("        Updated alignment written to: ", params.input_starfile_path)
+    starfile.write(updated_star_df, params.input_starfile_path)
+
+    print(" Updated alignment written to: ", params.input_starfile_path)
+
+    ts_relion_new = TiltSeriesData()
+    ts_relion_new.parse_relion5_star(params.input_starfile_path)
+    ts_relion_new.stats()
