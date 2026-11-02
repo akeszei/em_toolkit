@@ -432,6 +432,15 @@ Follow instructions at its [git page](https://github.com/3dem/relion) to compile
   -DPYTHON_EXE_PATH=/path/to/miniconda3/envs/relion-5.1/bin/python  ## point this to the python in the correct conda envrionment
   $ make
 ```
+Test if you can properly open napari for picking tilt series or particles. In my case, I had an error that required me to update the environment via:
+```sh
+## ERROR in relion re: 
+##   ModuleNotFoundERror: ... pysgnal/_evented_model.py no module named pydantic._internal
+## Resolve by rolling back psygnal to specific version:
+$ conda activate relion-5.0
+(relion-5.0) $ pip install psygnal==0.11.1
+```
+
 
 Install [cryoCARE](https://github.com/juglab/cryoCARE_pip) as well as a conda env. Note, with 5060 Ti and CUDA 13.1, driver 590+ I had to adjust the installation sequence from the recommended on their git page to one simialr to that suggested by Thorsten Wagner:
 ```sh

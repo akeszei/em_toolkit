@@ -75,6 +75,7 @@ chmod +x em_toolkit/bash_tools/update_ufw.sh
 chmod +x em_toolkit/topaz_tools/topaz_viewer.py
 chmod +x em_toolkit/topaz_tools/coord2star.py
 chmod +x em_toolkit/topaz_tools/topaz_preproc_mrc.py
+chmod +x em_toolkit/tomography_tools/tiltseries_picker.py
 chmod +x em_toolkit/tomography_tools/tomo_picker.py
 chmod +x em_toolkit/tomography_tools/warp_live.sh
 
@@ -125,5 +126,6 @@ ln -s ../em_toolkit/EPU_tools/EPU_curate_otf.py bin/
 ln -s ../em_toolkit/topaz_tools/topaz_viewer.py bin/
 ln -s ../em_toolkit/topaz_tools/coord2star.py bin/
 ln -s ../em_toolkit/topaz_tools/topaz_preproc_mrc.py bin/
+ln -s ../em_toolkit/tomography_tools/tiltseries_picker.py bin/
 ln -s ../em_toolkit/tomography_tools/tomo_picker.py bin/
 ln -s ../em_toolkit/tomography_tools/warp_live.sh bin/

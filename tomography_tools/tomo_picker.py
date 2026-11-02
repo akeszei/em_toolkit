@@ -698,6 +698,7 @@ class MrcData():
         return 
 
     def remove_clashes_above_below(self, z, clash_distance_Ang, DEBUG = True):
+        ## WIP consider adding separate values for particle diameter (to evaulate the clash flag) and for z distance to compress across (in case reconstruction is not accurate along Z we need to be more generous )
         if DEBUG: print(" REMOVE clashes from planes above/below slice %s (clash distance = %s Ang)" % (z, clash_distance_Ang))
         ## determine the number of slices above & below we need to collate particle coordinates from 
         clash_half_distance_px = int((clash_distance_Ang / self.pixel_size)/2)
@@ -1236,8 +1237,8 @@ class MainUI:
         self.instance.bind("<F1>", lambda event: self.debugging())
         self.instance.bind('<Left>', lambda event: self.next_img('left'))
         self.instance.bind('<Right>', lambda event: self.next_img('right'))
-        self.instance.bind('<Up>', lambda event: self.next_img('left'))
-        self.instance.bind('<Down>', lambda event: self.next_img('right'))
+        self.instance.bind('<Up>', lambda event: self.next_img('right'))
+        self.instance.bind('<Down>', lambda event: self.next_img('left'))
         self.instance.bind('<z>', lambda event: self.next_img('left'))
         self.instance.bind('<x>', lambda event: self.next_img('right'))
         # self.instance.bind('<Control-KeyRelease-e>', lambda event: self.extract_particles())
@@ -1868,7 +1869,7 @@ class MainUI:
         dropdown_options = tk.Menu(menubar)
         menubar.add_cascade(label="Options", menu = dropdown_options)
         dropdown_options.add_command(label="Autopick (Ctrl+x)", command= lambda: self.open_panel("AutopickPanel"))
-        dropdown_options.add_command(label="Options (Ctrl+z)", command= lambda: self.open_panel("SettingsPanel"))
+        dropdown_options.add_command(label="Settings (Ctrl+z)", command= lambda: self.open_panel("SettingsPanel"))
         return
 
     def resize(self, event):
@@ -2531,7 +2532,7 @@ class AutopickPanel(MainUI):
             print(" Submitting autopick job with template: ", self.loaded_template_im_array.shape)
             self.clear_picked_coordinates()
             self.mainUI.template_picker(self.loaded_template_im_array, float(self.threshold_slider.get()))
-            self.mainUI.focus_get()
+            self.mainUI.instance.focus()
         return
     
     def generate_template_from_picks(self):
@@ -2714,10 +2715,11 @@ class SettingsPanel(MainUI):
         return
 
     def write_point_txt_file(self):
-        print(" WIP : Write points to txt file for use with IMOD point2model > 3dmod rendering")
 
-        ## initialize the file 
-        suggested_fname = self.mainUI.image_name + ".txt"
+        ## create a useful filename based on the loaded image name
+        current_img_path, current_img_basename = os.path.split(self.mainUI.image_name)
+        suggested_txt_filename = os.path.splitext(current_img_basename)[0] + "_particles.txt"
+        suggested_fname = os.path.join(current_img_path, suggested_txt_filename)
         print(" write txt file: ", suggested_fname)
 
         with open(suggested_fname, 'w', newline='\n', encoding='utf-8') as f:
@@ -2729,9 +2731,16 @@ class SettingsPanel(MainUI):
                     z = int(slice)
                     f.write(" %s   %s   %s \n" % (x, y, z))
 
+        ## not super efficient, but we can re-write the file to ensure LF line endings if running on Windows
+        if os.name == 'nt':
+            print("     ... Windows OS detected :: converting star file to LF line endings")
+            convert_to_linux_newlines(os.path.join(current_img_path, suggested_txt_filename))
+
         print(" Use the points .txt file to view in 3dmod via:")
-        print("     $ point2model %s %s.mod" % (suggested_fname, suggested_fname))
+        print("     $ point2model %s %s.mod" % (suggested_fname, os.path.splitext(suggested_fname)[0]))
         print("")
+
+
 
         return 
 
