@@ -448,7 +448,7 @@ def template_match(im_array, template_array, input_threshold):
     print(" template array shape = ", template_array.shape)
 
     print("===========================")
-    print("   Image_handler :: template_match")
+    print("   template_match")
     print("---------------------------")
     print("  input_img :: (x, y) [grayscale range] -> (%s, %s) [%s, %s]" % (img_w, img_h, np.min(im_array), np.max(im_array)))
     print("  input_template :: (x, y) [grayscale range] -> (%s, %s) [%s, %s]" % (template_w, template_h, np.min(template_array), np.max(template_array)))
@@ -486,7 +486,7 @@ def template_match(im_array, template_array, input_threshold):
             # print(" point found @ (%s, %s) score = %s" % (match[0], match[1], max_val))
             loc.append(match)
 
-    print(" %s template matches found " % len(loc))
+    print(" ... %s template matches found " % len(loc))
 
     return res, loc
 
@@ -697,14 +697,16 @@ class MrcData():
             print(" Warning :: no coordinates were detected for this slice to clear! Ignoring request.")
         return 
 
-    def remove_clashes_above_below(self, z, clash_distance_Ang, DEBUG = True):
-        ## WIP consider adding separate values for particle diameter (to evaulate the clash flag) and for z distance to compress across (in case reconstruction is not accurate along Z we need to be more generous )
-        if DEBUG: print(" REMOVE clashes from planes above/below slice %s (clash distance = %s Ang)" % (z, clash_distance_Ang))
+    def remove_clashes_above_below(self, z, clash_z_distance_Ang, clash_xy_distance_Ang, DEBUG = True):
         ## determine the number of slices above & below we need to collate particle coordinates from 
-        clash_half_distance_px = int((clash_distance_Ang / self.pixel_size)/2)
+        z_clash_half_distance_px = int((clash_z_distance_Ang / self.pixel_size)/2)
+        xy_clash_half_distance_px = int((clash_xy_distance_Ang / self.pixel_size) / 2)
+
+        if DEBUG: print(" REMOVE clashes from planes above/below slice %s (clash distance = %s Ang, %s slices above/below)" % (z, clash_z_distance_Ang, z_clash_half_distance_px))
+
         ## collate the coordinate data for each slice above & below by this half distance
         coordinates_above_below = []
-        for i in range(clash_half_distance_px + 1):
+        for i in range(z_clash_half_distance_px + 1):
             if i == 0:
                 continue 
             positive_slice = z + i
@@ -733,13 +735,13 @@ class MrcData():
                         ## on the first clash we find, avoid further calculation by setting this flag to True and existing this nested for loop 
                         if CLASH_DETECTED: break 
                         ## for the point above/below, establish its clash limits 
-                        x_max = int(coord_above_below[0] + clash_half_distance_px)
-                        x_min = int(coord_above_below[0] - clash_half_distance_px)
-                        y_max = int(coord_above_below[1] + clash_half_distance_px)
-                        y_min = int(coord_above_below[1] - clash_half_distance_px)
+                        x_max = int(coord_above_below[0] + xy_clash_half_distance_px)
+                        x_min = int(coord_above_below[0] - xy_clash_half_distance_px)
+                        y_max = int(coord_above_below[1] + xy_clash_half_distance_px)
+                        y_min = int(coord_above_below[1] - xy_clash_half_distance_px)
 
-                        if check_if_two_ranges_intersect(current_x - clash_half_distance_px, current_x + clash_half_distance_px, x_min, x_max, DEBUG = False): # x0, x1, y0, y1
-                            if check_if_two_ranges_intersect(current_y - clash_half_distance_px, current_y + clash_half_distance_px, y_min, y_max, DEBUG = False): # x0, x1, y0, y1
+                        if check_if_two_ranges_intersect(current_x - xy_clash_half_distance_px, current_x + xy_clash_half_distance_px, x_min, x_max, DEBUG = False): # x0, x1, y0, y1
+                            if check_if_two_ranges_intersect(current_y - xy_clash_half_distance_px, current_y + xy_clash_half_distance_px, y_min, y_max, DEBUG = False): # x0, x1, y0, y1
                                 erase_coordinates.append(coord)
                                 CLASH_DETECTED = True
                                 ## if the coordinate is added, we can move to the next coordinate immediately 
@@ -1860,6 +1862,7 @@ class MainUI:
         dropdown_file = tk.Menu(menubar)
         menubar.add_cascade(label="File", menu = dropdown_file)
         dropdown_file.add_command(label="Open .mrc", command=self.load_file)
+        dropdown_file.add_command(label="Save .star coordinates", command=self.write_coordinatesx)
         dropdown_file.add_command(label="Load .star coordinates", command=self.load_star_coordinates)
         # dropdown_file.add_command(label="Save .gif animation (unidirectional)", command=lambda: self.create_gif_animation(FORMAT = 'unidirectional'))
         # dropdown_file.add_command(label="Save .gif animation (bidirectional)", command=lambda: self.create_gif_animation(FORMAT = 'bidirectional'))
@@ -2041,13 +2044,13 @@ class MainUI:
         # print(" norm_template shape = ", normalized_template.shape)  
         return normalized_template
 
-    def template_picker(self, template, picking_threshold = 0.3):
+    def template_picker(self, template, picking_threshold = 0.3, min_dist_ang = 100):
         """
             Use an input template to pick on the unscaled original processed image 
             PARAMETERS
                 template = np.array (uint8, 0 - 255)
         """
-        
+        print(" Template picker :: threshold = %s, min_dist_ang = %s" % (picking_threshold, min_dist_ang))
         # ## get all the picks so far and add them together before re-normalizing
         # pil_img = ImageTk.getimage(self.display_data[0]).convert("L")
         # # 2. Convert the PIL Image to a NumPy array
@@ -2056,7 +2059,7 @@ class MainUI:
         current_img_unscaled = self.mrcdata.get_processed_slice_unscaled_as_array(self.slice_index)
 
         res, loc = template_match(current_img_unscaled, template, picking_threshold) 
-        print(" residual img dimensions :: (x, y) color_range [a, b] -> (%s, %s)  [%s, %s]" % (res.shape[0], res.shape[1], np.min(res), np.max(res)))
+        # print(" residual img dimensions :: (x, y) color_range [a, b] -> (%s, %s)  [%s, %s]" % (res.shape[0], res.shape[1], np.min(res), np.max(res)))
 
         # import matplotlib.pyplot as plt
         # fig,ax=plt.subplots()
@@ -2065,43 +2068,72 @@ class MainUI:
         #     ax.add_patch(plt.Circle([pt[0],pt[1]], radius=0.5, edgecolor='r',lw=3, fill=False))
         # cbar=plt.colorbar(im)
         # plt.show()
-
         
-        # ## For performance probably want to run the check with fewer calculations per cycle, so pre-calculate the halfbox size, then for each point run a range intersection check for X, if it passes then Y, then if it does not intersect with both add the coordinate a a separate list we later call to add points (to avoid growth of the search set during loop, input coordinates are expected NOT to intersect!)
-        # display_angpix = self.pixel_size / self.scale_factor 
-        # particle_width = self.picks_diameter / display_angpix
-        # particle_halfwidth = int(particle_width / 2)
-        # picks_to_keep = []
-        # for i in range(len(loc)):
-        #     ADD_POINT = True
-        #     x, y, score = loc[i]
+        ## evaluate the output locations for clashes given a minimum clash distance, in cases where a clash occurs, only keep the point with the highest score
+        min_dist_px = int(min_dist_ang / self.pixel_size)
+        picks_to_keep = []
+        sorted_loc = sorted(loc, key=lambda x: x[2]) ## loc list is of the form [(x, y, score), ... ], sort list for best scores appear first
+        for i in range(len(sorted_loc)):
+            v = 0
+            ## set a flag for conditional evaluation in the loop
+            # ADD_POINT = True
+
+            ## add the first/next point in the list that remains
+            x, y, score = sorted_loc.pop(v)
+            picks_to_keep.append((x,y))
+
+            ## find all clashes to this point
+            clashes = [] 
+            for j in range(len(sorted_loc)):
+                remaining_x, remaining_y, remaining_score = sorted_loc[j]
+                if check_if_two_ranges_intersect(x - min_dist_px, x + min_dist_px, remaining_x, remaining_x):
+                    if check_if_two_ranges_intersect(y - min_dist_px, y + min_dist_px, remaining_y, remaining_y):
+                        clashes.append(j)
+
+            ## by sorting the list earlier, any clashes are by comparison worse scoring picks, so drop them from the list
+            ## reverse sort the clashing indexes to avoid 
+            for idx in sorted(clashes, reverse=True):
+                del sorted_loc[idx]
+
+            if len(sorted_loc) == 0:
+                break 
+
+            # if str(self.slice_index) in self.mrcdata.coordinates_raw:
+            #     if not len(self.mrcdata.coordinates_raw[str(self.slice_index)]) == 0:
+            #         for px, py in self.mrcdata.coordinates_raw[str(self.slice_index)]:
+            #             ## UPDATE: We operate on the raw image so no scaling needed in this updated version of the picker 
+            #             # ## coordinates need to be rescaled to the viewing image scale 
+            #             # rescaled_x = int(px * self.scale_factor)
+            #             # rescaled_y = int(py * self.scale_factor)
+
+            #             ## run the fast intersection algorithm for X, then Y
+            #             if check_if_two_ranges_intersect(x - min_dist_px, x + min_dist_px, px - min_dist_px, px + min_dist_px):
+            #                 if check_if_two_ranges_intersect(y - min_dist_px, y + min_dist_px, py - min_dist_px, py + min_dist_px):
+            #                     ## if we pass both checks, we have a clash situation - abandon adding this point to the final roster without further checks 
+            #                     ADD_POINT = False
 
 
-        #     if str(self.slice_index) in self.mrcdata.coordinates_raw:
-        #         if not len(self.mrcdata.coordinates_raw[str(self.slice_index)]) == 0:
-        #             for px, py in self.mrcdata.coordinates_raw[str(self.slice_index)]:
-        #                 ## coordinates need to be rescaled to the viewing image scale 
-        #                 rescaled_x = int(px * self.scale_factor)
-        #                 rescaled_y = int(py * self.scale_factor)
+            # if check_if_two_ranges_intersect(x - min_dist_px, x + min_dist_px, px - min_dist_px, px + min_dist_px):
+            #     if check_if_two_ranges_intersect(y - min_dist_px, y + min_dist_px, py - min_dist_px, py + min_dist_px):
+            #         ## if we pass both checks, we have a clash situation - abandon adding this point to the final roster without further checks 
+            #         ADD_POINT = False
 
-        #                 ## run the fast intersection algorithm for X, then Y
-        #                 if check_if_two_ranges_intersect(x - particle_halfwidth, x + particle_halfwidth, rescaled_x - particle_halfwidth, rescaled_x + particle_halfwidth):
-        #                     if check_if_two_ranges_intersect(y - particle_halfwidth, y + particle_halfwidth, rescaled_y - particle_halfwidth, rescaled_y + particle_halfwidth):
-        #                         ## if we pass both checks, we have a clash situation - abandon adding this point to the final roster without further checks 
-        #                         ADD_POINT = False
-        #     ## use the flag to decide whether we add the point 
-        #     if ADD_POINT:
-        #         picks_to_keep.append(i)
 
-        # ## add each point we wanted to keep to the final set of coordinates after fishing the looping functions 
-        # for p in picks_to_keep:
-        #     x, y, score = loc[p]
-        #     # self.add_coordinate(x, y, score)
-        #     self.mrcdata.add_coordinate(self.slice_index,x,y, box_width=-1)
+            # ## use the flag to decide whether we add the point 
+            # if ADD_POINT:
+            #     picks_to_keep.append(i)
 
-        for i in range(len(loc)):
-            x, y, score = loc[i]
+
+        ## add each point we wanted to keep to the final set of coordinates after fishing the looping functions 
+        print(" ... %s autopicks kept after evaluating clashes of distance %sA (%s px)" % (len(picks_to_keep), min_dist_ang, min_dist_px))
+        for x, y in picks_to_keep:
+            # x, y, score = loc[p]
+            # self.add_coordinate(x, y, score)
             self.mrcdata.add_coordinate(self.slice_index,x,y, box_width=-1, SCALE_FACTOR=1)
+
+        # for i in range(len(loc)):
+        #     x, y, score = loc[i]
+        #     self.mrcdata.add_coordinate(self.slice_index,x,y, box_width=-1, SCALE_FACTOR=1)
 
         ## determine the minimum threshold score and set the slider there so we see all points added after running this command 
         # lowest_score = min(loc, key=lambda p:p[2])[2]
@@ -2148,7 +2180,7 @@ class MainUI:
     def on_middle_mouse_press(self, event):
         """ When the user clicks the middle mouse, hide all coordinates
         """
-        print(" Middle mouse pressed")
+        # print(" Middle mouse pressed")
         canvas = self.displayed_widgets[0]
         canvas.delete('brush')
         # canvas.delete('marker')
@@ -2158,7 +2190,7 @@ class MainUI:
     def on_middle_mouse_release(self, event):
         """ When the middle mouse is released, redraw all coordinates
         """
-        print(" Middle mouse released")
+        # print(" Middle mouse released")
         self.draw_image_coordinates()
         return
 
@@ -2357,7 +2389,7 @@ class AutopickPanel(MainUI):
         self.canvas_size = 150 # px
         self.picking_threshold = 0.1
         self.gaussian_disk_diameter = int(self.mainUI.picks_diameter * 0.8)
-        self.template_size = int(self.mainUI.picks_diameter * 1.2) # angstroms
+        self.template_size = int(self.mainUI.picks_diameter * 3) # angstroms
 
         ## Define widgets
 
@@ -2373,7 +2405,9 @@ class AutopickPanel(MainUI):
         self.template_size_ENTRY = tk.Entry(self.panel, width=6, font=("Helvetica", '9'), justify='right')
         self.template_size_ENTRY.insert(tk.END, "%s" % self.template_size)
         self.template_size_LABEL = tk.Label(self.panel, text = 'Template size (Å):', anchor = tk.S, font = ('Helvetica', '9'))
-        self.clear_z_clashes_BUTTON = tk.Button(self.panel, text="Remove Z clashes", font = ('Helvetica', '9'), command = lambda: self.clear_z_clashes(), width=16)
+        self.autopick_min_dist_LABEL = tk.Label(self.panel, text = 'Min.dist (Å):', anchor = tk.S, font = ('Helvetica', '9'))
+        self.autopick_min_dist_ENTRY = tk.Entry(self.panel, width=6, font=("Helvetica", '9'), justify='right')
+        self.autopick_min_dist_ENTRY.insert(tk.END, "%s" % int(self.mainUI.picks_diameter * 0.6))
 
 
         ## 2. threshold slider
@@ -2386,10 +2420,14 @@ class AutopickPanel(MainUI):
         self.canvas_label = tk.Label(self.panel, text = 'Template loaded:', anchor = tk.S, font = ('Helvetica', '10'))
         self.canvas = tk.Canvas(self.panel, width = self.canvas_size, height = self.canvas_size, background="gray")
 
-        ## 4. separator widgets for aesthetics 
-        self.separator1 = ttk.Separator(self.panel, orient='horizontal')
-        self.separator2 = ttk.Separator(self.panel, orient='horizontal')
-        self.separator3 = ttk.Separator(self.panel, orient='horizontal')
+        ## 4. z clash section 
+        self.clear_z_clashes_BUTTON = tk.Button(self.panel, text="Remove Z clashes", font = ('Helvetica', '9'), command = lambda: self.clear_z_clashes(), width=16)
+        self.z_clash_Zdist_LABEL = tk.Label(self.panel, text = 'Z dist(Å):', anchor = tk.S, font = ('Helvetica', '9'))
+        self.z_clash_Zdist_ENTRY = tk.Entry(self.panel, width=6, font=("Helvetica", '9'), justify='right')
+        self.z_clash_Zdist_ENTRY.insert(tk.END, "%s" % int(self.mainUI.picks_diameter * 2.12))
+        self.z_clash_XYdist_LABEL = tk.Label(self.panel, text = 'XY dist(Å):', anchor = tk.S, font = ('Helvetica', '9'))
+        self.z_clash_XYdist_ENTRY = tk.Entry(self.panel, width=6, font=("Helvetica", '9'), justify='right')
+        self.z_clash_XYdist_ENTRY.insert(tk.END, "%s" % int(self.mainUI.picks_diameter * 0.6))
 
 
         ## Pack widgets, dynamic rows to ease adjusting later 
@@ -2409,32 +2447,38 @@ class AutopickPanel(MainUI):
         current_row += 1
         self.template_size_LABEL.grid(column = 0, columnspan=2, row = current_row, sticky=tk.E)
         self.template_size_ENTRY.grid(column = 2, row = current_row, sticky=tk.W)
+        self.autopick_min_dist_LABEL.grid(column=3, row = current_row, sticky=tk.E)
+        self.autopick_min_dist_ENTRY.grid(column=4, row = current_row, sticky=tk.W)
         # row 
         current_row += 1
-        self.separator2.grid(column = 0, row = current_row, columnspan = 6, sticky=tk.EW)
+        ttk.Separator(self.panel, orient='horizontal').grid(column = 0, row = current_row, columnspan = 6, pady=2, sticky=tk.EW)
         # row 
         current_row += 1
         self.canvas_label.grid(column = 0, row = current_row, columnspan = 6, sticky=tk.W, pady=5, padx=10)
         # row 
         current_row += 1
         self.canvas.grid(column = 0, row = current_row, columnspan = 6, pady=5)
-        # # row 
-        # current_row += 1
-        # self.separator1.grid(column = 0, row = current_row, columnspan = 3, sticky=tk.EW)
         # row
         current_row +=1 
         self.threshold_label.grid(column = 0, row = current_row, columnspan = 1, sticky=tk.SE)
         self.threshold_slider.grid(column=1, row=current_row, columnspan = 5, padx=5, sticky=tk.W)
         # row
         current_row +=1 
-        self.autopick_button.grid(column=0, columnspan=6, row= current_row, pady=10)
+        self.autopick_button.grid(column=0, columnspan=3, row= current_row, pady=10, sticky=tk.E)
+        self.clear_coordinates_button.grid(column=4, columnspan=2, row=current_row, padx = 5, pady=5)
         # row  
         current_row += 1
         ttk.Separator(self.panel, orient='horizontal').grid(column = 0, row = current_row, columnspan = 6, pady=2, sticky=tk.EW)
         # row  
         current_row += 1
         self.clear_z_clashes_BUTTON.grid(column=0, columnspan=2,row=current_row, padx = 10, pady=2)
-        self.clear_coordinates_button.grid(column=2, columnspan=2, row=current_row, padx = 10, pady=2)
+        self.z_clash_Zdist_LABEL.grid(column = 2, row = current_row, sticky=tk.E)
+        self.z_clash_Zdist_ENTRY.grid(column = 3, row = current_row, sticky=tk.W)
+        current_row+=1
+        self.z_clash_XYdist_LABEL.grid(column = 2, row = current_row, sticky=tk.E)
+        self.z_clash_XYdist_ENTRY.grid(column = 3, row = current_row, sticky=tk.W)
+
+
 
         ## Add some hotkeys for ease of use
         # self.threshold_slider.bind('<Left>', lambda event: self.cutoff_slider.set(self.cutoff_slider.get() - 0.1))
@@ -2446,6 +2490,15 @@ class AutopickPanel(MainUI):
         self.template_size_ENTRY.bind('<KP_Enter>', lambda event: self.template_size_updated())
         self.gaussian_disk_diameter_ENTRY.bind('<Return>', lambda event: self.create_gaussian_disk())
         self.gaussian_disk_diameter_ENTRY.bind('<KP_Enter>', lambda event: self.create_gaussian_disk())
+        self.autopick_min_dist_ENTRY.bind('<Control-KeyRelease-a>', lambda event: self.mainUI.select_all(self.autopick_min_dist_ENTRY))
+        self.z_clash_Zdist_ENTRY.bind('<Control-KeyRelease-a>', lambda event: self.mainUI.select_all(self.z_clash_Zdist_ENTRY))
+        self.z_clash_XYdist_ENTRY.bind('<Control-KeyRelease-a>', lambda event: self.mainUI.select_all(self.z_clash_XYdist_ENTRY))
+        self.autopick_min_dist_ENTRY.bind('<Return>', lambda event: self.panel.focus())
+        self.autopick_min_dist_ENTRY.bind('<KP_Enter>', lambda event: self.panel.focus())
+        self.z_clash_Zdist_ENTRY.bind('<Return>', lambda event: self.panel.focus())
+        self.z_clash_Zdist_ENTRY.bind('<KP_Enter>', lambda event: self.panel.focus())
+        self.z_clash_XYdist_ENTRY.bind('<Return>', lambda event: self.panel.focus())
+        self.z_clash_XYdist_ENTRY.bind('<KP_Enter>', lambda event: self.panel.focus())
 
 
         ## Set focus to the panel
@@ -2478,6 +2531,7 @@ class AutopickPanel(MainUI):
         disk = gaussian_disk(gauss_diameter_px, int(gauss_diameter_px * 1.25), background_color = background_grayscale)
         self.loaded_template_im_array = disk 
         self.display_template()
+        self.panel.focus()
         return 
 
     def close(self):
@@ -2531,7 +2585,7 @@ class AutopickPanel(MainUI):
         else:
             print(" Submitting autopick job with template: ", self.loaded_template_im_array.shape)
             self.clear_picked_coordinates()
-            self.mainUI.template_picker(self.loaded_template_im_array, float(self.threshold_slider.get()))
+            self.mainUI.template_picker(self.loaded_template_im_array, float(self.threshold_slider.get()), int(self.autopick_min_dist_ENTRY.get()))
             self.mainUI.instance.focus()
         return
     
@@ -2618,11 +2672,13 @@ class AutopickPanel(MainUI):
     def clear_picked_coordinates(self):
         self.mainUI.mrcdata.clear_coordinates_from_slice(self.mainUI.slice_index)
         self.mainUI.load_img()
+        self.mainUI.instance.focus()
         return 
 
     def clear_z_clashes(self):
-        self.mainUI.mrcdata.remove_clashes_above_below(self.mainUI.slice_index, self.mainUI.picks_diameter)
+        self.mainUI.mrcdata.remove_clashes_above_below(self.mainUI.slice_index, float(self.z_clash_Zdist_ENTRY.get()), float(self.z_clash_XYdist_ENTRY.get()))
         self.mainUI.load_img()
+        self.mainUI.instance.focus()
         return 
 
 #endregion 
