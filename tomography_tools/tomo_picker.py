@@ -1862,7 +1862,7 @@ class MainUI:
         dropdown_file = tk.Menu(menubar)
         menubar.add_cascade(label="File", menu = dropdown_file)
         dropdown_file.add_command(label="Open .mrc", command=self.load_file)
-        dropdown_file.add_command(label="Save .star coordinates", command=self.write_coordinatesx)
+        dropdown_file.add_command(label="Save .star coordinates", command=self.write_coordinates)
         dropdown_file.add_command(label="Load .star coordinates", command=self.load_star_coordinates)
         # dropdown_file.add_command(label="Save .gif animation (unidirectional)", command=lambda: self.create_gif_animation(FORMAT = 'unidirectional'))
         # dropdown_file.add_command(label="Save .gif animation (bidirectional)", command=lambda: self.create_gif_animation(FORMAT = 'bidirectional'))

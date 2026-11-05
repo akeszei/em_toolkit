@@ -2,20 +2,22 @@
 
 ## Author: Alexander Keszei (refactored from scripts initially written by Landon Getz)
 ## 2026-10-05: Version 1 finished 
+## 2026-11-04: Fix bugs for processing lower mags and allow user to point to the falcon server folder instead of working in the EPU dir itself
 
 ## Dependencies:
 ## 1. run in warp conda environment (need WarpTools)
 ## 2. imod needs to be installed and on path (e.g. etomo should be visible)
-## 3. mrcs_slices.py should be installed and on path (e.g. mrcs_sclies.py -h returns no error)
+## 3. mrcs_slices.py should be installed and on path (e.g. mrcs_slices.py -h returns no error)
 
 ## Usage:
 ##     cd /path/to/tomo5_session
-##     warp_live.sh
+##     warp_live.sh /path/to/tomo5_session
 ## See usage() function below for details, or execute with -h option for a list on the terminal 
 
 #region GLOBAL VARS
 MIN_TILTS=10 # consider any mdoc with fewer than this many tilts to not be a viable tomographic dataset
 DELAY=100 # seconds delay between loops
+EPU_TOMO5_DIR="./"
 PROCESSING_FOLDER_NAME="warp_live"
 FRAMES_FOLDER_NAME="frames"
 MDOC_FOLDER_NAME="mdoc"
@@ -184,7 +186,7 @@ is_tomo5_dir(){
 find_gain(){
     gain=(*.gain)
     if (( ${#gain[@]} > 1 )); then
-        echo " WARNING: More than 1 .gain file was found, using first match"
+        echo " WARNING: More than 1 .gain file was found, using first match" >&2
         echo "${gain[0]}"
     fi
 
@@ -194,8 +196,7 @@ find_gain(){
 
 
     if (( ${#gain[@]} == 0 )); then
-        echo " ERROR :: No .gain file was found!"
-        exit 1
+        return 1
     fi
 
 }
@@ -239,7 +240,6 @@ create_warp_workspace(){
     frames_dir_name=$FRAMES_FOLDER_NAME
     mdoc_dir_name=$MDOC_FOLDER_NAME
     gain_file=$(find_gain)
-
     
     ## read the mdoc for SubFramePath contents to get the dmp paths of the movies for each tilt 
     local movie_arr
@@ -456,7 +456,7 @@ warp_ts_ctf(){
         amplitude_contrast=0.07 
     fi
     spherical_aberration=2.7 # mm
-    max_ctf=6 # max Ang fit to consider for estimation
+    max_ctf=8 # max Ang fit to consider for estimation
     max_dZ=8
 
 	WarpTools ts_ctf \
@@ -486,6 +486,7 @@ warp_ts_reconstruct(){
 #endregion
 
 #region RUN BLOCK
+
 
 ## 0. parse command line options & set defaults 
 get_gpus
@@ -623,6 +624,12 @@ while true; do
     	mdoc=${mdocs[$i]}
 		tomo_name=${mdoc%.*}
         gain_file=$(find_gain)
+
+        ## check return status of find_gain function that just ran in a subshell
+        if [ $? -ne 0 ]; then
+            echo " ERROR :: No .gain file was found!" >&2
+            exit 1
+        fi
 
         echo 
 		echo "... reading $counter of ${#mdocs[@]} mdoc files"
