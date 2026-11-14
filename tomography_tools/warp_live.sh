@@ -322,6 +322,7 @@ warp_settings(){
     --eer_ngroups $EER_NGROUP  \
     --angpix $angpix \
     --gain_path $PROCESSING_FOLDER_NAME/$tomo_name/$FRAMES_FOLDER_NAME/$gain_file \
+    --out_average_halves \
     --exposure $tilt_dose > /dev/null
 
     WarpTools create_settings \
@@ -480,6 +481,7 @@ warp_ts_reconstruct(){
 		--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
 		--angpix $RESOLUTION_RECONSTRUCTION \
         --device_list $GPU_LIST \
+        --halfmap_frames \
         --perdevice $WARP_WORKERS_PER_GPU > /dev/null
 }
 

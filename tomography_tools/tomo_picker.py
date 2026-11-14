@@ -200,6 +200,7 @@ def usage():
     print("   Arrow keys | z,x : Move through z stack")
     print("           Ctrl + x : Open autopick panel")
     print("           Ctrl + z : Open settings panel")
+    print("           Ctrl + d : Open masking panel")
     print("           Ctrl + s : Prompt save coordinates file")
     # print("    Ctrl + e : Save out a '..._extracted.mrcs' file with picked coordinates across the stack")
     print("           Ctrl + q : Quit program")
@@ -571,7 +572,6 @@ def gaussian_blur(im_array, sigma, DEBUG = True):
     blurred_img = ndimage.gaussian_filter(im_array, sigma)
     return blurred_img
 
-
 def check_if_two_ranges_intersect(x0, x1, y0, y1, DEBUG = False):
     """ For two well-ordered ranges (x0 < x1; y0 < y1), check if there is any intersection between them.
         See: https://stackoverflow.com/questions/3269434/whats-the-most-efficient-way-to-test-two-integer-ranges-for-overlap/25369187
@@ -592,6 +592,19 @@ def check_if_two_ranges_intersect(x0, x1, y0, y1, DEBUG = False):
         if DEBUG:  
             print(" compare intersection of ranges: [a, b] & [c, d] == [%s, %s] & [%s, %s] :: FALSE" % (x0, x1, y0, y1))
         return False
+
+def intialize_binary_mask(x, y, z, v=0, DEBUG = False):
+    """
+    Create a 3D binary mask of the shape x, y, z with a default value of v
+    """
+    shape = (z, y, x)
+    m = np.ones(shape) 
+    m = m * v
+    if DEBUG:
+        print(" Created binary mask:")
+        print(m.shape)
+    return m
+
 #endregion
 
 #region Class MrcData
@@ -617,6 +630,7 @@ class MrcData():
         self.sigma_contrast = input_sigma
         self.raw_data, self.pixel_size, self.x, self.y, self.z = get_mrc_raw_data(fname)
         self.fname = fname
+        self.binary_mask = intialize_binary_mask(self.x, self.y, self.z)
         self.coordinates_raw = {} ## expected structure: { str(slice_index) : [ (x1, y1), ... (x, y) ], ... }, coordinates are in original pixel dimensions 
         self.process_raw_data()
 
@@ -1115,9 +1129,41 @@ class MrcData():
 
         return 
 
+    def get_masked_processed_slice(self, slice_index, opacity = 0.7):
+        print(" get_masked_processed_slice")
+        ## grab the current processed slice raw data as an array 
+        current_img = self.get_processed_slice_unscaled_as_array(slice_index)
+
+        ## grab the slice from the mask array 
+        mask_xy = self.binary_mask[slice_index]
+
+        ## apply the opacity limits 
+        if opacity >= 0.5:
+            mask_xy_opacity = np.clip(mask_xy, 1 - opacity, opacity)
+        elif opacity < 0.5:
+            mask_xy_opacity = np.clip(mask_xy, 1 - opacity, 1)
+
+        ## apply the mask 
+        masked_arr = current_img * mask_xy_opacity
+
+
+        masked_arr = resize_image(masked_arr, self.scale_factor)
+        return masked_arr
+
+    def edit_binary_mask(self, x, y, z, range, v):
+        range_halfwidth = int(range / 2)
+        x_max = int(x + range_halfwidth)
+        x_min = int(x - range_halfwidth)
+        y_max = int(y + range_halfwidth)
+        y_min = int(y - range_halfwidth)
+
+        self.binary_mask[z, y_min:y_max, x_min:x_max ] = v
+        
+        return x_min, x_max, y_min, y_max
+
 #endregion
 
-#region Class TK
+#region Class MainUI
 class MainUI:
     def __init__(self, instance, input_scale, input_lowpass, input_sigma, input_file, input_threads, coord_file):
         self.instance = instance
@@ -1125,6 +1171,7 @@ class MainUI:
         # instance.geometry("520x500") ## geometry now set by a function 
 
         ## CLASS VARIABLES
+        self.LEFT_MOUSE_PRESSED = False
         self.RIGHT_MOUSE_PRESSED = False 
         self.brush_size = 50
         self.displayed_widgets = list() ## container for all widgets packed into the main display UI, use this list to update each
@@ -1147,11 +1194,14 @@ class MainUI:
         self.scalebar_stroke = 5 ## pixels
         self.scalebar_color = 'white'
         self.SHOW_CTF = tk.BooleanVar(instance, False)
+        self.MASK_MODE = tk.BooleanVar(instance, False)
+        self.mask_opacity = 0.7
         self.slice_index = 180 ## index of the list of known mrc files int he directory to view
         self.working_dir = "."
         self.SPEED_OVER_ACCURACY = tk.BooleanVar(instance, True)
         self.autopickPanel_instance = None
         self.settingsPanel_instance = None
+        self.maskingPanel_instance = None
         self.threads = input_threads
         self.picks_display_depth = 5 ## number of frames to show picks above & below the current display z position 
         self.save_star_fname = "" ## file name to save, including path if needed 
@@ -1243,11 +1293,14 @@ class MainUI:
         self.instance.bind('<Down>', lambda event: self.next_img('left'))
         self.instance.bind('<z>', lambda event: self.next_img('left'))
         self.instance.bind('<x>', lambda event: self.next_img('right'))
+        self.instance.bind('<a>', lambda event: self.next_img('right'))
+
         # self.instance.bind('<Control-KeyRelease-e>', lambda event: self.extract_particles())
         self.instance.bind('<Control-KeyRelease-q>', lambda event: self.quit())
         self.instance.bind('<Control-KeyRelease-s>', lambda event: self.write_coordinates())
         self.instance.bind('<Control-x>', lambda event: self.open_panel("AutopickPanel"))
         self.instance.bind('<Control-z>', lambda event: self.open_panel("SettingsPanel"))
+        self.instance.bind('<Control-d>', lambda event: self.open_panel("MaskingPanel"))
         self.instance.bind('<Control-o>', lambda event: self.load_star_coordinates())
 
 
@@ -1266,12 +1319,13 @@ class MainUI:
 
         self.instance.bind("<ButtonPress-3>", self.on_right_mouse_press)
         self.instance.bind("<ButtonRelease-3>", self.on_right_mouse_release)
-        self.instance.bind("<Motion>", self.refresh_brush_cursor)
+        self.instance.bind("<Motion>", self.on_mouse_motion)
         self.instance.bind("<MouseWheel>", self.MouseWheelHandler) # Windows, Mac: Binding to <MouseWheel> is being used
         self.instance.bind("<Button-4>", self.MouseWheelHandler) # Linux: Binding to <Button-4> and <Button-5> is being used
         self.instance.bind("<Button-5>", self.MouseWheelHandler)
         self.instance.bind("<ButtonPress-2>", self.on_middle_mouse_press)
         self.instance.bind("<ButtonRelease-2>", self.on_middle_mouse_release)
+        # self.instance.bind("<ButtonRelease-1>", self.on_left_mouse_release)
 
         if not coord_file is None:
             self.load_star_coordinates(coord_file)
@@ -1288,12 +1342,19 @@ class MainUI:
                 self.autopickPanel_instance = AutopickPanel(self)
             else:
                 print(" AutopickPanel is already open: ", self.autopickPanel_instance)
+                self.autopickPanel_instance.panel.focus()
         elif panelType == "SettingsPanel":
             if self.settingsPanel_instance is None:
                 self.settingsPanel_instance = SettingsPanel(self)
             else:
                 print(" SettingsPanel is already open: ", self.settingsPanel_instance)
-                
+                self.settingsPanel_instance.panel.focus()
+        elif panelType == "MaskingPanel":
+            if self.maskingPanel_instance is None:
+                self.maskingPanel_instance = MaskingPanel(self)
+            else:
+                print(" MaskingPanel is already open: ", self.maskingPanel_instance)
+                self.maskingPanel_instance.panel.focus()
         else:
             return
         return
@@ -1458,6 +1519,69 @@ class MainUI:
                     x1 = int(coordinate[0] * self.mrcdata.scale_factor) + adjusted_box_size
                     y1 = int(coordinate[1] * self.mrcdata.scale_factor) + adjusted_box_size 
                     canvas.create_oval(x0, y0, x1, y1, outline=self.picks_alt_color, width=2, tags='particle_positions')
+
+        return
+
+    def draw_binary_mask(self, DEBUG = False):
+        """ 
+        """
+        print(" Draw binary mask object")
+
+        ## get the processed image with a mask applied
+        mask_arr = self.mrcdata.get_masked_processed_slice(self.slice_index, self.mask_opacity)
+
+        ## convert to pil image object
+        im_obj = get_PhotoImage_obj(mask_arr)
+
+        ## load the new image to the display object on the mainUI
+        self.display_data = [ im_obj ]
+
+
+        ## request a draw of the masked data on the canvas
+        canvas = self.displayed_widgets[0]
+        self.load_img_on_canvas(canvas, self.display_data[0])
+
+
+
+        # ## box_size is a value given in Angstroms, we need to convert it to pixels
+        # display_angpix = self.mrcdata.pixel_size / self.mrcdata.scale_factor
+        # box_width = self.picks_diameter / display_angpix
+        # box_halfwidth = int(box_width / 2)
+
+        # if str(self.slice_index) in self.mrcdata.coordinates_raw:
+        #     for coordinate in self.mrcdata.coordinates_raw[str(self.slice_index)]:
+        #         ## each coordinate is the center of a box, thus we need to offset by half the gif_box_width pixel length to get the bottom left and top right of the rectangle
+        #         x0 = int(coordinate[0] * self.mrcdata.scale_factor) - box_halfwidth
+        #         y0 = int(coordinate[1] * self.mrcdata.scale_factor) - box_halfwidth
+        #         x1 = int(coordinate[0] * self.mrcdata.scale_factor) + box_halfwidth
+        #         y1 = int(coordinate[1] * self.mrcdata.scale_factor) + box_halfwidth 
+
+        #         canvas.create_oval(x0, y0, x1, y1, outline=self.picks_color, width=2, tags='particle_positions')
+        # if DEBUG: print(" %s image coordinates drawn onto canvas" % len(self.coordinates))
+
+        # ## also draw nearby picks above & below the current plane 
+        # ## first, readjust the display depth to be equivalent to the diameter of the particle size widget
+        # self.picks_display_depth = int((self.picks_diameter / 2) / self.pixel_size )
+        # for i in range(self.picks_display_depth + 1):
+        #     if i == 0:
+        #         continue 
+        #     adjusted_box_size = int(box_halfwidth * (1-i/self.picks_display_depth))
+        #     positive_slice = i + self.slice_index
+        #     if str(positive_slice) in self.mrcdata.coordinates_raw:
+        #         for coordinate in self.mrcdata.coordinates_raw[str(positive_slice)]:
+        #             x0 = int(coordinate[0] * self.mrcdata.scale_factor) - adjusted_box_size
+        #             y0 = int(coordinate[1] * self.mrcdata.scale_factor) - adjusted_box_size
+        #             x1 = int(coordinate[0] * self.mrcdata.scale_factor) + adjusted_box_size
+        #             y1 = int(coordinate[1] * self.mrcdata.scale_factor) + adjusted_box_size 
+        #             canvas.create_oval(x0, y0, x1, y1, outline=self.picks_alt_color, width=2, tags='particle_positions')
+        #     negative_slice = (i*-1) + self.slice_index
+        #     if str(negative_slice) in self.mrcdata.coordinates_raw:
+        #         for coordinate in self.mrcdata.coordinates_raw[str(negative_slice)]:
+        #             x0 = int(coordinate[0] * self.mrcdata.scale_factor) - adjusted_box_size
+        #             y0 = int(coordinate[1] * self.mrcdata.scale_factor) - adjusted_box_size
+        #             x1 = int(coordinate[0] * self.mrcdata.scale_factor) + adjusted_box_size
+        #             y1 = int(coordinate[1] * self.mrcdata.scale_factor) + adjusted_box_size 
+        #             canvas.create_oval(x0, y0, x1, y1, outline=self.picks_alt_color, width=2, tags='particle_positions')
         return
 
     def draw_resolution_ring(self, pixel_coordinate):
@@ -1497,18 +1621,6 @@ class MainUI:
 
             ## draw a guiding circle to indicate the resolution ring being measured
             canvas.create_oval(FFT_image_center_coordinate[0] - int(diff_vector_magnitude), FFT_image_center_coordinate[1] - int(diff_vector_magnitude), FFT_image_center_coordinate[0] + int(diff_vector_magnitude), FFT_image_center_coordinate[1] + int(diff_vector_magnitude), dash = (7,4,2,4 ), width = 2, outline = 'red', tags='ctf_markup') # Creates a circle or an ellipse at the given coordinates. It takes two pairs of coordinates; the top left and bottom right corners of the bounding rectangle for the oval.
-
-        return
-
-    def on_left_mouse_down(self, x, y, DEBUG = False):
-        """ Add coordinates to the dictionary at the position of the cursor, then call a redraw.
-        """
-        mouse_position = x, y
-
-        if DEBUG: print(" Add coordinate: x, y =", mouse_position[0], mouse_position[1])
-
-        self.mrcdata.add_coordinate(self.slice_index, x, y, self.picks_diameter)
-        self.draw_image_coordinates()
 
         return
 
@@ -1788,6 +1900,9 @@ class MainUI:
         ## draw image coordinates if necessary
         self.draw_image_coordinates()
 
+        if self.MASK_MODE.get():
+            self.draw_binary_mask()
+
         return
 
     def debugging(self):
@@ -1873,6 +1988,7 @@ class MainUI:
         menubar.add_cascade(label="Options", menu = dropdown_options)
         dropdown_options.add_command(label="Autopick (Ctrl+x)", command= lambda: self.open_panel("AutopickPanel"))
         dropdown_options.add_command(label="Settings (Ctrl+z)", command= lambda: self.open_panel("SettingsPanel"))
+        dropdown_options.add_command(label="Masking (Ctrl+d)", command= lambda: self.open_panel("MaskingPanel"))
         return
 
     def resize(self, event):
@@ -1928,7 +2044,7 @@ class MainUI:
 
         return w, h
 
-    def canvas_callback(self, event, DEBUG = False):
+    def canvas_click_callback(self, event, DEBUG = False):
         """ Tie events for specific canvases by adding this callback
         """
         if DEBUG: print (" Clicked ", event.widget, "at", event.x, event.y)
@@ -1938,6 +2054,18 @@ class MainUI:
                 # print("MATCH = ", canvas_obj)
                 # self.toggle_canvas(canvas_obj)
                 self.on_left_mouse_down(event.x, event.y)
+        return
+
+    def canvas_release_callback(self, event, DEBUG = False):
+        """ Tie events for specific canvases by adding this callback
+        """
+        if DEBUG: print (" Released mouse click ", event.widget, "at", event.x, event.y)
+
+        for canvas_obj in self.displayed_widgets:
+            if event.widget == canvas_obj:
+                # print("MATCH = ", canvas_obj)
+                # self.toggle_canvas(canvas_obj)
+                self.on_left_mouse_release(event.x, event.y)
         return
 
     def add_canvas(self, parent, img_obj = None, row = 0, col = 0, canvas_reference = [], img_reference = []):
@@ -1951,7 +2079,8 @@ class MainUI:
             img_reference.append(img_obj)
             self.load_img_on_canvas(c, img_obj)
         ## add a on-click callback
-        c.bind("<ButtonPress-1>", self.canvas_callback)
+        c.bind("<ButtonPress-1>", self.canvas_click_callback)
+        c.bind("<ButtonRelease-1>", self.canvas_release_callback)
         ## pack the widget into the data parent frame
         c.grid(row = row, column = col)
 
@@ -2177,6 +2306,45 @@ class MainUI:
         
         return 
 
+    def on_left_mouse_down(self, x, y, DEBUG = False):
+        """ Add coordinates to the dictionary at the position of the cursor, then call a redraw.
+        """
+        mouse_position = x, y
+        self.LEFT_MOUSE_PRESSED = True
+
+        if self.MASK_MODE.get():
+            print(" Mask mode active, draw white pixels here:", x, y, self.slice_index)
+            canvas = self.displayed_widgets[0]
+            # box_halfwidth = int(self.brush_size / 2)
+
+            ## remap the clicked coordinate to the real un-scaled position
+            unscaled_x = int(x / self.scale_factor)
+            unscaled_y = int(y / self.scale_factor)
+            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 1)
+
+            brush = canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
+
+
+            # display_angpix = self.pixel_size / self.scale_factor
+            # self.mrcdata.binary_mask[self.slice_index, y_min:y_max, x_min:x_max ] = 1
+            self.draw_binary_mask()
+
+        else:
+
+            if DEBUG: print(" Add coordinate: x, y =", mouse_position[0], mouse_position[1])
+
+            self.mrcdata.add_coordinate(self.slice_index, x, y, self.picks_diameter)
+            self.draw_image_coordinates()
+
+        return
+
+    def on_left_mouse_release(self, x, y, DEBUG = True):
+        if DEBUG: print("Left mouse released at coord: (%s, %s)" % (x,y))
+        # canvas = self.displayed_widgets[0]
+        self.LEFT_MOUSE_PRESSED = False
+        # canvas.delete('brush') # remove any lingering brush marker
+        return
+
     def on_middle_mouse_press(self, event):
         """ When the user clicks the middle mouse, hide all coordinates
         """
@@ -2201,13 +2369,33 @@ class MainUI:
             print(" On right mouse press")
             print("---------------------------")
         image_name = os.path.splitext(self.image_name)[0]
+
+        x, y = event.x, event.y
+
         if image_name == None or image_name == '':
+            return 
+
+        if self.MASK_MODE.get():
+            print(" Mask mode active, draw black pixels here:", x, y, self.slice_index)
+            canvas = self.displayed_widgets[0]
+            # box_halfwidth = int(self.brush_size / 2)
+
+            ## remap the clicked coordinate to the real un-scaled position
+            unscaled_x = int(x / self.scale_factor)
+            unscaled_y = int(y / self.scale_factor)
+            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 0)
+
+            brush = canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
+
+
+            # display_angpix = self.pixel_size / self.scale_factor
+            # self.mrcdata.binary_mask[self.slice_index, y_min:y_max, x_min:x_max ] = 1
+            self.draw_binary_mask()
             return 
 
         canvas = self.displayed_widgets[0]
         self.RIGHT_MOUSE_PRESSED = True
     
-        x, y = event.x, event.y
         box_halfwidth = int(self.brush_size / 2)
         x_max = int(x + box_halfwidth)
         x_min = int(x - box_halfwidth)
@@ -2215,24 +2403,12 @@ class MainUI:
         y_min = int(y - box_halfwidth)
         brush = canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
 
-        # print("mouse position = ", x, y)
-        # print("(x min, x max ; y min, y max) = ", x_min, x_max, y_min, y_max)
 
         ## particle diameter is a value given in Angstroms, we need to convert it to pixels
         # display_angpix = get_scale_factor(self.mrc_dimensions, self.jpg_dimensions) * self.pixel_size / self.scale_factor
         display_angpix = self.pixel_size / self.scale_factor
         particle_width = self.picks_diameter / display_angpix
         particle_halfwidth = int(particle_width / 2)
-
-        # ## get the loaded coordinates for the image 
-        # try:
-        #     image_coordinates = self.coordinates[image_name]
-        # except:
-        #     print(" Could not load coordinates for img (%s), perhaps no particle file was loaded yet" % image_name)
-        #     return
-        
-        # image_coordinates = self.coordinates
-        # print(" image coords = ", image_coordinates)
 
         ## in case the user does not move the mouse after right-clicking, we want to find all clashes in range on this event as well
         erase_coordinates = [] # avoid changing dictionary until after iteration complete
@@ -2252,26 +2428,9 @@ class MainUI:
                                 print("   coordinate center (%s, %s)" % (rescaled_x, rescaled_y))
                             erase_coordinates.append(coord)
 
-        # if len(self.coordinates) > 0:
-        #     for coord in self.coordinates:
-        #         ## rescale the stored coordinates to match the viewing scale 
-        #         rescaled_x = int(coord[0] * self.scale_factor)
-        #         rescaled_y = int(coord[1] * self.scale_factor)
-
-        #         if check_if_two_ranges_intersect(rescaled_x - particle_halfwidth, rescaled_x + particle_halfwidth, x_min, x_max, DEBUG = False): # x0, x1, y0, y1
-        #             if check_if_two_ranges_intersect(rescaled_y - particle_halfwidth, rescaled_y + particle_halfwidth, y_min, y_max, DEBUG = False): # x0, x1, y0, y1
-        #                 print(" Erase coordinate:")
-        #                 print("   brush center (%s, %s), brush limits x = (%s -> %s) & y = (%s -> %s)" % (x, y, x_min, x_max, y_min, y_max))
-        #                 print("   coordinate center (%s, %s)" % (rescaled_x, rescaled_y))
-        #                 erase_coordinates.append(coord)
-
         for (x, y) in erase_coordinates:
             self.mrcdata.remove_coordinate(self.slice_index, x, y)
 
-        # ## erase all coordinates caught by the brush
-        # for coord in erase_coordinates:
-        #     del self.coordinates[coord] #1 remove the coordinate that clashed
-        # print(" # coordinates to erase:", len(erase_coordinates))
 
         self.draw_image_coordinates()
         return
@@ -2285,24 +2444,16 @@ class MainUI:
         canvas.delete('brush') # remove any lingering brush marker
         return
     
-    def refresh_brush_cursor(self, event, DEBUG = False):
+    def on_mouse_motion(self, event, DEBUG = False):
         """ This function is tied to the <Motion> event.
             It constantly checks if the condition RIGHT_MOUSE_PRESSED is True, in which case it runs the erase-coordinates algorithm
         """        
-        if self.RIGHT_MOUSE_PRESSED:
+        if self.RIGHT_MOUSE_PRESSED and self.MASK_MODE.get() == False:
             image_name = os.path.splitext(self.image_name)[0]
             if image_name == None or image_name == '':
                 return 
 
             canvas = self.displayed_widgets[0]
-
-            # ## get the loaded coordinates for the image 
-            # try:
-            #     image_coordinates = self.coordinates[image_name]
-            # except:
-            #     print(" Could not load coordinates for img (%s), perhaps no particle file was loaded yet" % image_name)
-            #     return 
-            # image_coordinates = self.coordinates
 
             x, y = event.x, event.y
 
@@ -2345,29 +2496,24 @@ class MainUI:
             for (x, y) in erase_coordinates:
                 self.mrcdata.remove_coordinate(self.slice_index, x, y)
 
-            # erase_coordinates = [] # avoid changing dictionary until after iteration complete
-            # ## find all coordinates that clash with the brush
-            # if len(self.coordinates) > 0:
-            #     for coord in self.coordinates:
-            #         ## rescale the coordinates back to the viewing scale 
-            #         rescaled_x = int(coord[0] * self.scale_factor)
-            #         rescaled_y = int(coord[1] * self.scale_factor)
-
-            #         if check_if_two_ranges_intersect(rescaled_x - particle_halfwidth, rescaled_x + particle_halfwidth, x_min, x_max): # x0, x1, y0, y1
-            #             if check_if_two_ranges_intersect(rescaled_y - particle_halfwidth, rescaled_y + particle_halfwidth, y_min, y_max): # x0, x1, y0, y1
-            #                 erase_coordinates.append(coord)
-            # ## erase all coordinates caught by the brush
-            # for coord in erase_coordinates:
-            #     del self.coordinates[coord] # remove the coordinate that clashed
-
             self.draw_image_coordinates()
-        else:
-            return
+            return 
+
+        if self.RIGHT_MOUSE_PRESSED and self.MASK_MODE.get() == True:
+            print(" wip : actively update mask with 0 values ")
+            return 
+
+        if self.LEFT_MOUSE_PRESSED and self.MASK_MODE.get() == True:
+            print(" wip : actively update mask with 1 values ")
+            return 
+
+
+        return 
 
 
 #endregion
 
-#region Panel Autopicking Menu
+#region Panel Autopicking 
 class AutopickPanel(MainUI):
     """ Panel GUI for user options for autopicking
     """
@@ -2499,7 +2645,7 @@ class AutopickPanel(MainUI):
         self.z_clash_Zdist_ENTRY.bind('<KP_Enter>', lambda event: self.panel.focus())
         self.z_clash_XYdist_ENTRY.bind('<Return>', lambda event: self.panel.focus())
         self.z_clash_XYdist_ENTRY.bind('<KP_Enter>', lambda event: self.panel.focus())
-
+        self.panel.bind('<Control-z>', lambda event: self.mainUI.open_panel("SettingsPanel"))
 
         ## Set focus to the panel
         self.panel.focus()
@@ -2754,6 +2900,8 @@ class SettingsPanel(MainUI):
         # self.panel.bind('<Right>', lambda event: self.cutoff_slider.set(self.cutoff_slider.get() + 1))
         # self.panel.bind('<Return>', lambda event: self.submit_autopicker_job())
         # self.panel.bind('<KP_Enter>', lambda event: self.submit_autopicker_job()) # numpad 'Return' key
+        self.panel.bind('<Control-x>', lambda event: self.mainUI.open_panel("AutopickPanel"))
+
 
         ## Set focus to the panel
         self.panel.focus()
@@ -2806,7 +2954,97 @@ class SettingsPanel(MainUI):
         self.mainUI.draw_image_coordinates()
         self.mainUI.instance.focus()
         return 
+#endregion 
 
+
+#region Panel Masking 
+class MaskingPanel(MainUI):
+    def __init__(self, mainUI): # Pass in the main window as a parameter so we can access its methods & attributes
+        self.mainUI = mainUI # Make the main window an attribute of this Class object
+        self.panel = tk.Toplevel() # Make this object an accessible attribute
+        self.panel.title('Masking')
+        # self.panel.geometry('500x310')
+        # self.viewport_frame = viewport_frame =  ttk.Frame(self.panel)
+        
+        ## shift the window to pop up just right of the main window by default 
+        mainUI_x_limit = mainUI.instance.winfo_rootx() + mainUI.instance.winfo_width()
+        mainUI_y = mainUI.instance.winfo_rooty() -50 
+        self.panel.geometry(f"+{mainUI_x_limit}+{mainUI_y}") #= "+%d+%d" % (x,y+height)
+
+        ## Parameters 
+
+        ## Define widgets
+        # self.write_point_txt_file_BUTTON = tk.Button(self.panel, text="Write points txt", font = ('Helvetica', '9'), command = lambda: self.write_point_txt_file(), width=18)
+        # self.tomo_name_LABEL = tk.Label(self.panel, text = 'Tomo name:', anchor = tk.S, font = ('Helvetica', '9'))
+        # self.tomo_name_ENTRY = tk.Entry(self.panel, width=40, font=("Helvetica", '9'), justify='left')
+        # self.tomo_name_ENTRY.insert(tk.END, "%s" % os.path.splitext(os.path.split(self.mainUI.image_name)[1])[0])
+        self.activate_mask_mode_TOGGLE = tk.Checkbutton(self.panel, text='Activate mask mode', variable=self.mainUI.MASK_MODE, onvalue=True, offvalue=False, command=self.toggle_MASK_MODE)
+        self.opacity_LABEL = tk.Label(self.panel, text = 'Opacity:', anchor = tk.S, font = ('Helvetica', '9'))
+        self.opacity_SLIDER = tk.Scale(self.panel, from_=0, to=1, resolution=0.1, orient= tk.HORIZONTAL, length = 150, sliderlength = 20, command=self.on_opacity_change)
+        self.opacity_SLIDER.set(self.mainUI.mask_opacity)
+
+        ## Pack widgets, dynamic rows to ease adjusting later 
+        # row 0
+        current_row = 0
+        self.activate_mask_mode_TOGGLE.grid(column = 0, columnspan=1, row = current_row, pady=1, padx=3, sticky=tk.W)
+        # row 
+        current_row += 1
+        self.opacity_LABEL.grid(column = 0, columnspan=4, row = current_row, pady=0, padx=3, sticky=tk.W)
+        # row 
+        current_row += 1
+        self.opacity_SLIDER.grid(column = 0, columnspan=4, row = current_row, pady=1, padx=3)
+
+        # ttk.Separator(self.panel, orient='horizontal').grid(column = 0, row = current_row, columnspan = 6, pady=2, sticky=tk.EW)
+        # # row 
+        # current_row +=1 
+        # self.write_point_txt_file_BUTTON.grid(column = 0, columnspan=3, row = current_row, pady=2, padx=3, sticky=tk.W)
+        # # row 
+        # current_row += 1
+        # ttk.Separator(self.panel, orient='horizontal').grid(column = 0, row = current_row, columnspan = 6, pady=2, sticky=tk.EW)
+        # # row 
+
+
+        ## Add some hotkeys for ease of use
+        # self.panel.bind('<Control-x>', lambda event: self.mainUI.open_panel("AutopickPanel"))
+
+
+        ## Set focus to the panel
+        self.panel.focus()
+
+        ## add an exit function to the closing of this top level window
+        self.panel.protocol("WM_DELETE_WINDOW", self.close)
+
+        return
+
+    def close(self):
+        ## unset the panel instance before destroying this instance
+        self.mainUI.maskingPanel_instance = None
+        ## destroy this instance
+        self.panel.destroy()
+        return
+
+    def toggle_MASK_MODE(self, DEBUG = True):
+
+        if self.mainUI.MASK_MODE.get() == True:
+            if DEBUG: print(" Display mask")
+            self.mainUI.draw_binary_mask()
+        else:
+            if DEBUG: print(" Hide mask")
+            self.mainUI.load_img()
+        return
+
+    def on_opacity_change(self, slider_value):
+
+        ## set the threshold value to the instance 
+        self.mainUI.mask_opacity = float(self.opacity_SLIDER.get()) #slider_value
+        # print(" Template picking threshold = %s" % slider_value )
+        if self.mainUI.MASK_MODE.get() == True:
+            self.mainUI.draw_binary_mask()
+
+        return 
+
+
+#endregion
 
 ##########################
 ### RUN BLOCK

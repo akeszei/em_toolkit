@@ -670,11 +670,18 @@ $ miss-alignment --help
 See docs of for recommended [install](https://github.com/IsoNet-cryoET/IsoNet2) non-GUI installation and dependencies. Here are notes for our Ada 5000 quad GPU workstation:
 
 ```sh
+$ mkdir -p ~/software
+$ cd ~/software
 $ git clone https://github.com/IsoNet-cryoET/IsoNet2
 $ nano isonet2_environment.yml
 ## edit the yml file to rename the environment to something smaller, e.g. isonet2
-$ nano install.sh
-## denoise step getting xcb error trying currently: conda install conda-forge::libxcb 
+$ ./install.sh
+## after installed, can activate the environment via the installed path, e.g.
+$ conda activate /home/remote/software/IsoNet2/build/conda_env
+
+## for blackwell gpus tried:
+(...conva_env) $ pip install torch==2.9.1
+## denoise step getting xcb error trying currently: conda install conda-forge::libxcb :: did not work
 ```
 
 
