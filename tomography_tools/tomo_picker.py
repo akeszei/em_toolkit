@@ -1137,15 +1137,16 @@ class MrcData():
         ## grab the slice from the mask array 
         mask_xy = self.binary_mask[slice_index]
 
-        ## apply the opacity limits 
-        if opacity >= 0.5:
-            mask_xy_opacity = np.clip(mask_xy, 1 - opacity, opacity)
-        elif opacity < 0.5:
-            mask_xy_opacity = np.clip(mask_xy, 1 - opacity, 1)
+        ## prep the black & white versions of the image by shifting negative (black) or positive (white) based on the opacity value then clipping back in grayscale range
+        img_black = np.clip(current_img - (255*opacity), 0, 255)
+        img_white = np.clip(current_img + (255*opacity), 0, 255)
 
-        ## apply the mask 
-        masked_arr = current_img * mask_xy_opacity
+        ## cut the images by the mask 
+        img_black = (1 - mask_xy) * img_black
+        img_white = mask_xy * img_white
 
+        ## merge the two parts of the image 
+        masked_arr = img_black + img_white
 
         masked_arr = resize_image(masked_arr, self.scale_factor)
         return masked_arr
