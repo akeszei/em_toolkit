@@ -1129,7 +1129,7 @@ class MrcData():
 
         return 
 
-    def get_masked_processed_slice(self, slice_index, opacity = 0.7):
+    def get_masked_processed_slice(self, slice_index, opacity = 0.7, HIDE_WHITE_MASK = False):
         print(" get_masked_processed_slice")
         ## grab the current processed slice raw data as an array 
         current_img = self.get_processed_slice_unscaled_as_array(slice_index)
@@ -1139,7 +1139,10 @@ class MrcData():
 
         ## prep the black & white versions of the image by shifting negative (black) or positive (white) based on the opacity value then clipping back in grayscale range
         img_black = np.clip(current_img - (255*opacity), 0, 255)
-        img_white = np.clip(current_img + (255*opacity), 0, 255)
+        if not HIDE_WHITE_MASK:
+            img_white = np.clip(current_img + (255*opacity), 0, 255)
+        else:
+            img_white = current_img
 
         ## cut the images by the mask 
         img_black = (1 - mask_xy) * img_black
@@ -1196,6 +1199,7 @@ class MainUI:
         self.scalebar_color = 'white'
         self.SHOW_CTF = tk.BooleanVar(instance, False)
         self.MASK_MODE = tk.BooleanVar(instance, False)
+        self.HIDE_MASK_WHITES = tk.BooleanVar(instance, False)
         self.mask_opacity = 0.7
         self.slice_index = 180 ## index of the list of known mrc files int he directory to view
         self.working_dir = "."
@@ -1529,7 +1533,7 @@ class MainUI:
         print(" Draw binary mask object")
 
         ## get the processed image with a mask applied
-        mask_arr = self.mrcdata.get_masked_processed_slice(self.slice_index, self.mask_opacity)
+        mask_arr = self.mrcdata.get_masked_processed_slice(self.slice_index, self.mask_opacity, self.HIDE_MASK_WHITES.get())
 
         ## convert to pil image object
         im_obj = get_PhotoImage_obj(mask_arr)
@@ -2363,13 +2367,15 @@ class MainUI:
         self.draw_image_coordinates()
         return
 
-    def on_right_mouse_press(self, event, DEBUG = False):
+    def on_right_mouse_press(self, event, DEBUG = True):
         if DEBUG:
             print()
             print("===========================")
             print(" On right mouse press")
             print("---------------------------")
         image_name = os.path.splitext(self.image_name)[0]
+
+        self.RIGHT_MOUSE_PRESSED = True
 
         x, y = event.x, event.y
 
@@ -2395,7 +2401,6 @@ class MainUI:
             return 
 
         canvas = self.displayed_widgets[0]
-        self.RIGHT_MOUSE_PRESSED = True
     
         box_halfwidth = int(self.brush_size / 2)
         x_max = int(x + box_halfwidth)
@@ -2448,15 +2453,15 @@ class MainUI:
     def on_mouse_motion(self, event, DEBUG = False):
         """ This function is tied to the <Motion> event.
             It constantly checks if the condition RIGHT_MOUSE_PRESSED is True, in which case it runs the erase-coordinates algorithm
-        """        
+        """  
+        x, y = event.x, event.y
+      
         if self.RIGHT_MOUSE_PRESSED and self.MASK_MODE.get() == False:
             image_name = os.path.splitext(self.image_name)[0]
             if image_name == None or image_name == '':
                 return 
 
             canvas = self.displayed_widgets[0]
-
-            x, y = event.x, event.y
 
             canvas.delete('brush')
 
@@ -2501,13 +2506,28 @@ class MainUI:
             return 
 
         if self.RIGHT_MOUSE_PRESSED and self.MASK_MODE.get() == True:
-            print(" wip : actively update mask with 0 values ")
+            ## remap the clicked coordinate to the real un-scaled position
+            unscaled_x = int(x / self.scale_factor)
+            unscaled_y = int(y / self.scale_factor)
+            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 0)
+
+            canvas = self.displayed_widgets[0]
+            canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
+
+            self.draw_binary_mask()
             return 
 
         if self.LEFT_MOUSE_PRESSED and self.MASK_MODE.get() == True:
-            print(" wip : actively update mask with 1 values ")
-            return 
+            ## remap the clicked coordinate to the real un-scaled position
+            unscaled_x = int(x / self.scale_factor)
+            unscaled_y = int(y / self.scale_factor)
+            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 1)
 
+            canvas = self.displayed_widgets[0]
+            canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
+
+            self.draw_binary_mask()
+            return 
 
         return 
 
@@ -2957,7 +2977,6 @@ class SettingsPanel(MainUI):
         return 
 #endregion 
 
-
 #region Panel Masking 
 class MaskingPanel(MainUI):
     def __init__(self, mainUI): # Pass in the main window as a parameter so we can access its methods & attributes
@@ -2983,6 +3002,10 @@ class MaskingPanel(MainUI):
         self.opacity_LABEL = tk.Label(self.panel, text = 'Opacity:', anchor = tk.S, font = ('Helvetica', '9'))
         self.opacity_SLIDER = tk.Scale(self.panel, from_=0, to=1, resolution=0.1, orient= tk.HORIZONTAL, length = 150, sliderlength = 20, command=self.on_opacity_change)
         self.opacity_SLIDER.set(self.mainUI.mask_opacity)
+        self.mask_blacks_only_TOGGLE = tk.Checkbutton(self.panel, text='Hide white mask', variable=self.mainUI.HIDE_MASK_WHITES, onvalue=True, offvalue=False, command=self.toggle_HIDE_MASK_WHITES)
+        self.mask_write_depth_LABEL = tk.Label(self.panel, text = 'Mask write Z-depth:', anchor = tk.S, font = ('Helvetica', '9'))
+        self.mask_write_depth_ENTRY = tk.Entry(self.panel, width=6, font=("Helvetica", '9'), justify='right')
+
 
         ## Pack widgets, dynamic rows to ease adjusting later 
         # row 0
@@ -2994,10 +3017,18 @@ class MaskingPanel(MainUI):
         # row 
         current_row += 1
         self.opacity_SLIDER.grid(column = 0, columnspan=4, row = current_row, pady=1, padx=3)
+        # row 
+        current_row += 1
+        self.mask_blacks_only_TOGGLE.grid(column = 0, columnspan=1, row = current_row, pady=1, padx=3, sticky=tk.W)
+        # row 
+        current_row += 1
+        ttk.Separator(self.panel, orient='horizontal').grid(column = 0, row = current_row, columnspan = 6, pady=2, sticky=tk.EW)
+        # row 
+        current_row +=1
+        self.mask_write_depth_LABEL.grid(column = 0, columnspan=2, row = current_row, pady=0, padx=3, sticky=tk.E)
+        self.mask_write_depth_ENTRY.grid(column = 2, columnspan=1, row = current_row, pady=0, padx=3, sticky=tk.W)
 
-        # ttk.Separator(self.panel, orient='horizontal').grid(column = 0, row = current_row, columnspan = 6, pady=2, sticky=tk.EW)
-        # # row 
-        # current_row +=1 
+
         # self.write_point_txt_file_BUTTON.grid(column = 0, columnspan=3, row = current_row, pady=2, padx=3, sticky=tk.W)
         # # row 
         # current_row += 1
@@ -3032,6 +3063,20 @@ class MaskingPanel(MainUI):
         else:
             if DEBUG: print(" Hide mask")
             self.mainUI.load_img()
+        return
+
+    def toggle_HIDE_MASK_WHITES(self, DEBUG = True):
+        
+        if self.mainUI.HIDE_MASK_WHITES.get():
+            if DEBUG: print(" Hide white part of mask")
+            if self.mainUI.MASK_MODE.get():
+                self.mainUI.draw_binary_mask()
+        else:
+            if DEBUG: print(" Show regular full mask")
+            if self.mainUI.MASK_MODE.get():
+                self.mainUI.draw_binary_mask()
+
+            # self.mainUI.load_img()
         return
 
     def on_opacity_change(self, slider_value):
