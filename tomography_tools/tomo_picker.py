@@ -1154,12 +1154,14 @@ class MrcData():
         masked_arr = resize_image(masked_arr, self.scale_factor)
         return masked_arr
 
-    def edit_binary_mask(self, x, y, z, range, v):
+    def edit_binary_mask(self, x, y, z, range, v, depth):
         range_halfwidth = int(range / 2)
         x_max = int(x + range_halfwidth)
         x_min = int(x - range_halfwidth)
         y_max = int(y + range_halfwidth)
         y_min = int(y - range_halfwidth)
+
+        print(" WIP :: apply 'depth' variable as drawing above and below the current plane! ")
 
         self.binary_mask[z, y_min:y_max, x_min:x_max ] = v
         
@@ -1201,6 +1203,7 @@ class MainUI:
         self.MASK_MODE = tk.BooleanVar(instance, False)
         self.HIDE_MASK_WHITES = tk.BooleanVar(instance, False)
         self.mask_opacity = 0.7
+        self.mask_write_depth = 1
         self.slice_index = 180 ## index of the list of known mrc files int he directory to view
         self.working_dir = "."
         self.SPEED_OVER_ACCURACY = tk.BooleanVar(instance, True)
@@ -2325,7 +2328,7 @@ class MainUI:
             ## remap the clicked coordinate to the real un-scaled position
             unscaled_x = int(x / self.scale_factor)
             unscaled_y = int(y / self.scale_factor)
-            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 1)
+            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 1, self.mask_write_depth)
 
             brush = canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
 
@@ -2390,7 +2393,7 @@ class MainUI:
             ## remap the clicked coordinate to the real un-scaled position
             unscaled_x = int(x / self.scale_factor)
             unscaled_y = int(y / self.scale_factor)
-            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 0)
+            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 0, self.mask_write_depth)
 
             brush = canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
 
@@ -2509,7 +2512,7 @@ class MainUI:
             ## remap the clicked coordinate to the real un-scaled position
             unscaled_x = int(x / self.scale_factor)
             unscaled_y = int(y / self.scale_factor)
-            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 0)
+            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 0, self.mask_write_depth)
 
             canvas = self.displayed_widgets[0]
             canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
@@ -2521,7 +2524,7 @@ class MainUI:
             ## remap the clicked coordinate to the real un-scaled position
             unscaled_x = int(x / self.scale_factor)
             unscaled_y = int(y / self.scale_factor)
-            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 1)
+            x_min, x_max, y_min, y_max = self.mrcdata.edit_binary_mask(unscaled_x, unscaled_y, self.slice_index, self.brush_size, 1, self.mask_write_depth)
 
             canvas = self.displayed_widgets[0]
             canvas.create_rectangle(x_max, y_max, x_min, y_min, outline="green2", tags='brush')
@@ -3040,6 +3043,10 @@ class MaskingPanel(MainUI):
         # self.panel.bind('<Control-x>', lambda event: self.mainUI.open_panel("AutopickPanel"))
 
 
+        ## bind functions to widgets where needed
+        self.mask_write_depth_ENTRY.bind('<Return>', lambda event: self.mask_write_depth_updated())
+        self.mask_write_depth_ENTRY.bind('<KP_Enter>', lambda event: self.mask_write_depth_updated())
+
         ## Set focus to the panel
         self.panel.focus()
 
@@ -3089,6 +3096,23 @@ class MaskingPanel(MainUI):
 
         return 
 
+    def mask_write_depth_updated(self, DEBUG = True):
+        user_input = self.mask_write_depth_ENTRY.get().strip()
+        ## cast the input to an integer value
+        try:
+            user_input = int(user_input)
+        except:
+            self.mask_write_depth_ENTRY.delete(0, tk.END)
+            self.mask_write_depth_ENTRY.insert(0,self.mainUI.mask_write_depth)
+            print(" Input requires integer values > 0")
+        ## check if input is in range
+        if user_input >= 0:
+            if DEBUG: print("mask draw depth updated: %s" % user_input )
+            self.mainUI.mask_write_depth = user_input
+            ## pass focus back to the main instance
+            self.mainUI.instance.focus()
+
+        return 
 
 #endregion
 
