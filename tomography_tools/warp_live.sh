@@ -118,6 +118,7 @@ usage(){
     echo "--------------------------------------------------"
     echo "  Options:"
     echo "                      --help, -h : Display this help message and exit "
+    echo "              --epu_dir, -e (./) : Change the location of the Tomography 5 directory to find raw data from"
     echo "     --root_dir, -rd (warp_live) : Change the default root folder to use for all processing" 
     echo "           --min_tilts, -mt (10) : Minimum # of tilts needed to be present to in mdoc to run processing on"
     echo "               --delay, -d (100) : Seconds to pause in between re-running pipeline "
@@ -128,6 +129,9 @@ usage(){
     echo "                    --gpu, -g () : Choose specific GPUs to run on (e.g. 0,1 will use dev 0 & 1 only)"  
     echo "     --workers_per_gpu, -wpg (2) : Number of threads to run on each GPU; recommend to provide 16GB per thread"
     echo "    --reconstruct_res, -rr (8.0) : Max Angstrom resolution to use for patch alignment and tomogram reconstruction "
+    echo "--------------------------------------------------"
+    echo "  Example with separate processing dir to that of epu session:"
+    echo "      $ warp_live.sh -e /path/to/tomo5 -rd session_name_warp-live"
 
     exit 0
 }
@@ -153,7 +157,7 @@ print_array(){
 ##     is_tomo5_dir
 is_tomo5_dir(){
 	## look for Session.dm
-    session_file=(*.dm)
+    session_file=($EPU_TOMO5_DIR/*.dm)
     if (( ${#session_file[@]} < 1 )); then
         echo " WARNING: No Session.dm file found. Be sure you are running this script in a raw tomo5 folder."
         read -p ">> Proceed? (y/N) " user_input 
@@ -184,7 +188,7 @@ is_tomo5_dir(){
 ## Usage:
 ##    file=$(find_gain)
 find_gain(){
-    gain=(*.gain)
+    gain=($EPU_TOMO5_DIR/*.gain)
     if (( ${#gain[@]} > 1 )); then
         echo " WARNING: More than 1 .gain file was found, using first match" >&2
         echo "${gain[0]}"
@@ -235,11 +239,15 @@ create_dir(){
 ##    create_warp_workspace <fname>.mdoc 
 create_warp_workspace(){
     mdoc=$1
-    tomo_name=${mdoc%.*}
+    mdoc_basename=${mdoc##*/}
+    tomo_name=${mdoc_basename%.*}
     workspace_dir_name=$PROCESSING_FOLDER_NAME
+    local epu_dir
+    epu_dir="../../.."
     frames_dir_name=$FRAMES_FOLDER_NAME
     mdoc_dir_name=$MDOC_FOLDER_NAME
     gain_file=$(find_gain)
+    gain_file_basename=${gain_file##*/}
     
     ## read the mdoc for SubFramePath contents to get the dmp paths of the movies for each tilt 
     local movie_arr
@@ -274,11 +282,15 @@ create_warp_workspace(){
     create_dir $workspace_dir_name/$MRCS_SLICES_OUTPUT_FOLDER
 
 
-    ## create relative symlinks to the mdoc, gain, and movies
-    ln -sfn ../../../$mdoc $workspace_dir_name/$tomo_name/$mdoc_dir_name
-    ln -sfn ../../../$gain_file $workspace_dir_name/$tomo_name/$frames_dir_name
+    ## create relative symlinks to the mdoc, gain, and movies    
+    if [[ "$EPU_TOMO5_DIR" != "./" ]]; then 
+        epu_dir=$EPU_TOMO5_DIR 
+    fi
+    epu_dir=${epu_dir%/} ## remove trailing slash if it exists 
+    ln -sfn $epu_dir/$mdoc_basename $workspace_dir_name/$tomo_name/$mdoc_dir_name
+    ln -sfn $epu_dir/$gain_file_basename $workspace_dir_name/$tomo_name/$frames_dir_name
     for m in "${movie_arr[@]}"; do
-        ln -sfn ../../../$m $workspace_dir_name/$tomo_name/$frames_dir_name
+        ln -sfn $epu_dir/$m $workspace_dir_name/$tomo_name/$frames_dir_name
     done
 }
 
@@ -306,13 +318,19 @@ warp_settings(){
     angpix=$2
     tilt_dose=$3 # dose per Ang**2 for each tilt
     gain_file=$4
+    gain_file_basename=${gain_file##*/}
     tomo_dim=$5
-    dose_per_virtual_frame=$(awk "BEGIN {print $tilt_dose / $EER_NGROUP}")  
+    dose_per_virtual_frame=$(awk "BEGIN {print $tilt_dose / $EER_NGROUP}")
+    log_file=$PROCESSING_FOLDER_NAME/$tomo_name/warp_live.log
 
     echo "   .. motion correction will integrate $dose_per_virtual_frame e/A**2 per step. Adjust EER_NGROUP global to change this value."  
 
     echo "   .. running WarpTools create_settings"
 
+    echo "==================================" >> $log_file
+    echo ">>> WARP_LIVE :: CREATE SETTINGS " >> $log_file
+    echo "----------------------------------" >> $log_file
+    echo "" >> $log_file
 
     WarpTools create_settings \
     --output $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_FRAMESERIES_SETTINGS_NAME \
@@ -321,9 +339,10 @@ warp_settings(){
     --extension "$MOVIE_EXTENSION" \
     --eer_ngroups $EER_NGROUP  \
     --angpix $angpix \
-    --gain_path $PROCESSING_FOLDER_NAME/$tomo_name/$FRAMES_FOLDER_NAME/$gain_file \
-    --out_average_halves \
-    --exposure $tilt_dose > /dev/null
+    --gain_path $PROCESSING_FOLDER_NAME/$tomo_name/$FRAMES_FOLDER_NAME/$gain_file_basename \
+    --exposure $tilt_dose >> $log_file # /dev/null
+
+    echo "" >> $log_file
 
     WarpTools create_settings \
     --output $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
@@ -332,13 +351,18 @@ warp_settings(){
     --extension "*.tomostar" \
     --angpix $angpix \
     --exposure $tilt_dose \
-    --tomo_dimensions $tomo_dim > /dev/null
+    --tomo_dimensions $tomo_dim >> $log_file # /dev/null
+
+    echo "" >> $log_file
 
 }
 
 ## Usage:
 ##    warp_motion_and_ctf  voltage 
 warp_motion_and_ctf(){
+
+    log_file=$PROCESSING_FOLDER_NAME/$tomo_name/warp_live.log
+    
     echo "   .. running WarpTools fs_motion_and_ctf"
 
     voltage=$1
@@ -357,6 +381,12 @@ warp_motion_and_ctf(){
     spherical_aberration=2.7 # mm
 
 
+    echo "==================================" >> $log_file
+    echo ">>> WARP_LIVE :: MOTION & CTF " >> $log_file
+    echo "----------------------------------" >> $log_file
+    echo "" >> $log_file
+
+
     WarpTools fs_motion_and_ctf \
         --settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_FRAMESERIES_SETTINGS_NAME \
         --m_grid $m_grid \
@@ -371,14 +401,21 @@ warp_motion_and_ctf(){
         --perdevice $threads_per_gpu \
         --device_list $GPU_LIST \
         --out_average_halves \
-        --out_averages > /dev/null
+        --out_averages >> $log_file # /dev/null
 
+    echo "" >> $log_file
 }
 
 ## Usage:
 ## warp_ts_import  mdoc
 warp_ts_import(){
     echo "   .. running WarpTools ts_import"
+    log_file=$PROCESSING_FOLDER_NAME/$tomo_name/warp_live.log
+    echo "==================================" >> $log_file
+    echo ">>> WARP_LIVE :: PREP TOMOSTAR " >> $log_file
+    echo "----------------------------------" >> $log_file
+    echo "" >> $log_file
+
     mdoc=$1
 
     tilt_dose=$(awk '/ExposureDose/ {print $3; exit}' $mdoc)
@@ -391,8 +428,9 @@ warp_ts_import(){
         --min_intensity $MIN_INTENSITY \
         --override_axis $tilt_axis \
         --dont_invert \
-        --output $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TOMOSTAR_FOLDER_NAME >> /dev/null
+        --output $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TOMOSTAR_FOLDER_NAME >> $log_file #/dev/null
 
+    echo "" >> $log_file
     #echo " Manually edit tomostar file to remove bad frames later"
 }
 
@@ -400,6 +438,14 @@ warp_ts_import(){
 ## warp_etomo_patches  
 warp_etomo_patches(){
     echo "   .. running WarpTools ts_etomo_patches"
+
+    log_file=$PROCESSING_FOLDER_NAME/$tomo_name/warp_live.log
+    
+    echo "==================================" >> $log_file
+    echo ">>> WARP_LIVE :: ETOMO PATCHES " >> $log_file
+    echo "----------------------------------" >> $log_file
+    echo "" >> $log_file
+
 
     set_angpix=$RESOLUTION_RECONSTRUCTION # downsample to this target angpix, or set to full res
     patch_size_ang=$ETOMO_PATCH_SIZE_ANG # Ang size for each patch, patches are arranged with 80% overlap 
@@ -412,8 +458,10 @@ warp_etomo_patches(){
         --angpix $set_angpix \
         --patch_size $patch_size_ang \
         --device_list $GPU_LIST \
-        --perdevice $threads_per_gpu > /dev/null
+        --perdevice $threads_per_gpu >> $log_file #/dev/null 
 
+    echo "" >> $log_file
+    
 }
 
 ## Usage:
@@ -449,7 +497,8 @@ warp_check_hand(){
 ##    warp_ts_ctf  voltage 
 warp_ts_ctf(){
     echo "   .. running WarpTools ts_ctf"
-
+    log_file=$PROCESSING_FOLDER_NAME/$tomo_name/warp_live.log
+    
     voltage=$1
     if [ "$voltage" -eq 200 ]; then
         amplitude_contrast=0.09
@@ -460,29 +509,46 @@ warp_ts_ctf(){
     max_ctf=8 # max Ang fit to consider for estimation
     max_dZ=8
 
-	WarpTools ts_ctf \
-		--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
-		--range_high $max_ctf \
+
+    echo "==================================" >> $log_file
+    echo ">>> WARP_LIVE :: CTF " >> $log_file
+    echo "----------------------------------" >> $log_file
+    echo "" >> $log_file
+
+
+    WarpTools ts_ctf \
+	--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
+	--range_high $max_ctf \
         --defocus_max $max_dZ \
         --cs $spherical_aberration \
         --voltage $voltage \
         --amplitude $amplitude_contrast \
         --device_list $GPU_LIST \
-		--perdevice $WARP_WORKERS_PER_GPU > /dev/null
+	--perdevice $WARP_WORKERS_PER_GPU >> $log_file #> /dev/null
 
+    echo "" >> $log_file
 }
 
 ## Usage:
 ##    warp_ts_reconstruct
 warp_ts_reconstruct(){
     echo "   .. running WarpTools ts_reconstruct"
+    log_file=$PROCESSING_FOLDER_NAME/$tomo_name/warp_live.log
 
-	WarpTools ts_reconstruct \
-		--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
-		--angpix $RESOLUTION_RECONSTRUCTION \
+    echo "==================================" >> $log_file
+    echo ">>> WARP_LIVE :: RECONSTRUCT " >> $log_file
+    echo "----------------------------------" >> $log_file
+    echo "" >> $log_file
+
+
+    WarpTools ts_reconstruct \
+	--settings $PROCESSING_FOLDER_NAME/$tomo_name/$WARP_TILTSERIES_SETTINGS_NAME \
+	--angpix $RESOLUTION_RECONSTRUCTION \
         --device_list $GPU_LIST \
         --halfmap_frames \
-        --perdevice $WARP_WORKERS_PER_GPU > /dev/null
+        --perdevice $WARP_WORKERS_PER_GPU >> $log_file #> /dev/null
+        
+    echo "" >> $log_file
 }
 
 #endregion
@@ -495,11 +561,14 @@ get_gpus
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --epu_dir|-e)
+            EPU_TOMO5_DIR="$2"
+            shift 2 # Move past flag and its avlue 
+            ;;
         --root_dir|-rd)
             PROCESSING_FOLDER_NAME="$2"
             shift 2 # Move past the flag and its value
             ;;
-
         --min_tilts|-mt)
             if is_integer "$2"; then
                 MIN_TILTS="$2"
@@ -618,7 +687,7 @@ check_for_dependencies
 while true; do 
 
 	## 3. update available .mdoc files, ignoring override mdocs  
-	mdocs=(!(*_override).mdoc)
+	mdocs=($EPU_TOMO5_DIR/!(/*_override).mdoc)
 
 	## 4. iterate over the list of mdocs 
 	for i in "${!mdocs[@]}"; do
@@ -634,9 +703,9 @@ while true; do
         fi
 
         echo 
-		echo "... reading $counter of ${#mdocs[@]} mdoc files"
+	echo "... reading $counter of ${#mdocs[@]} mdoc files"
 
-		## 5. check if a reconstruction & png output exists for this mdoc, skip rest of /pipeline if so
+	## 5. check if a reconstruction & png output exists for this mdoc, skip rest of /pipeline if so
         expected_final_output_file=$PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png
         reconstruction_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/reconstruction/${tomo_name}*.mrc)
         if [[ -f "$expected_final_output_file" && ${#reconstruction_files[@]} -ge 1 ]]; then
@@ -645,8 +714,8 @@ while true; do
         fi
 
 
-		## 6. if no reconstruction, re-run setup in all cases 
-		create_warp_workspace $mdoc
+	## 6. if no reconstruction, re-run setup in all cases 
+	create_warp_workspace $mdoc
         exit_code=$?
         ## skip subsequent steps if the above function returns a failure code 
         if [ $exit_code -ne 0 ]; then
@@ -654,11 +723,11 @@ while true; do
             continue 
         fi
 
-		## 7. run warp processing pipeline steps
+	## 7. run warp processing pipeline steps
 
         ## step 1 :: generate settings files for frame & tilt series
-		setting_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/*.settings)
-		if [ ${#setting_files[@]} -ne 2 ]; then
+	setting_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/*.settings)
+	if [ ${#setting_files[@]} -ne 2 ]; then
             angpix=$(awk '/PixelSpacing/ {print $3; exit}' $mdoc)
             tilt_dose=$(awk '/ExposureDose/ {print $3; exit}' $mdoc)
             movie_x=$(awk '/ImageSize/ {print $3; exit}' $mdoc)
@@ -668,12 +737,12 @@ while true; do
             warp_settings  $tomo_name $angpix  $tilt_dose $gain_file $tomo_dims
         else
             echo "   .. warp settings already present, skipping step."
-		fi
+	fi
 
         ## step 2 :: motion correction & ctf estimation 
-		corrected_avg_mrc_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_FRAMESERIES_FOLDER_NAME}/average/*.mrc)
+	corrected_avg_mrc_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_FRAMESERIES_FOLDER_NAME}/average/*.mrc)
         mapfile -t movies_in_mdoc < <(awk '/SubFramePath/ {print $3}' $mdoc)
-		if [ ${#corrected_avg_mrc_files[@]} -ne ${#movies_in_mdoc[@]} ]; then
+	if [ ${#corrected_avg_mrc_files[@]} -ne ${#movies_in_mdoc[@]} ]; then
             voltage_float=$(awk '/Voltage/ {print $3; exit}' $mdoc)
             voltage_int=$(awk -v num="$voltage_float" 'BEGIN {printf "%.0f\n", num}')
             warp_motion_and_ctf $voltage_int
@@ -718,14 +787,15 @@ while true; do
         fi
 
         ## step 7 :: reconstruct tomogram
-		reconstruction_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/reconstruction/${tomo_name}*.mrc)
-		if [ ${#reconstruction_files[@]} -lt 1 ]; then
+	reconstruction_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/reconstruction/${tomo_name}*.mrc)
+	if [ ${#reconstruction_files[@]} -lt 1 ]; then
             warp_ts_reconstruct
         else
             echo "   .. reconstruction already exists for this tomogram, skipping."
         fi
 
         ## step 8 :: write a png for quick review of the tomogram based on integrated slices through the middle parts of the tomogram along the Z axis 
+	reconstruction_files=(${PROCESSING_FOLDER_NAME}/${tomo_name}/${WARP_TILTSERIES_FOLDER_NAME}/reconstruction/${tomo_name}*.mrc)
         if [ ${#reconstruction_files[@]} -ge 1 ]; then
             tomogram_mrc=${reconstruction_files[0]}
             mrcs_slices.py  "${reconstruction_files[0]}"  $PROCESSING_FOLDER_NAME/$MRCS_SLICES_OUTPUT_FOLDER/${tomo_name}.png \

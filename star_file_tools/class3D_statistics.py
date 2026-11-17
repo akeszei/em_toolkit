@@ -158,7 +158,7 @@ def plot_data(input_dict):
     from matplotlib import pyplot as plt
     from matplotlib import rcParams # update figure formatting params
 
-    rcParams.update({'font.family': "Arial"})
+    # rcParams.update({'font.family': "Arial"})
 
     fig, axs = plt.subplots(2, 1, constrained_layout=True, figsize=(10,6)) # 2 rows, 1 column
 
