@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 
 ## Author: Alexander Keszei
-## 2022-05-09: Version 1 adapted from mrc_viewer.py to take in large raw tomo stack files 
-## 2026-10-24: Version 2 updated to image full tomogram stacks and pick 3d coordinates for sub-tomogram averaging 
+## 2022-05-09: Adapted from mrc_viewer.py to take in large raw tomo stack files 
+## 2026-10-24: Updated to image full tomogram stacks and pick 3d coordinates for sub-tomogram averaging 
+## 2026-11-20: Added binary mask drawing feature
 """
 To Do:
     - Clean up unused functions
-    - Make Ctrl + S save the picked coordinates to load again later (allow for more than one feature per img?)
     - Center-of-mass snapping on pick?? Might be interesting to have a function try to center the pick? Can add a toggle to enable/disable
     - Add option to go to specific slice
-    - Add an on-load option to continue where I left off? 
-    - Add an options menu during saving to set the tomostar string?
-    - Autopicker window, make Gaussian disk ahve option for disk diameter (A) and window size (A) instead of reading the particle pick value for the display window
+    - Add an on-load option to continue where I left off 
     - 'Template loaded:' -> add some update text [x, y] px, [a, b] Ang size so the user knows the dimensions when they are updated! 
 """ 
-
 
 
 import tkinter as tk
