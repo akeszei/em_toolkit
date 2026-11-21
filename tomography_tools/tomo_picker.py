@@ -1154,18 +1154,51 @@ class MrcData():
         masked_arr = resize_image(masked_arr, self.scale_factor)
         return masked_arr
 
-    def edit_binary_mask(self, x, y, z, range, v, depth):
-        range_halfwidth = int(range / 2)
-        x_max = int(x + range_halfwidth)
-        x_min = int(x - range_halfwidth)
-        y_max = int(y + range_halfwidth)
-        y_min = int(y - range_halfwidth)
+    def edit_binary_mask(self, x, y, z, size, v, depth):
+        size_halfwidth = int(size / 2)
+        x_max = int(x + size_halfwidth)
+        x_min = int(x - size_halfwidth)
+        y_max = int(y + size_halfwidth)
+        y_min = int(y - size_halfwidth)
 
-        print(" WIP :: apply 'depth' variable as drawing above and below the current plane! ")
+        print(" depth = ", depth, " type: ", type(depth))
 
-        self.binary_mask[z, y_min:y_max, x_min:x_max ] = v
-        
+        depth = abs(depth)
+
+        if depth <= 0:
+            self.binary_mask[z, y_min:y_max, x_min:x_max ] = v
+        else:
+            for i in range(depth + 1):
+
+                if i == 0:
+                    # print(" edit binary mask z-plane: ", z)
+                    self.binary_mask[z, y_min:y_max, x_min:x_max ] = v
+                else:
+                    z_above = z + i 
+                    z_below = z - i
+                    if z_above <= self.z:
+                        # print(" edit binary mask z-plane: ", z_above)
+                        self.binary_mask[z_above, y_min:y_max, x_min:x_max ] = v
+                    if z_below >= 0:
+                        # print(" edit binary mask z-plane: ", z_below)
+                        self.binary_mask[z_below, y_min:y_max, x_min:x_max ] = v
+
         return x_min, x_max, y_min, y_max
+
+    def write_mask(self, save_path, VERBOSE = True):
+        dtype = self.raw_data.dtype
+        with mrcfile.new(save_path, overwrite=True) as mrcs:
+            mrcs.set_data(self.binary_mask.astype(dtype))
+
+            if VERBOSE:
+                print("======================================")
+                print(" write_mask ")
+                print("--------------------------------------")
+                print("  name = %s" % save_path)
+                print("  dimensions = (%s, %s, %s)" % (self.binary_mask.shape[2], self.binary_mask.shape[1], self.binary_mask.shape[0]))
+                print("  data type = %s" % dtype)
+
+        return 
 
 #endregion
 
@@ -1203,7 +1236,7 @@ class MainUI:
         self.MASK_MODE = tk.BooleanVar(instance, False)
         self.HIDE_MASK_WHITES = tk.BooleanVar(instance, False)
         self.mask_opacity = 0.7
-        self.mask_write_depth = 1
+        self.mask_write_depth = 0
         self.slice_index = 180 ## index of the list of known mrc files int he directory to view
         self.working_dir = "."
         self.SPEED_OVER_ACCURACY = tk.BooleanVar(instance, True)
@@ -3006,9 +3039,10 @@ class MaskingPanel(MainUI):
         self.opacity_SLIDER = tk.Scale(self.panel, from_=0, to=1, resolution=0.1, orient= tk.HORIZONTAL, length = 150, sliderlength = 20, command=self.on_opacity_change)
         self.opacity_SLIDER.set(self.mainUI.mask_opacity)
         self.mask_blacks_only_TOGGLE = tk.Checkbutton(self.panel, text='Hide white mask', variable=self.mainUI.HIDE_MASK_WHITES, onvalue=True, offvalue=False, command=self.toggle_HIDE_MASK_WHITES)
-        self.mask_write_depth_LABEL = tk.Label(self.panel, text = 'Mask write Z-depth:', anchor = tk.S, font = ('Helvetica', '9'))
+        self.mask_write_depth_LABEL = tk.Label(self.panel, text = 'Write Z-depth (±px):', anchor = tk.S, font = ('Helvetica', '9'))
         self.mask_write_depth_ENTRY = tk.Entry(self.panel, width=6, font=("Helvetica", '9'), justify='right')
-
+        self.mask_write_depth_ENTRY.insert(0,self.mainUI.mask_write_depth)
+        self.save_mask_BUTTON = tk.Button(self.panel, text="Save mask", font=("Helvetica", '9'), command = lambda: self.save_mask(), width=10)
 
         ## Pack widgets, dynamic rows to ease adjusting later 
         # row 0
@@ -3030,7 +3064,12 @@ class MaskingPanel(MainUI):
         current_row +=1
         self.mask_write_depth_LABEL.grid(column = 0, columnspan=2, row = current_row, pady=0, padx=3, sticky=tk.E)
         self.mask_write_depth_ENTRY.grid(column = 2, columnspan=1, row = current_row, pady=0, padx=3, sticky=tk.W)
-
+        # row 
+        current_row += 1
+        ttk.Separator(self.panel, orient='horizontal').grid(column = 0, row = current_row, columnspan = 6, pady=2, sticky=tk.EW)
+        # row 
+        current_row += 1
+        self.save_mask_BUTTON.grid(column = 0, columnspan=3)
 
         # self.write_point_txt_file_BUTTON.grid(column = 0, columnspan=3, row = current_row, pady=2, padx=3, sticky=tk.W)
         # # row 
@@ -3111,6 +3150,15 @@ class MaskingPanel(MainUI):
             self.mainUI.mask_write_depth = user_input
             ## pass focus back to the main instance
             self.mainUI.instance.focus()
+
+        return 
+
+    def save_mask(self, DEBUG = True):
+        suggested_name = 'mask.mrc'
+        filetypes = [("MRC","*.mrc"),("All Files","*.*")]
+        save_path = asksaveasfilename(parent = self.panel, initialfile = "%s" % suggested_name, defaultextension=".mrc", filetypes=filetypes)
+
+        self.mainUI.mrcdata.write_mask(save_path)
 
         return 
 
